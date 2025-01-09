@@ -73,12 +73,12 @@ def generate_fable(character, trait, setting, conflict, resolution, moral):
     return generated_text
 
 if __name__ == "__main__":
-    characters = ['Rabbit', 'Fox', 'Squirrel']
-    traits = ['Brave', 'Greedy']
-    settings = ['Forest', 'River']
-    conflicts = ['Competing for food', 'Helping someone in need']
-    resolutions = ['Reward', 'Punishment']
-    morals = ['Kindness is rewarded', 'Hard work pays off']
+    characters = ['Rabbit', 'Fox', 'Squirrel', 'Lion', 'Bear']
+    traits = ['Brave', 'Greedy', 'Cunning', 'Wise']
+    settings = ['Forest', 'River', 'Mountain', 'Village']
+    conflicts = ['Competing for food', 'Helping someone in need', 'Fighting for territory', 'Rescuing a friend']
+    resolutions = ['Reward', 'Punishment', 'Forgiveness', 'Revenge']
+    morals = ['Kindness is rewarded', 'Hard work pays off', 'Honesty is the best policy', 'Pride comes before a fall']
 
     # Generate all combinations of fables
     fables = list(product(characters, traits, settings, conflicts, resolutions, morals))
