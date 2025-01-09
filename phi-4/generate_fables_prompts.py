@@ -2,18 +2,18 @@ import csv
 from itertools import product
 
 # Define the lists of elements for the fables
-characters = ['Rabbit', 'Fox', 'Squirrel']
-traits = ['Brave', 'Greedy']
-settings = ['Forest', 'River']
-conflicts = ['Competing for food', 'Helping someone in need']
-resolutions = ['Reward', 'Punishment']
-morals = ['Kindness is rewarded', 'Hard work pays off']
+characters = ['Rabbit', 'Fox', 'Squirrel', 'Lion', 'Bear']
+traits = ['Brave', 'Greedy', 'Cunning', 'Wise']
+settings = ['Forest', 'River', 'Mountain', 'Village']
+conflicts = ['Competing for food', 'Helping someone in need', 'Fighting for territory', 'Rescuing a friend']
+resolutions = ['Reward', 'Punishment', 'Forgiveness', 'Revenge']
+morals = ['Kindness is rewarded', 'Hard work pays off', 'Honesty is the best policy', 'Pride comes before a fall']
 
 # Generate all combinations of fables
 fables = list(product(characters, traits, settings, conflicts, resolutions, morals))
 
 # Prepare the output CSV file
-output_file = "generate_fables/fables.csv"
+output_file = "fables.csv"
 
 # Write the fables to the CSV file
 with open(output_file, mode="w", newline="", encoding="utf-8") as csvfile:
