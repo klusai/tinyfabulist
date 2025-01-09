@@ -6,7 +6,22 @@ system_prompt: >
 
 fable_prompt: >
     Create a fable based on the following structured input. The fable should follow this structure:
-    [Character] and [Trait] were in [Setting]. One day, [Conflict occurred]. After much effort, [Resolution occurred].
-    *Moral:* [Moral Lesson].
+    Once there was a {trait} {character} in a {setting}. 
+    One day, it was {conflict}. After much effort, {resolution}.
+    *Moral:* {moral}.
 
-    Use the input below to generate the fable:
+    Here is an example of a fable:
+
+    The input:
+    Character: Fox
+    Trait: Clever
+    Setting: Forest
+    Conflict: Helping someone in need
+    Resolution: Reward
+    Moral: Kindness is rewarded
+
+    The fable:
+    Once there was a clever fox in a forest. One day, it was helping a trapped bird escape from a hunter's net. After much effort, the fox used its cleverness to gnaw through the net and free the bird. In gratitude, the bird led the fox to a hidden cache of food.
+    Moral: Kindness is rewarded.
+
+    Now use the input below to generate the fable:
