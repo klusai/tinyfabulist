@@ -47,12 +47,6 @@ Microsoft emphasizes responsible AI development with robust features for managin
    - Receive real-time alerts for quality and safety interventions.
 
 ---
-
-## Phi-4 in Action
-
-An example of Phi-4’s mathematical reasoning capabilities includes solving advanced competition problems with remarkable efficiency and accuracy.
-
----
 ## Inspiration Source
 
 This document is based on information from the official Microsoft blog post: Introducing Phi-4: Microsoft’s Newest Small Language Model Specializing in Complex Reasoning.
