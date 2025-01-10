@@ -71,19 +71,3 @@ def generate_fable(character, trait, setting, conflict, resolution, moral):
     generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     return generated_text
-
-if __name__ == "__main__":
-    characters = ['Rabbit', 'Fox', 'Squirrel']
-    traits = ['Brave', 'Greedy']
-    settings = ['Forest', 'River']
-    conflicts = ['Competing for food', 'Helping someone in need']
-    resolutions = ['Reward', 'Punishment']
-    morals = ['Kindness is rewarded', 'Hard work pays off']
-
-    # Generate all combinations of fables
-    fables = list(product(characters, traits, settings, conflicts, resolutions, morals))
-
-    for fable in fables:
-        character, trait, setting, conflict, resolution, moral = fable
-        generated_fable = generate_fable(character, trait, setting, conflict, resolution, moral)
-        print(f"\nGenerated Fable:\n{generated_fable}")
