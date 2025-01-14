@@ -16,7 +16,7 @@ Typically, LMs that exhibit emergent abilities are classified as LLMs. However, 
 
 94-Yao Fu, Hao Peng, Litu Ou, Ashish Sabharwal, and Tushar Khot. 2023. Specializing smaller language models towards multi-step reasoning. In International Conference on Machine Learning. PMLR, 10421–10430.
 
-##Best 3 Decoder-Only Transfomers
+## Best 3 Decoder-Only Transfomers
 
 Falcon-7B, Llama-2-7B, and Mistral-7B (based on toxicity and similarity)
 
