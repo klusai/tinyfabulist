@@ -13,7 +13,7 @@ morals = ['Kindness is rewarded', 'Hard work pays off', 'Honesty is the best pol
 fables = list(product(characters, traits, settings, conflicts, resolutions, morals))
 
 # Prepare the output CSV file
-output_file = "fables.csv"
+output_file = "fables_prompts.csv"
 
 # Write the fables to the CSV file
 with open(output_file, mode="w", newline="", encoding="utf-8") as csvfile:
