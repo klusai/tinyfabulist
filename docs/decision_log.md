@@ -59,29 +59,11 @@ A generative language model needs to produce a continuation that aligns with the
 
 This requires the model to understand not only the narrative's structure but also its embedded moral lesson.
 
-The Unique Suitability of Fables for Training Generative Language Models
-Fables offer a range of characteristics that make them particularly well-suited for developing generative capabilities in small language models (SLMs):
+Fables are uniquely suited for training generative capabilities in small language models (SLMs) due to their distinct characteristics. They combine narrative simplicity and depth, often comprising only a few paragraphs, which makes them manageable for SLMs with limited parameter counts. Despite their brevity, fables encapsulate profound ideas and morals, presenting a challenge for models to generate text that is both meaningful and compact. They frequently address universal human values, such as honesty, perseverance, and humility, allowing models trained on them to generalize well across different contexts and audiences.
 
-Narrative Simplicity and Depth:
-Fables are inherently concise, often comprising a few paragraphs, which makes them accessible for training SLMs with limited parameter counts. Despite their brevity, they encapsulate profound ideas and morals, challenging models to generate texts that are both meaningful and compact.
-Universal Themes and Morals:
-Fables often address universal human values, such as honesty, perseverance, and humility. This universality allows models trained on fables to generalize well across different contexts and audiences.
-Structured Creativity:
-Each fable follows a well-defined structure, typically including a setup, conflict, resolution, and moral. This scaffolding helps SLMs learn to generate text with clear logical progression while leaving room for creative expression.
-Diverse yet Contained Vocabulary:
-Fables employ a simple yet expressive vocabulary, often tailored for children or beginner readers. This linguistic simplicity enables models to focus on core generative skills without being overwhelmed by excessive lexical variety.
-Moral and Logical Reasoning:
-Generating fables requires models to embed reasoning within the narrative. For example, in generating The Boy Who Cried Wolf, a model must establish a causal chain that demonstrates the consequences of dishonesty.
-Benefits of Fable-Based Training for Generative Models
-Enhanced Narrative Generation:
-Training on fables equips models to produce coherent and engaging narratives, maintaining a logical structure and thematic consistency from beginning to end.
-Development of Thematic Depth:
-Fables inherently focus on morals and life lessons, enabling models to generate content that is not only entertaining but also meaningful.
-Improved Reasoning and Creativity:
-The moral reasoning embedded in fables encourages models to develop logical thinking and creative problem-solving abilities, which are transferable to other generative tasks.
-Efficiency and Accessibility:
-Due to their brevity and focused nature, fables can be used to train SLMs on modest computational resources while achieving substantial gains in generative quality.
-Example: Generating Fables with a Small Language Model
+The structured nature of fables, with a clear setup, conflict, resolution, and moral, provides an effective scaffold for SLMs to learn how to generate text with logical progression while fostering creative expression. Additionally, the vocabulary used in fables is simple yet expressive, making it ideal for focusing on essential generative skills without overwhelming models with unnecessary lexical complexity. Furthermore, generating fables requires embedding reasoning within narratives, such as establishing causal chains and demonstrating consequences, as seen in stories like The Boy Who Cried Wolf. This demand for moral and logical reasoning enriches the model's capability to create meaningful content.
+
+Training models on fables offers several benefits. It equips them to produce coherent and engaging narratives with consistent themes and logical structure. The moral focus of fables allows models to generate content that is both entertaining and meaningful, while the reasoning embedded in these stories encourages the development of logical thinking and creative problem-solving. Due to their brevity and focused nature, fables are also efficient for training on modest computational resources, achieving significant improvements in generative quality.
 To illustrate the potential of fable-based training, consider the following prompt for a generative task:
 
 "Write a story where a lion and a mouse demonstrate the value of kindness."
