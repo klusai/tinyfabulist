@@ -102,14 +102,16 @@ To construct TinyFabulist, we utilized systematic combinatorial techniques to ge
 
 To enhance diversity, we selected characters (e.g., Rabbit, Fox, Squirrel), traits (e.g., Brave, Cunning), and settings (e.g., Forest, River) to form the core of the fables. Each story includes a conflict (e.g., Helping someone in need, Competing for food), followed by a resolution (e.g., Reward, Punishment) and a moral (e.g., Hard work pays off, Kindness is rewarded). These combinations were used to generate thousands of unique fables. The resulting stories maintain a consistent structure, starting with a simple introduction of the characters and setting, followed by the conflict and resolution, and concluding with an explicit moral.
 
-Here is an example of a generated fable:
+Using this structured template, the model is then tasked to generate new fables from varying input combinations. For example, given the input:
 Character: Rabbit
 Trait: Brave
 Setting: Forest
 Conflict: Helping someone in need
 Resolution: Reward
 Moral: Kindness is rewarded
-“Once there was a brave rabbit in a forest. One day, it was helping someone in need. After much effort, reward.
-Moral: Kindness is rewarded.”
+
+The prompt generates fables such as:
+"Once there was a brave rabbit in a forest. One day, it saw a turtle stuck in a muddy pit. The rabbit used its strength to push a log into the pit, allowing the turtle to climb out. In gratitude, the turtle shared its hidden stash of berries with the rabbit.
+Moral: Kindness is rewarded."
 
 Additionally, TinyFabulist supports instruction-based generation, allowing for flexibility in training and evaluation. For instance, models can be prompted with specific requirements such as a particular character or moral, enabling them to follow explicit constraints while generating coherent and relevant fables. The simplicity and structure of TinyFabulist make it an ideal dataset for training small language models, as it encourages the development of reasoning and creativity within computationally efficient frameworks. This dataset, designed for both generalization and specific task evaluation, represents a significant step in advancing research in resource-constrained generative AI.
