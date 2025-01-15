@@ -3,20 +3,55 @@ import json
 from gpt_eval import GPTEvaluator
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate model completions using GPT-4.")
+    parser = argparse.ArgumentParser(description="Evaluate model generated fables using GPT-4.")
 
     parser.add_argument(
-        "--prompt",
+        "--character",
         type=str,
         required=True,
-        help="The beginning of the story (prompt) to evaluate."
+        help="The character of the fable."
     )
 
     parser.add_argument(
-        "--completion",
+        "--trait",
         type=str,
         required=True,
-        help="The model's completion of the story."
+        help="The trait of the character."
+    )
+
+    parser.add_argument(
+        "--setting",
+        type=str,
+        required=True,
+        help="The setting of the fable."
+    )
+
+    parser.add_argument(
+        "--conflict",
+        type=str,
+        required=True,
+        help="The conflict in the fable."
+    )
+
+    parser.add_argument(
+        "--resolution",
+        type=str,
+        required=True,
+        help="The resolution of the fable."
+    )
+
+    parser.add_argument(
+        "--moral",
+        type=str,
+        required=True,
+        help="The moral of the fable."
+    )
+
+    parser.add_argument(
+        "--generated_fab",
+        type=str,
+        required=True,
+        help="The model's generated fable."
     )
 
     parser.add_argument(
@@ -31,15 +66,32 @@ def main():
 
     evaluator = GPTEvaluator()
 
-    print("Evaluating the model's completion...")
-    evaluation_result = evaluator.evaluate(args.prompt, args.completion)
+    print("Evaluating the model's fable...")
+    evaluation_result = evaluator.evaluate(
+        character=args.character,
+        trait=args.trait,
+        setting=args.setting,
+        conflict=args.conflict,
+        resolution=args.resolution,
+        moral=args.moral,
+        generated_fab=args.generated_fab
+    )
 
     if evaluation_result:
         print("Evaluation completed. Results:")
         print(evaluation_result)
 
         with open(args.output, "w") as f:
-            json.dump({"prompt": args.prompt, "completion": args.completion, "evaluation": evaluation_result}, f, indent=4)
+            json.dump({
+                "character": args.character,
+                "trait": args.trait,
+                "setting": args.setting,
+                "conflict": args.conflict,
+                "resolution": args.resolution,
+                "moral": args.moral,
+                "generated_fable": args.generated_fab,
+                "evaluation": evaluation_result
+            }, f, indent=4)
 
         print(f"Results saved to {args.output}")
     else:
