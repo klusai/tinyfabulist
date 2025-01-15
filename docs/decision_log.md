@@ -78,9 +78,12 @@ In this paper, we introduce TinyFabulist, a synthetic dataset of fables meticulo
 
 ### Description of TinyFabulist dataset
 
+
 As mentioned above, the idea behind the TinyFabulist dataset is to provide a corpus that captures the essential qualities of fables—narrative structure, moral reasoning, and thematic depth—while being smaller, less diverse, and more focused in its content. This approach mirrors how young children acquire linguistic and cognitive skills through exposure to structured stories, which combine simplicity with underlying reasoning and lessons.
 
 To construct TinyFabulist, we utilized systematic combinatorial techniques to generate synthetic fables with clear, concise narratives. Each fable was created by combining elements drawn from predefined lists, such as characters, traits, settings, conflicts, resolutions, and morals. The dataset reflects the essence of moral storytelling while using vocabulary and constructs that are accessible to young children. A key challenge was ensuring diversity while maintaining the simplicity inherent to fables. By systematically generating all possible combinations of the predefined elements, the dataset spans a wide range of themes and scenarios, ensuring richness without overwhelming the training models.
+
+The dataset was generated using Microsoft's phi-4, a language model well-suited for tasks requiring structured and creative text generation. Phi-4 was chosen for its ability to adhere to strict prompts while maintaining a high degree of creativity and narrative consistency. This is particularly important for fables, which require a balance of logical structure and imaginative storytelling. Phi-4’s strengths in generating coherent, contextually relevant text and handling explicit constraints, such as predefined characters, morals, and resolutions, made it an ideal choice for building a dataset that demands both precision and creativity.
 
 To enhance diversity, we selected characters (e.g., Rabbit, Fox, Squirrel), traits (e.g., Brave, Cunning), and settings (e.g., Forest, River) to form the core of the fables. Each story includes a conflict (e.g., Helping someone in need, Competing for food), followed by a resolution (e.g., Reward, Punishment) and a moral (e.g., Hard work pays off, Kindness is rewarded). These combinations were used to generate thousands of unique fables. The resulting stories maintain a consistent structure, starting with a simple introduction of the characters and setting, followed by the conflict and resolution, and concluding with an explicit moral.
 
