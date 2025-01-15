@@ -61,42 +61,42 @@ This requires the model to understand not only the narrative's structure but als
 
 Fables are uniquely suited for training generative capabilities in small language models (SLMs) due to their distinct characteristics. They combine narrative simplicity and depth, often comprising only a few paragraphs, which makes them manageable for SLMs with limited parameter counts. Despite their brevity, fables encapsulate profound ideas and morals, presenting a challenge for models to generate text that is both meaningful and compact. They frequently address universal human values, such as honesty, perseverance, and humility, allowing models trained on them to generalize well across different contexts and audiences.
 
-The structured nature of fables, with a clear setup, conflict, resolution, and moral, provides an effective scaffold for SLMs to learn how to generate text with logical progression while fostering creative expression. Additionally, the vocabulary used in fables is simple yet expressive, making it ideal for focusing on essential generative skills without overwhelming models with unnecessary lexical complexity. Furthermore, generating fables requires embedding reasoning within narratives, such as establishing causal chains and demonstrating consequences, as seen in stories like The Boy Who Cried Wolf. This demand for moral and logical reasoning enriches the model's capability to create meaningful content.
+The structured nature of fables, with a clear setup, conflict, resolution, and moral, provides an effective scaffold for SLMs to learn how to generate text with logical progression while fostering creative expression. Additionally, the vocabulary used in fables is simple yet expressive, making it ideal for focusing on essential generative skills without overwhelming models with unnecessary lexical complexity. Furthermore, generating fables requires embedding reasoning within narratives, such as establishing causal chains and demonstrating consequences, as seen in stories like "The Boy Who Cried Wolf". This demand for moral and logical reasoning enriches the model's capability to create meaningful content.
 
-Training models on fables offers several benefits. It equips them to produce coherent and engaging narratives with consistent themes and logical structure. The moral focus of fables allows models to generate content that is both entertaining and meaningful, while the reasoning embedded in these stories encourages the development of logical thinking and creative problem-solving. Due to their brevity and focused nature, fables are also efficient for training on modest computational resources, achieving significant improvements in generative quality.
+Training models on fables offers several benefits, as it equips them to produce coherent and engaging narratives with consistent themes and logical structure. The moral focus of fables allows models to generate content that is both entertaining and meaningful, while the reasoning embedded in these stories encourages the development of logical thinking and creative problem-solving. Due to their brevity and focused nature, fables are also efficient for training on modest computational resources, achieving significant improvements in generative quality.
 To illustrate the potential of fable-based training, consider the following prompt for a generative task:
 
-"Write a story where a lion and a mouse demonstrate the value of kindness."
+*"Write a story where a lion and a mouse demonstrate the value of kindness."*
 
 A well-trained generative model might produce the following:
-"One day, a mighty lion caught a tiny mouse in his paw. 'Please let me go,' squeaked the mouse. 'Perhaps I can help you someday.' The lion laughed but released the mouse. Later, the lion was trapped in a hunter’s net. The mouse heard his roars and chewed through the ropes to free him. 'You were right,' said the lion. 'Even the smallest creatures can make a big difference.' And so, the lion and the mouse became friends, teaching that kindness is never wasted."
+
+*"One day, a mighty lion caught a tiny mouse in his paw. 'Please let me go,' squeaked the mouse. 'Perhaps I can help you someday.' The lion laughed but released the mouse. Later, the lion was trapped in a hunter’s net. The mouse heard his roars and chewed through the ropes to free him. 'You were right,' said the lion. 'Even the smallest creatures can make a big difference.' And so, the lion and the mouse became friends, teaching that kindness is never wasted."*
 
 This output demonstrates the model’s ability to generate a coherent and original fable with a clear moral.
 
-
-In this paper, we introduce TinyFabulist, a synthetic dataset of fables meticulously crafted to capture the essential elements of moral storytelling, while reducing the complexity and breadth often associated with natural language datasets. Each fable in TinyFabulist is generated using GPT-3.5 and GPT-4, ensuring a balance of linguistic simplicity and thematic richness. The dataset is designed to consist exclusively of language and concepts understandable to young children, typically around 3 to 4 years old, while preserving the key characteristics of fables—structured narratives, clear morals, and anthropomorphic characters.
+In this paper, we introduce TinyFabulist, a synthetic dataset of fables meticulously crafted to capture the essential elements of moral storytelling, while reducing the complexity and breadth often associated with natural language datasets. The dataset is designed to consist exclusively of language and concepts understandable to young children, typically around 3 to 4 years old, while preserving the key characteristics of fables—structured narratives, clear morals, and anthropomorphic characters.
 
 ### Description of TinyFabulist dataset
-
 
 As mentioned above, the idea behind the TinyFabulist dataset is to provide a corpus that captures the essential qualities of fables—narrative structure, moral reasoning, and thematic depth—while being smaller, less diverse, and more focused in its content. This approach mirrors how young children acquire linguistic and cognitive skills through exposure to structured stories, which combine simplicity with underlying reasoning and lessons.
 
 To construct TinyFabulist, we utilized systematic combinatorial techniques to generate synthetic fables with clear, concise narratives. Each fable was created by combining elements drawn from predefined lists, such as characters, traits, settings, conflicts, resolutions, and morals. The dataset reflects the essence of moral storytelling while using vocabulary and constructs that are accessible to young children. A key challenge was ensuring diversity while maintaining the simplicity inherent to fables. By systematically generating all possible combinations of the predefined elements, the dataset spans a wide range of themes and scenarios, ensuring richness without overwhelming the training models.
 
-The dataset was generated using Microsoft's phi-4, a language model well-suited for tasks requiring structured and creative text generation. Phi-4 was chosen for its ability to adhere to strict prompts while maintaining a high degree of creativity and narrative consistency. This is particularly important for fables, which require a balance of logical structure and imaginative storytelling. Phi-4’s strengths in generating coherent, contextually relevant text and handling explicit constraints, such as predefined characters, morals, and resolutions, made it an ideal choice for building a dataset that demands both precision and creativity.
+The dataset was generated using Microsoft's phi-4 model, a language model well-suited for tasks requiring structured and creative text generation. Phi-4 was chosen for its ability to adhere to strict prompts while maintaining a high degree of creativity and narrative consistency. This is particularly important for fables, which require a balance of logical structure and imaginative storytelling. Phi-4’s strengths in generating coherent, contextually relevant text and handling explicit constraints, such as predefined characters, morals, and resolutions, made it an ideal choice for building a dataset that demands both precision and creativity.
 
 To enhance diversity, we selected characters (e.g., Rabbit, Fox, Squirrel), traits (e.g., Brave, Cunning), and settings (e.g., Forest, River) to form the core of the fables. Each story includes a conflict (e.g., Helping someone in need, Competing for food), followed by a resolution (e.g., Reward, Punishment) and a moral (e.g., Hard work pays off, Kindness is rewarded). These combinations were used to generate thousands of unique fables. The resulting stories maintain a consistent structure, starting with a simple introduction of the characters and setting, followed by the conflict and resolution, and concluding with an explicit moral.
 
 Using this structured template, the model is then tasked to generate new fables from varying input combinations. For example, given the input:
-Character: Rabbit
-Trait: Brave
-Setting: Forest
-Conflict: Helping someone in need
-Resolution: Reward
-Moral: Kindness is rewarded
+*Character: Rabbit*
+*Trait: Brave*
+*Setting: Forest*
+*Conflict: Helping someone in need*
+*Resolution: Reward*
+*Moral: Kindness is rewarded*
 
 The prompt generates fables such as:
-"Once there was a brave rabbit in a forest. One day, it saw a turtle stuck in a muddy pit. The rabbit used its strength to push a log into the pit, allowing the turtle to climb out. In gratitude, the turtle shared its hidden stash of berries with the rabbit.
-Moral: Kindness is rewarded."
+
+*"Once there was a brave rabbit in a forest. One day, it saw a turtle stuck in a muddy pit. The rabbit used* *its strength to push a log into the pit, allowing the turtle to climb out. In gratitude, the turtle* *shared its hidden stash of berries with the rabbit.*
+*Moral: Kindness is rewarded.*
 
 Additionally, TinyFabulist supports instruction-based generation, allowing for flexibility in training and evaluation. For instance, models can be prompted with specific requirements such as a particular character or moral, enabling them to follow explicit constraints while generating coherent and relevant fables. The simplicity and structure of TinyFabulist make it an ideal dataset for training small language models, as it encourages the development of reasoning and creativity within computationally efficient frameworks. This dataset, designed for both generalization and specific task evaluation, represents a significant step in advancing research in resource-constrained generative AI.
