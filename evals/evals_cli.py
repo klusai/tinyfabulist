@@ -1,9 +1,18 @@
 import argparse
 import json
 from gpt_eval import GPTEvaluator
+import os
+
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate model generated fables using GPT-4.")
+
+    parser.add_argument(
+        "--yaml_path",
+        type=str,
+        required=False,
+        help="Path to the YAML file."
+    )
 
     parser.add_argument(
         "--character",
@@ -64,8 +73,11 @@ def main():
 
     args = parser.parse_args()
 
-    evaluator = GPTEvaluator()
+    yaml_path = args.yaml_path
+    # Initialize the evaluator
+    evaluator = GPTEvaluator(yaml_path=yaml_path)
 
+    # Evaluate the fable
     print("Evaluating the model's fable...")
     evaluation_result = evaluator.evaluate(
         character=args.character,
@@ -81,21 +93,41 @@ def main():
         print("Evaluation completed. Results:")
         print(evaluation_result)
 
+        # Prepare data to save
+        entry = {
+            "character": args.character,
+            "trait": args.trait,
+            "setting": args.setting,
+            "conflict": args.conflict,
+            "resolution": args.resolution,
+            "moral": args.moral,
+            "generated_fable": args.generated_fab,
+            "evaluation": evaluation_result,
+        }
+
+        # Check if output file exists, and load existing data
+        if os.path.exists(args.output):
+            with open(args.output, "r") as f:
+                try:
+                    data = json.load(f)
+                    if not isinstance(data, list):
+                        data = [data]  # Convert to list if it's a single dictionary
+                except json.JSONDecodeError:
+                    data = []  # If the file is empty or corrupted, start fresh
+        else:
+            data = []
+
+        # Append the new entry
+        data.append(entry)
+
+        # Write back the updated data
         with open(args.output, "w") as f:
-            json.dump({
-                "character": args.character,
-                "trait": args.trait,
-                "setting": args.setting,
-                "conflict": args.conflict,
-                "resolution": args.resolution,
-                "moral": args.moral,
-                "generated_fable": args.generated_fab,
-                "evaluation": evaluation_result
-            }, f, indent=4)
+            json.dump(data, f, indent=4)
 
         print(f"Results saved to {args.output}")
     else:
         print("Evaluation failed. Please check the error logs.")
+
 
 if __name__ == "__main__":
     main()

@@ -1,17 +1,13 @@
 import os
+import yaml
 
-# List of prompts and model responses
-data = [
-    {
-        "character": "Fox",
-        "trait": "Clever",
-        "setting": "Forest",
-        "conflict": "Helping someone in need",
-        "resolution": "Reward",
-        "moral": "Kindness is rewarded",
-        "generated_fab": "Once there was a clever fox in a forest. One day, it was helping a trapped bird escape from a hunter's net. After much effort, the fox used its cleverness to gnaw through the net and free the bird. In gratitude, the bird led the fox to a hidden cache of food. Moral: Kindness is rewarded."
-    }
-]
+# Load YAML file
+yaml_path = "/Users/Andreea/KlusAI/TinyFabulist/tiny-fabulist-1/evals/evals_config.yml"
+with open(yaml_path, 'r') as file:
+    config = yaml.safe_load(file)
+
+# Extract data section
+data = config.get("data", [])
 
 # Loop through each set of structured input and generated fable
 for i, pair in enumerate(data):
@@ -23,11 +19,12 @@ for i, pair in enumerate(data):
     moral = pair["moral"]
     generated_fab = pair["generated_fab"]
 
-    output_file = f"evaluation_results_{i+1}.json"
+    output_file = f"evaluation_results.json"
 
-    # Run evals_cli.py for each pair
+    # Run evals_cli.py with the required arguments
     os.system(
-        f'python evals_cli.py '
+        f'python3.11 evals/evals_cli.py '
+        f'--yaml_path "{yaml_path}" '
         f'--character "{character}" '
         f'--trait "{trait}" '
         f'--setting "{setting}" '
