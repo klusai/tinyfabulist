@@ -2,6 +2,8 @@
 
 import csv
 import json
+import ast
+import re
 
 def load_fables_csv(csv_path):
     """
@@ -9,26 +11,25 @@ def load_fables_csv(csv_path):
     Returns a list of dictionaries (rows from CSV).
     """
     entries = []
-    with open(csv_path, mode="r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            entries.append(row)
+    try:
+        with open(csv_path, mode="r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                entries.append(row)
+    except FileNotFoundError:
+        print(f"Error: File {csv_path} not found.")
     return entries
 
 def parse_fable_config(fable_config_str):
     """
-    If you stored fable_config as a string of a Python dict, use ast.literal_eval.
-    Or if you stored as JSON, do json.loads.
+    Parses the fable_config string (either Python dict or JSON format).
     """
     try:
-        import ast
-        parsed = ast.literal_eval(fable_config_str)
-        return parsed
-    except:
-        # Fallback: maybe it's already a JSON string
+        return ast.literal_eval(fable_config_str)
+    except (SyntaxError, ValueError):
         try:
             return json.loads(fable_config_str)
-        except:
+        except json.JSONDecodeError:
             return None
 
 def make_unique_key(character, trait, setting, conflict, resolution, moral):
@@ -40,113 +41,91 @@ def make_unique_key(character, trait, setting, conflict, resolution, moral):
 
 def load_evaluations(json_path):
     """
-    Loads the JSON array of evaluations from GPT-4 (the list of dicts).
+    Loads the JSON array of evaluations from GPT-4 (list of dicts).
     """
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except FileNotFoundError:
+        print(f"Error: File {json_path} not found.")
+        return []
+    except json.JSONDecodeError:
+        print(f"Error: File {json_path} is not valid JSON.")
+        return []
+
+def parse_score(s):
+    """
+    Parses a string to extract the score before a '/' or handles 'N/A'.
+    """
+    try:
+        if "n/a" in s.lower():
+            return None  # Treat 'N/A' as no valid score
+        num_part = s.split("/")[0].strip()
+        return float(num_part)
+    except:
+        return None
 
 def parse_evaluation_text(evaluation_text):
     """
-    Parses a multiline string like:
-      Grammar: 10/10
-      Creativity: 9/10
-      Consistency: 10/10
-      Age group: F: 13-16
-
-      General Assessment: ...
-    Extracts numeric scores for grammar, creativity, consistency,
-    computes an average, and returns it as "score".
-    We also return the raw text in "comments" or any leftover lines.
-
-    Return example:
-      {
-        "score": 9.67,           # average
-        "comments": "...",       # the raw text or leftover lines
-        "prompt": ""             # if you want to store something else
-      }
+    Parses the multiline evaluation text and extracts all numeric scores,
+    including those marked as "N/A", regardless of context.
+    Computes their average and returns the average score, along with the comments.
     """
     lines = evaluation_text.strip().split("\n")
-    grammar_score = None
-    creativity_score = None
-    consistency_score = None
-
-    # We'll accumulate leftover text lines into comments
+    scores = []
     comments = []
-    
-    def parse_score(s: str):
-        # Expects something like "10/10". We'll grab the number before '/'
-        try:
-            num_part = s.split("/")[0].strip()
-            return float(num_part)
-        except:
-            return None
 
     for line in lines:
         line = line.strip()
-        if line.lower().startswith("grammar:"):
-            # e.g. "Grammar: 10/10"
-            after_colon = line.split(":", 1)[1].strip()
-            grammar_score = parse_score(after_colon)
-        elif line.lower().startswith("creativity:"):
-            after_colon = line.split(":", 1)[1].strip()
-            creativity_score = parse_score(after_colon)
-        elif line.lower().startswith("consistency:"):
-            after_colon = line.split(":", 1)[1].strip()
-            consistency_score = parse_score(after_colon)
+        # Extract the numeric score or "N/A" if present
+        match = re.search(r":\s*([0-9.]+|n/a)", line, re.IGNORECASE)
+        if match:
+            score = parse_score(match.group(1))
+            if score is not None:
+                scores.append(score)
         else:
-            # All other lines go into comments (Age group, general text, etc.)
+            # Add anything not containing a score as a comment
             comments.append(line)
 
-    # Compute average if we have any valid scores
-    valid_scores = []
-    for s in [grammar_score, creativity_score, consistency_score]:
-        if s is not None:
-            valid_scores.append(s)
-    avg_score = None
-    if valid_scores:
-        avg_score = round(sum(valid_scores) / len(valid_scores), 2)
+    # Compute the average of all valid scores
+    avg_score = round(sum(scores) / len(scores), 2) if scores else None
 
     return {
-        "score": avg_score if avg_score is not None else "",
+        "score": avg_score,
         "comments": "\n".join(comments),
-        "prompt": ""  # If you want to store the actual evaluation prompt used, put it here
+        "prompt": ""  # Placeholder for any additional prompt info if needed
     }
 
 def merge_data(generated_entries, eval_entries):
     """
     Merges the generated data (from CSV) with the eval data (from JSON).
-    We match on the combination of (character, trait, setting, conflict, resolution, moral).
-    Then we fill in the 'eval_*' columns (eval_avg_score, eval_llm_name, eval_llm_prompt).
+    Matches on the unique key derived from (character, trait, setting, conflict, resolution, moral).
     """
-    # Build a lookup dict from that unique key -> eval results
     eval_dict = {}
 
     for e in eval_entries:
-        character = e["character"]
-        trait = e["trait"]
-        setting = e["setting"]
-        conflict = e["conflict"]
-        resolution = e["resolution"]
-        moral = e["moral"]
+        character = e.get("character", "")
+        trait = e.get("trait", "")
+        setting = e.get("setting", "")
+        conflict = e.get("conflict", "")
+        resolution = e.get("resolution", "")
+        moral = e.get("moral", "")
         evaluation_text = e.get("evaluation", "")
 
-        # Parse that multiline text to get numeric scores and leftover text
         eval_data = parse_evaluation_text(evaluation_text)
 
         unique_key = make_unique_key(character, trait, setting, conflict, resolution, moral)
         eval_dict[unique_key] = {
             "eval_avg_score": eval_data["score"],
-            "eval_llm_name": "gpt-4",  # Hard-code or derive from your actual code
-            "eval_llm_prompt": eval_data["comments"]  # or store the entire text in 'comments'
+            "eval_llm_name": "gpt-4",
+            "eval_llm_prompt": eval_data["comments"]
         }
 
-    # Now update each row from your generated CSV
     merged_rows = []
     for row in generated_entries:
         parsed_config = parse_fable_config(row.get("fable_config", ""))
         if not parsed_config:
-            # Can't match if there's no config
             merged_rows.append(row)
             continue
 
@@ -170,8 +149,7 @@ def merge_data(generated_entries, eval_entries):
 
 def write_final_csv(merged_rows, output_path="fables_final.csv"):
     """
-    Writes the final merged data to CSV. We assume
-    merged_rows already contain the columns needed.
+    Writes the final merged data to a CSV file.
     """
     fieldnames = [
         "fable_config",
@@ -195,22 +173,21 @@ def write_final_csv(merged_rows, output_path="fables_final.csv"):
         "pipeline_version"
     ]
 
-    with open(output_path, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in merged_rows:
-            writer.writerow(row)
+    try:
+        with open(output_path, mode="w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in merged_rows:
+                writer.writerow(row)
+    except Exception as e:
+        print(f"Error writing CSV: {e}")
 
 def main():
     """
-    Run the merge process:
-      - Load your fables_with_meta.csv (the generation step with all metadata).
-      - Load your evaluation_results.json (the multi-line text evaluations).
-      - Merge them on (character, trait, setting, conflict, resolution, moral).
-      - Write final CSV with all columns (including eval_avg_score).
+    Main function to load, process, and merge data.
     """
-    generated_csv = "fables_with_meta.csv"      # adapt path if needed
-    evaluation_json = "evaluation_results.json" # adapt path if needed
+    generated_csv = "fables_with_meta.csv"
+    evaluation_json = "evaluation_results.json"
 
     generated_entries = load_fables_csv(generated_csv)
     eval_entries = load_evaluations(evaluation_json)
