@@ -1,53 +1,17 @@
 prompts:
-  evaluation_prompt: 'The following exercise consists of a structured input and the
-    student''s generated fable.
-
-    Please provide your general assessment about the fable written by the student.
-    Is it grammatically correct? Is it consistent with the beginning of the story?
-
-    The input:
-
-    Character: {character}
-
-    Trait: {trait}
-
-    Setting: {setting}
-
-    Conflict: {conflict}
-
-    Resolution: {resolution}
-
-    Moral: {moral}
-
-
-    The generated fable:
-
-    {generated_fab}
-
-
-    Then, please evaluate the generated fable based on the following criteria:
-
-    1. Grammar: Is the fable grammatically correct?
-
-    2. Creativity: Does the fable demonstrate creative storytelling?
-
-    3. Consistency: Does the fable align with the structured input provided?
-
-    Also, provide a guess for the age group of the writer. Choose from possible age
-    groups: A: 3 or under. B: 4-5. C: 6-7. D: 8-9. E: 10-12. F: 13-16.
-
-
-    Return your evaluation as follows:
-
-    Grammar: x/10
-
-    Creativity: x/10
-
-    Consistency: x/10
-
-    Age group: <age group guess>
-
-    '
+  evaluation_prompt: "The following exercise consists of a structured input and the\
+    \ student's generated fable.\n\nStructured Input:\nCharacter: {character}\nTrait:\
+    \ {trait}\nSetting: {setting}\nConflict: {conflict}\nResolution: {resolution}\n\
+    Moral: {moral}\n\nGenerated Fable:\n{generated_fab}\n\nTask:\n1. Evaluate the\
+    \ fable based on these criteria:\n   - Grammar: Is the fable grammatically correct?\n\
+    \   - Creativity: Does the fable demonstrate creative storytelling?\n   - Consistency:\
+    \ Does the fable align with the structured input?\n\n2. Provide a guess for the\
+    \ age group of the writer. Possible age groups:\n   A: 3 or under\n   B: 4-5\n\
+    \   C: 6-7\n   D: 8-9\n   E: 10-12\n   F: 13-16\n\n3. Return your evaluation strictly\
+    \ in the following JSON format:\n\n{{\n  \"Grammar\": \"x/10\",\n  \"Creativity\"\
+    : \"x/10\",\n  \"Consistency\": \"x/10\",\n  \"Age group\": \"<age group guess>\"\
+    \n}}\n\nThen, after returning the JSON block, add any additional comments you\
+    \ have about the fable in plain text.\n"
 parameters:
   character: The character of the fable (e.g., Fox)
   trait: The character's trait (e.g., Clever)

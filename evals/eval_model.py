@@ -1,6 +1,7 @@
 import os
 import yaml
 import csv
+import shlex
 
 
 def load_fables_from_csv(csv_path):
@@ -80,18 +81,20 @@ def main():
         output_file = f"evaluation_results.json"
 
         # Run evals_cli.py with the required arguments
+
         os.system(
             f'python3.11 evals/evals_cli.py '
-            f'--yaml_path "{yaml_path}" '
-            f'--character "{character}" '
-            f'--trait "{trait}" '
-            f'--setting "{setting}" '
-            f'--conflict "{conflict}" '
-            f'--resolution "{resolution}" '
-            f'--moral "{moral}" '
-            f'--generated_fab "{generated_fab}" '
-            f'--output {output_file}'
-        )
+            f'--yaml_path {shlex.quote(yaml_path)} '
+            f'--character {shlex.quote(character)} '
+            f'--trait {shlex.quote(trait)} '
+            f'--setting {shlex.quote(setting)} '
+            f'--conflict {shlex.quote(conflict)} '
+            f'--resolution {shlex.quote(resolution)} '
+            f'--moral {shlex.quote(moral)} '
+            f'--generated_fab {shlex.quote(generated_fab)} '
+            f'--output {shlex.quote(output_file)}'
+    )
+
 
 
 

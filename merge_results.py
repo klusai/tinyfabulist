@@ -54,47 +54,36 @@ def load_evaluations(json_path):
         print(f"Error: File {json_path} is not valid JSON.")
         return []
 
-def parse_score(s):
+def parse_score(score_str):
     """
-    Parses a string to extract the score before a '/' or handles 'N/A'.
+    Parses a score string to extract the numeric value or handles 'N/A'.
     """
     try:
-        if "n/a" in s.lower():
-            return None  # Treat 'N/A' as no valid score
-        num_part = s.split("/")[0].strip()
-        return float(num_part)
+        if "n/a" in score_str.lower():
+            return None
+        return float(score_str.split("/")[0].strip())
     except:
         return None
 
-def parse_evaluation_text(evaluation_text):
+def parse_evaluation(evaluation):
     """
-    Parses the multiline evaluation text and extracts all numeric scores,
-    including those marked as "N/A", regardless of context.
-    Computes their average and returns the average score, along with the comments.
+    Parses evaluation data to extract avg_score and comments for eval_llm_prompt.
     """
-    lines = evaluation_text.strip().split("\n")
     scores = []
-    comments = []
+    comments_text = evaluation.get("comments", "")
 
-    for line in lines:
-        line = line.strip()
-        # Extract the numeric score or "N/A" if present
-        match = re.search(r":\s*([0-9.]+|n/a)", line, re.IGNORECASE)
-        if match:
-            score = parse_score(match.group(1))
-            if score is not None:
-                scores.append(score)
-        else:
-            # Add anything not containing a score as a comment
-            comments.append(line)
+    # Parse numeric scores for grammar, creativity, and consistency
+    for score_str in ["grammar", "creativity", "consistency"]:
+        score = parse_score(evaluation.get(score_str, ""))
+        if score is not None:
+            scores.append(score)
 
-    # Compute the average of all valid scores
+    # Compute the average score
     avg_score = round(sum(scores) / len(scores), 2) if scores else None
 
     return {
-        "score": avg_score,
-        "comments": "\n".join(comments),
-        "prompt": ""  # Placeholder for any additional prompt info if needed
+        "eval_avg_score": avg_score,
+        "eval_llm_prompt": comments_text.strip() if comments_text else ""
     }
 
 def merge_data(generated_entries, eval_entries):
@@ -104,43 +93,42 @@ def merge_data(generated_entries, eval_entries):
     """
     eval_dict = {}
 
+    # Build a dictionary from the evaluation JSON
     for e in eval_entries:
-        character = e.get("character", "")
-        trait = e.get("trait", "")
-        setting = e.get("setting", "")
-        conflict = e.get("conflict", "")
-        resolution = e.get("resolution", "")
-        moral = e.get("moral", "")
-        evaluation_text = e.get("evaluation", "")
-
-        eval_data = parse_evaluation_text(evaluation_text)
+        character = e.get("character", "").strip()
+        trait = e.get("trait", "").strip()
+        setting = e.get("setting", "").strip()
+        conflict = e.get("conflict", "").strip()
+        resolution = e.get("resolution", "").strip()
+        moral = e.get("moral", "").strip()
 
         unique_key = make_unique_key(character, trait, setting, conflict, resolution, moral)
-        eval_dict[unique_key] = {
-            "eval_avg_score": eval_data["score"],
-            "eval_llm_name": "gpt-4",
-            "eval_llm_prompt": eval_data["comments"]
-        }
+        eval_data = parse_evaluation(e)
+
+        # Store evaluation data using the unique key
+        eval_dict[unique_key] = eval_data
 
     merged_rows = []
     for row in generated_entries:
+        # Parse the fable_config to extract input details
         parsed_config = parse_fable_config(row.get("fable_config", ""))
         if not parsed_config:
             merged_rows.append(row)
             continue
 
-        character = parsed_config.get("character")
-        trait = parsed_config.get("trait")
-        setting = parsed_config.get("setting")
-        conflict = parsed_config.get("conflict")
-        resolution = parsed_config.get("resolution")
-        moral = parsed_config.get("moral")
+        character = parsed_config.get("character", "").strip()
+        trait = parsed_config.get("trait", "").strip()
+        setting = parsed_config.get("setting", "").strip()
+        conflict = parsed_config.get("conflict", "").strip()
+        resolution = parsed_config.get("resolution", "").strip()
+        moral = parsed_config.get("moral", "").strip()
 
         key = make_unique_key(character, trait, setting, conflict, resolution, moral)
 
+        # Add evaluation data if there's a match
         if key in eval_dict:
             row["eval_avg_score"] = eval_dict[key]["eval_avg_score"]
-            row["eval_llm_name"] = eval_dict[key]["eval_llm_name"]
+            row["eval_llm_name"] = "gpt-4"  # Assuming the LLM name
             row["eval_llm_prompt"] = eval_dict[key]["eval_llm_prompt"]
 
         merged_rows.append(row)
