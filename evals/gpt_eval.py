@@ -56,3 +56,28 @@ class GPTEvaluator:
         except Exception as e:
             print(f"Error while generating and evaluating fable: {e}")
             return None
+
+    def evaluate_diversity(self, fables):
+        """
+        Use GPT-4 to evaluate the diversity of a list of fables.
+        """
+        # Load the diversity evaluation prompt from YAML
+        diversity_prompt = self.config['prompts']['diversity_eval_prompt']
+
+        # Prepare the prompt with all generated fables
+        prompt = f"{diversity_prompt}\n\n"
+        for fable in fables:
+            prompt += f"Fable: {fable}\n\n"
+
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a creative writer and evaluator specializing in generating and assessing fables based on structured input."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"Error while evaluating diversity of fables: {e}")
+            return None

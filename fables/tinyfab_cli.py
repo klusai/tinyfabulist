@@ -55,7 +55,7 @@ def main():
         "pipeline_version"
     ]
 
-    output_file = "fables_with_meta.csv"
+    output_file = "fables_with_meta2.csv"
     with open(output_file, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()

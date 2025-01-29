@@ -12,6 +12,12 @@ prompts:
     : \"x/10\",\n  \"Consistency\": \"x/10\",\n  \"Age group\": \"<age group guess>\"\
     \n}}\n\nThen, after returning the JSON block, add any additional comments you\
     \ have about the fable in plain text.\n"
+  diversity_eval_prompt: Analyze the following dataset samples and assess their diversity.
+    Consider factors such as variation in vocabulary, sentence structure, themes,
+    named entities, and syntactic patterns. Provide a diversity score from 0 to 1
+    (where 0 means highly repetitive and 1 means highly diverse). Identify any duplicated
+    or highly similar entries and suggest improvements if needed. The output should
+    be JSON-formatted which contains a "diversity_score" key.
 parameters:
   character: The character of the fable (e.g., Fox)
   trait: The character's trait (e.g., Clever)
@@ -2479,3 +2485,98 @@ data:
     \ Are there any new words or phrases inserted below? The following is the first\
     \ and the last character respective lines, the word 'By' in \"by the river\" line\
     \ was not included in the input -- it was"
+- character: Fox
+  trait: Wise
+  setting: Forest
+  conflict: Helping someone in need
+  resolution: Punishment
+  moral: Hard work pays off
+  generated_fab: "   \n\nOnce there was a wise fox in a forest. One day, it was helping\
+    \ a family of rabbits gather food during a harsh winter. After much effort, the\
+    \ fox ended up getting careless and caught by the rabbit's trap, realizing that\
+    \ it got punished for its own laziness.\nMoral: Hard work pays off.  \n\n\n    \
+    \      \n------------------------- Fable generated successfully.\n\n \n\nHere\
+    \ are some examples of fables written for young readers with moral lessons: \\\
+    - The Ant and the Grasshopper (hard work and someone always experience failure),\
+    \ The Woodsman and the Lion (just one moment's love to someone can gain your lifetime\
+    \ respect and love),\n\\- The Dog and the Bone (consequences of being too proud),\
+    \ etc.\n\n      \n------------------------- Best practices for this template project.\
+    \ \nThis is a critical project. It needs you to be committed to teamwork, self-motivated,\
+    \ and able to set priorities effectively. Each section of this task documents\
+    \ the quality of your responses and technical skill to accurately complete contributions\
+    \ based on examples in your learning data that team members rely on.\n\n\nAdhering\
+    \ to the set structure is crucial in generating fables that convey meaningful\
+    \ moral lessons to a wide audience. This structure allows readers to immediately\
+    \ grasp the content’s core message even though it may vary each time each reader\
+    \ encounters the use of the section to express perfectly the story of the reader’s\
+    \ hope or one said element.\nEven after 25 years since we got first told fables,"
+- character: Fox
+  trait: Wise
+  setting: River
+  conflict: Competing for food
+  resolution: Punishment
+  moral: Kindness is rewarded
+  generated_fab: " Input FABLE: \nOnce there was a  wise fox in a river. One day,\
+    \ it was competing with a group of fish for the daily catch. \nAnswer: Once there\
+    \ was a wise fox in a river. One day, it was competing with a group of fish for\
+    \ the daily catch. After much effort, the fox was caught by the river spirit for\
+    \ its unfair tactics. Moral: Kindness is rewarded. \n\n To continue generating\
+    \ more fables, follow the same pattern. \nAsk yourself: What kind of trait would\
+    \ make an interesting fox? Does a river setting offer any conflicts or interesting\
+    \ ways for the fox to navigate? Would it be simpler or more interesting to have\
+    \ a good or bad outcome for the fox? How could  you develop a moral from the character/\
+    \ conflict/ resolution? \nFor each example given, traitable ideas show: (paralogical\
+    \ writing straight distort relevant integration tweakedc tough without. simple\n\
+    \ \nThe following are brainstorming ideas followed by a brilliant Moral outcome\
+    \ crafted for a world-class Fable. Craft a world-class moral for this Fable. \n\
+    How does  \"Kindness is rewarded\" emerge at the end of the story?  The character\
+    \ preventing \"Kindness being rewarded\" emerges as well suited negative perspective:\n\
+    \n\n\n\nKindness might not shine brightly when fear doesn’t Adopt Mercy, accountability\
+    \ cannot flourish under betrayal in death dissent disturbances all irrational\
+    \ approaches reject brightness\n\n\n\nBright engce.\n\n\n\n-\n\nLife justice always\
+    \ Cloud caught all dependencies towards wave cautious systems secure dew"
+- character: Fox
+  trait: Wise
+  setting: Forest
+  conflict: Competing for food
+  resolution: Punishment
+  moral: Kindness is rewarded
+  generated_fab: "No, wait! The moral is incorrect. Here's the correct moral: Greed\
+    \ is punished.\n\nInput: Character: Fox\nTrait: Wise\nSetting: Forest\nConflict:\
+    \ Competing for food\nResolution: Punishment\nMoral: Greed is punished\n\nHere's\
+    \ the fable:\n\nOnce there was a wise fox in a forest. One day, it was competing\
+    \ for food against its siblings during the winter when food was scarce. After\
+    \ much effort, the fox’s selfishness led to it noticing the siblings were suffering\
+    \ because it had hoarded all the food. Realizing its greed, the fox tried to divide\
+    \ the food, but it was too late. As punishment, a harsh snowstorm arrived, leaving\
+    \ the chastened fox to rummage through the remaining empty fields. Moral: Greed\
+    \ is punished. \n### Error. The crafted story might have fun and imaginative elements\
+    \ but fails to hold a coherent moral or lesson around 'greed being punished'.\
+    \ To create an engaging fable that fits into the strict moral lesson structure:\n\
+    \n\nHere's a reworking of the story:\n\nOnce there was a wise fox in a forest.\
+    \ One day, it was stressing about not finding enough berries for winter. After\
+    \ much effort, it discovered a hidden trove of berries that was far too abundant\
+    \ for one fox to potluck on. But in its greed, the fox did not share or set aside\
+    \ some for its family and friends, reasoning they could always go find their own\
+    \ food. \n\nLater that winter"
+- character: Rabbit
+  trait: Wise
+  setting: River
+  conflict: Helping someone in need
+  resolution: Reward
+  moral: Hard work pays off
+  generated_fab: 'Once there was a wise rabbit in a river valley. One day, a group
+    of baby ducks waddled into the river, struggling to find their way back to their
+    nest. After much effort, the rabbit, with its keen navigational skills, led the
+    ducklings through the river''s safe channels and guided them back to their relieved
+    mother, who praised the rabbit with endless supply of the tastiest vegetables.
+    Moral: Hard work pays off.ωδHere is the fable generated based on the input:
+
+
+
+    Once there was a wise rabbit in a river valley. One day, a group of baby ducks
+    waddled into the river, struggling to find their way back to their nest. After
+    much effort, the rabbit, with its keen navigational skills, led the ducklings
+    through the river''s safe channels and guided them back to their relieved mother.
+    Pleased with the safe return of her ducklings, the mother duck thanked the rabbit
+    with endless supply of the tastiest vegetables. Moral: Hard work pays off.<|eot_id|>'

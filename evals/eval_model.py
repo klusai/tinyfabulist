@@ -2,7 +2,7 @@ import os
 import yaml
 import csv
 import shlex
-
+from gpt_eval import GPTEvaluator
 
 def load_fables_from_csv(csv_path):
     """
@@ -17,7 +17,6 @@ def load_fables_from_csv(csv_path):
         for row in reader:
             fable_config = yaml.safe_load(row["fable_config"])  # Parse the JSON string into a dictionary
 
-            # Append to fables list with necessary fields
             fables.append({
                 "character": fable_config["character"],
                 "trait": fable_config["trait"],
@@ -28,7 +27,6 @@ def load_fables_from_csv(csv_path):
                 "generated_fab": row["fable_text_en"]
             })
     return fables
-
 
 def update_yaml_with_fables(yaml_path, fables):
     """
@@ -50,25 +48,30 @@ def update_yaml_with_fables(yaml_path, fables):
 
     print(f"Updated {yaml_path} with {len(fables)} fables.")
 
+def load_fables_from_yaml(yaml_path, num_fables):
+    """
+    Extracts generated_fab from the YAML file and returns a list of fables.
+    """
+    with open(yaml_path, "r", encoding="utf-8") as yaml_file:
+        config = yaml.safe_load(yaml_file)
+    
+    fables = [entry["generated_fab"] for entry in config.get("data", [])[:num_fables]]
+    return fables
 
 def main():
-    # File paths
     csv_path = "fables_with_meta.csv"
     yaml_path = "/Users/Andreea/KlusAI/TinyFabulist/tiny-fabulist-1/evals/evals_config.yml"
-
-    # Step 1: Load fables from CSV
+    num_fables = 5  # Change this number to control how many fables are evaluated for diversity
+    
     fables = load_fables_from_csv(csv_path)
-
-    # Step 2: Update YAML file with fables
     update_yaml_with_fables(yaml_path, fables)
-    yaml_path = "/Users/Andreea/KlusAI/TinyFabulist/tiny-fabulist-1/evals/evals_config.yml"
+    
     with open(yaml_path, 'r') as file:
         config = yaml.safe_load(file)
-
-    # Extract data section
+    
     data = config.get("data", [])
-
-    # Loop through each set of structured input and generated fable
+    
+    # Evaluate each fable individually
     for i, pair in enumerate(data):
         character = pair["character"]
         trait = pair["trait"]
@@ -77,27 +80,31 @@ def main():
         resolution = pair["resolution"]
         moral = pair["moral"]
         generated_fab = pair["generated_fab"]
-
-        output_file = f"evaluation_results.json"
-
-        # Run evals_cli.py with the required arguments
-
-        os.system(
-            f'python3.11 evals/evals_cli.py '
-            f'--yaml_path {shlex.quote(yaml_path)} '
-            f'--character {shlex.quote(character)} '
-            f'--trait {shlex.quote(trait)} '
-            f'--setting {shlex.quote(setting)} '
-            f'--conflict {shlex.quote(conflict)} '
-            f'--resolution {shlex.quote(resolution)} '
-            f'--moral {shlex.quote(moral)} '
-            f'--generated_fab {shlex.quote(generated_fab)} '
-            f'--output {shlex.quote(output_file)}'
+        output_file = "evaluation_results.json"
+        
+        # os.system(
+        #     f'python3.11 evals/evals_cli.py '
+        #     f'--yaml_path {shlex.quote(yaml_path)} '
+        #     f'--evaluation_type evaluation_prompt '
+        #     f'--character {shlex.quote(character)} '
+        #     f'--trait {shlex.quote(trait)} '
+        #     f'--setting {shlex.quote(setting)} '
+        #     f'--conflict {shlex.quote(conflict)} '
+        #     f'--resolution {shlex.quote(resolution)} '
+        #     f'--moral {shlex.quote(moral)} '
+        #     f'--generated_fab {shlex.quote(generated_fab)} '
+        #     f'--output {shlex.quote(output_file)}'
+        # )
+    
+    fables = load_fables_from_yaml(yaml_path, num_fables)
+    # Run diversity evaluation separately
+    os.system(
+        f'python3.11 evals/evals_cli.py '
+        f'--yaml_path {shlex.quote(yaml_path)} '
+        f'--evaluation_type diversity_eval_prompt '
+        f'--fables {shlex.quote(" ".join(fables))} '
+        f'--diversity_output diversity_evaluation.json'
     )
-
-
-
 
 if __name__ == "__main__":
     main()
-# Load YAML file
