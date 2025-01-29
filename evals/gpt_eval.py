@@ -46,7 +46,7 @@ class GPTEvaluator:
 
         try:
             response = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4-turbo-2024-01-25",
                 messages=[
                     {"role": "system", "content": "You are a creative writer and evaluator specializing in generating and assessing fables based on structured input."},
                     {"role": "user", "content": evaluation_prompt}
@@ -71,7 +71,7 @@ class GPTEvaluator:
 
         try:
             response = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4-turbo-2024-01-25",
                 messages=[
                     {"role": "system", "content": "You are a creative writer and evaluator specializing in generating and assessing fables based on structured input."},
                     {"role": "user", "content": prompt}

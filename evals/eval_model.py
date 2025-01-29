@@ -82,19 +82,19 @@ def main():
         generated_fab = pair["generated_fab"]
         output_file = "evaluation_results.json"
         
-        # os.system(
-        #     f'python3.11 evals/evals_cli.py '
-        #     f'--yaml_path {shlex.quote(yaml_path)} '
-        #     f'--evaluation_type evaluation_prompt '
-        #     f'--character {shlex.quote(character)} '
-        #     f'--trait {shlex.quote(trait)} '
-        #     f'--setting {shlex.quote(setting)} '
-        #     f'--conflict {shlex.quote(conflict)} '
-        #     f'--resolution {shlex.quote(resolution)} '
-        #     f'--moral {shlex.quote(moral)} '
-        #     f'--generated_fab {shlex.quote(generated_fab)} '
-        #     f'--output {shlex.quote(output_file)}'
-        # )
+        os.system(
+            f'python3.11 evals/evals_cli.py '
+            f'--yaml_path {shlex.quote(yaml_path)} '
+            f'--evaluation_type evaluation_prompt '
+            f'--character {shlex.quote(character)} '
+            f'--trait {shlex.quote(trait)} '
+            f'--setting {shlex.quote(setting)} '
+            f'--conflict {shlex.quote(conflict)} '
+            f'--resolution {shlex.quote(resolution)} '
+            f'--moral {shlex.quote(moral)} '
+            f'--generated_fab {shlex.quote(generated_fab)} '
+            f'--output {shlex.quote(output_file)}'
+        )
     
     fables = load_fables_from_yaml(yaml_path, num_fables)
     # Run diversity evaluation separately
