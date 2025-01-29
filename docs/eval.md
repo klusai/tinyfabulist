@@ -1,19 +1,3 @@
-https://arxiv.org/pdf/2303.16634 https://www.confident-ai.com/blog/llm-evaluation-metrics-everything-you-need-for-llm-evaluation
-https://arxiv.org/pdf/2303.16634
-
-# Ensuring objectivity
-
-## Pinning a Model Version
-
-{
-  "model": "gpt-4-2024-05-13",
-  "messages": [
-    {"role": "system", "content": "You are an evaluator assessing the output of another model."},
-    {"role": "user", "content": "Evaluate this text: ..."}
-  ]
-}
--the same endpoint generates all responses
-
 # Fable Evaluation and Diversity Assessment
 
 ## **1. Introduction**
@@ -39,6 +23,8 @@ generated_fab: "Once there was a clever fox..."
 ```
 
 ## **4. Evaluation Framework**
+
+To ensure consistency and objectivity, a specific model version (**GPT-4-Turbo-2024-01-25**) has been pinned. This guarantees that all evaluations are performed using the same AI model, preventing discrepancies that could arise from model updates. By using a fixed version, the framework ensures reproducibility in scoring, making comparisons across different fables and datasets more reliable.
 
 ### **4.1. `gpt_eval.py` - Core Evaluation**
 This script calls **GPT-4-Turbo** to evaluate fables and assess dataset diversity.
@@ -118,3 +104,5 @@ Runs evaluations and saves results in `evaluation_results.json`.
 ## **7. Conclusion**
 This system provides an automated, structured evaluation for AI-generated fables. It ensures consistency in storytelling while promoting diversity in AI-generated narratives. Future improvements may include **fine-tuned scoring models and expanded multilingual support**.
 
+https://arxiv.org/pdf/2303.16634 https://www.confident-ai.com/blog/llm-evaluation-metrics-everything-you-need-for-llm-evaluation
+https://arxiv.org/pdf/2303.16634
