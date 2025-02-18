@@ -9,7 +9,8 @@ from src.utils.config.environment import EnvConfig
 from src.utils.data_manager import DataManager
 
 class FableGenerator:        
-    def __init__(self, config_path="src/generation/config.yml", output_file="src/artifacts/fables_with_meta.csv", num_fables=100):
+    def __init__(self, model="Llama-3.1-8B-Instruct", config_path="src/generation/config.yml", output_file="src/artifacts/fables_with_meta.csv", num_fables=100):
+        self.__model = model
         self.__config_path = config_path
         self.__output_file = output_file
         self.__num_fables = num_fables
@@ -48,7 +49,7 @@ class FableGenerator:
             fable_prompt=self.__fable_prompt,
             endpoint_url=self.__hf_endpoint_url,
             api_key=self.__hf_token,
-            model="Llama-3.1-8B-Instruct"
+            model=self.__model
         )
 
         return ai_generator.generate_fable(
