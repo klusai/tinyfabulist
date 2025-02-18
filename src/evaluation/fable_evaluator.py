@@ -1,5 +1,3 @@
-import json
-import os
 from src.utils.ai.evaluator import GptEvaluator
 from src.utils.data_manager import DataManager
 
@@ -15,7 +13,6 @@ class FableEvaluator:
         Args:
             yaml_path (str): Path to the YAML configuration file.
         """
-        self.yaml_path = yaml_path
         self.evaluator = GptEvaluator(yaml_path=yaml_path)
 
     def evaluate_fable(self, character: str, trait: str, setting: str, conflict: str,

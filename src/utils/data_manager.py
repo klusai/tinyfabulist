@@ -171,3 +171,35 @@ class DataManager:
             print(f"Entry successfully appended to {file_path}")
         except Exception as e:
             print(f"Failed to append entry to {file_path}: {e}")
+
+    @staticmethod
+    def write_fables_to_csv(self, meta_rows, output_file):
+        """Writes the generated fables with metadata to a CSV file."""
+        fieldnames = [
+            "fable_config",
+            "fable_prompt",
+            "fable_text_en",
+            "llm_name",
+            "llm_input_tokens",
+            "llm_output_tokens",
+            "llm_inference_time",
+            "llm_inference_cost_usd",
+            "host_provider",
+            "host_dc_provider",
+            "host_dc_location",
+            "host_gpu",
+            "host_gpu_vram",
+            "host_cost_per_hour",
+            "generation_datetime",
+            "pipeline_version"
+        ]
+
+        with open(output_file, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in meta_rows:
+                row["fable_config"] = json.dumps(row["fable_config"])
+                writer.writerow(row)
+
+        print(f"Fables with metadata have been saved to {output_file}")
+

@@ -6,6 +6,7 @@ import random
 
 from src.utils.ai.generator import GenerativeAICore
 from src.utils.config.environment import EnvConfig
+from src.utils.data_manager import DataManager
 
 class FableGenerator:        
     def __init__(self, config_path="src/generation/config.yml", output_file="src/artifacts/fables_with_meta.csv", num_fables=100):
@@ -67,38 +68,8 @@ class FableGenerator:
             meta_rows.append(row)
         return meta_rows
 
-    def write_fables_to_csv(self, meta_rows):
-        """Writes the generated fables with metadata to a CSV file."""
-        fieldnames = [
-            "fable_config",
-            "fable_prompt",
-            "fable_text_en",
-            "llm_name",
-            "llm_input_tokens",
-            "llm_output_tokens",
-            "llm_inference_time",
-            "llm_inference_cost_usd",
-            "host_provider",
-            "host_dc_provider",
-            "host_dc_location",
-            "host_gpu",
-            "host_gpu_vram",
-            "host_cost_per_hour",
-            "generation_datetime",
-            "pipeline_version"
-        ]
-
-        with open(self.__output_file, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in meta_rows:
-                row["fable_config"] = json.dumps(row["fable_config"])
-                writer.writerow(row)
-
-        print(f"Fables with metadata have been saved to {self.__output_file}")
-
     def run(self):
         """Runs the fable generation process."""
         selected_combos = self.generate_fable_combinations()
         meta_rows = self.create_fables_with_meta(selected_combos)
-        self.write_fables_to_csv(meta_rows)
+        DataManager.write_fables_to_csv(meta_rows=meta_rows, output_file=self.__output_file)
