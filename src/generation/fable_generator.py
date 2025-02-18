@@ -8,7 +8,7 @@ from src.utils.ai.generator import GenerativeAICore
 from src.utils.config.environment import EnvConfig
 
 class FableGenerator:        
-    def __init__(self, config_path="src/fables/config.yml", output_file="src/artifacts/fables_with_meta.csv", num_fables=1):
+    def __init__(self, config_path="src/generation/config.yml", output_file="src/artifacts/fables_with_meta.csv", num_fables=100):
         self.__config_path = config_path
         self.__output_file = output_file
         self.__num_fables = num_fables

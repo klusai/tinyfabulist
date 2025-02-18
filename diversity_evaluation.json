@@ -3,20 +3,21 @@
         "Okay, so I need to create a fable based on the input provided. The user has given a structure, with examples, so I should follow that closely. Let me breakdown the input: \n\nCharacter: Rabbit  \nTrait: Brave  \nSetting: Forest  \nConflict: Competing for food  \nResolution: Punishment  \nMoral: Hard work pays off.\n\nWait, the example structure from the user had five specific parts: Once there was a {trait} {character} in a {setting}. One day, it was {conflict}. After much effort, {resolution}. Moral: {moral}. So I need to make sure to include each part without adding extra.\n\nFirst, the wording should be exactly as the structure requires. No deviations. The fable must start with \"Once there was a...\" Then include the trait and character, followed by the setting.\n\nConflict is about competing for food, and the resolution is punishment. The moral is that hard work pays off.\n\nI need to form a coherent story that flows naturally. Let's think about how a rabbit in a forest competing for food leads to punishment, which then teaches that hard work is rewarded.\n\nHmm, the rabbit is brave. Competing for food in the forest—maybe there's a limited food source, like a river or a good hunting spot. The conflict is the competition, so perhaps the rabbit is trying to get food but faces challenges.\n\nResolution is punishment—maybe the rabbit overstepped and gets caught. But"
     ],
     "diversity_evaluation": {
-        "diversity_score": 0.4,
+        "diversity_score": 0.25,
         "analysis": {
-            "vocabulary_variation": "The dataset follows a prescribed structure strictly, leading to limited vocabulary variation. The consistent use of words like 'once', 'forest', 'competing', 'punishment', and 'hard work' reduces diversity in word choice.",
-            "sentence_structure": "Sentences follow a rigid pattern as required by the user's input structure, with minimal variation in sentence construction or punctuation.",
-            "thematic_diversity": "The single theme of 'hard work pays off' with a fixed setting and character limit thematic diversity. A single moral is extracted from the conflict-resolution cycle.",
-            "named_entities": "Only one named entity, 'Rabbit', limits the potential for diversity in characters and scenarios. The fable sticks to one setting, 'Forest', which constrains environmental diversity as well.",
-            "syntactic_patterns": "The prescribed format enforces a repetitive syntax. Each part follows a predetermined order without syntactic variations, making each entry predictable and structurally similar."
+            "variation_in_vocabulary": "The vocabulary used is quite limited and repetitive, sticking to basic terms directly from the provided structure without much variation.",
+            "sentence_structure": "The sentences strictly adhere to a predetermined structure from the user and show little variation in complexity or style.",
+            "themes": "The theme revolves around a moral lesson with minimal thematic exploration beyond what is specified (bravery, competition, work and punishment).",
+            "named_entities": "Only generic named entities are used (rabbit, forest) with no introduction of unique elements or characters.",
+            "syntactic_patterns": "The syntactic patterns adhere to a strict template which offers little room for creative syntax."
         },
-        "duplicated_entries": "All entries must adhere to the same narrative template, resulting in high similarity across samples with minimal unique linguistic features.",
+        "duplicated_or_similar_entries": "Given that it's a single output, exact duplication isn't possible, but the rigid adherence closely mirrors a templated story structure.",
         "suggestions_for_improvement": [
-            "Introduce additional characters and settings to enhance narrative variance.",
-            "Include multiple morals or variations in conflict-resolution models to reflect different lessons and complexity.",
-            "Vary sentence structure by introducing dialogues or expanding descriptions of actions and environments.",
-            "Incorporate synonyms and alternative phrasings to enrich vocabulary without deviating from core meaning."
+            "Introduce varied vocabulary to make the story more engaging and less predictable.",
+            "Experiment with different sentence structures to add complexity and interest.",
+            "Expand on themes by adding sub-themes or varying the perspective on the main moral.",
+            "Include unique names or roles for characters to enhance relatability and imagination.",
+            "Vary syntactic patterns by integrating dialogue, inner thoughts, or descriptive elements."
         ]
     }
 }
