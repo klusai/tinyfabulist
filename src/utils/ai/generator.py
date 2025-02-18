@@ -125,3 +125,5 @@ class GenerativeAICore:
             "generation_datetime": datetime.utcnow().isoformat(),
             "pipeline_version": pipeline_version
         }
+
+

@@ -3,7 +3,6 @@
 import csv
 import json
 import ast
-import re
 
 def load_fables_csv(csv_path):
     """

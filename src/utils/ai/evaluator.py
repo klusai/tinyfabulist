@@ -1,6 +1,6 @@
 from openai import OpenAI
 import yaml
-from src.env_config import EnvConfig
+from src.utils.config.environment import EnvConfig
 
 
 class GptEvaluator:

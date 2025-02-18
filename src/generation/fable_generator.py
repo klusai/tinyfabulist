@@ -4,8 +4,8 @@ import json
 from itertools import product
 import random
 
-from src.generative_ai_core import GenerativeAICore
-from src.env_config import EnvConfig
+from src.utils.ai.generator import GenerativeAICore
+from src.utils.config.environment import EnvConfig
 
 class FableGenerator:        
     def __init__(self, config_path="src/fables/config.yml", output_file="src/artifacts/fables_with_meta.csv", num_fables=1):
@@ -102,7 +102,3 @@ class FableGenerator:
         selected_combos = self.generate_fable_combinations()
         meta_rows = self.create_fables_with_meta(selected_combos)
         self.write_fables_to_csv(meta_rows)
-
-if __name__ == "__main__":
-    generator = FableGenerator()
-    generator.run()
