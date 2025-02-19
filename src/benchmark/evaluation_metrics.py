@@ -71,10 +71,3 @@ class EvaluationMetrics:
         except (KeyError, ValueError, TypeError) as e:
             print(f"Error retrieving diversity score from {self._diversity_filename}: {e}")
             return None
-
-if __name__ == "__main__":
-    metrics = EvaluationMetrics()
-    print(metrics.diversity_score)
-    print(metrics.grammar)
-    print(metrics.consistency)
-    print(metrics.creativity)

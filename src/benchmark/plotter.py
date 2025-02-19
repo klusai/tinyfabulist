@@ -123,7 +123,3 @@ def plot_from_artifacts(artifacts_dir):
         plotter.plot_grouped_by_model()
     else:
         print("No matching evaluation and diversity results found.")
-
-if __name__ == '__main__':
-    artifacts_directory = 'src/artifacts' 
-    plot_from_artifacts(artifacts_directory)

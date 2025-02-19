@@ -1,6 +1,8 @@
 import sys
 import os
 
+from src.benchmark.plotter import plot_from_artifacts
+
 current_dir = os.path.abspath(os.path.dirname(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, ".."))
 
@@ -10,10 +12,6 @@ if project_root not in sys.path:
 import argparse
 from src.evaluation.core import execute_evaluations
 from src.generation.fable_generator import FableGenerator
-
-
-def plot_results() -> None:
-    print("Plotting results... (this functionality is not implemented yet)")
 
 def main():
     parser = argparse.ArgumentParser(description="Fable Generation, Evaluation, and Plotting CLI")
@@ -45,7 +43,8 @@ def main():
     elif args.command == "evaluate":
         execute_evaluations(args.csv_input, args.yaml_input, args.diversity_number, args.evaluation_output, args.diversity_output)
     elif args.command == "plot":
-        plot_results()
+            artifacts_directory = 'src/artifacts' 
+            plot_from_artifacts(artifacts_directory)
 
 if __name__ == "__main__":
     main()
