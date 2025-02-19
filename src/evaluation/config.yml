@@ -30,25 +30,124 @@ parameters:
 data:
 - character: Rabbit
   trait: Brave
+  setting: River
+  conflict: Helping someone in need
+  resolution: Reward
+  moral: Kindness is rewarded
+  generated_fab: 'Correct fable example would be:
+
+    Once there was a brave rabbit in the river. One day, it was helping a trapped
+    fish escape from a net. After much effort, the rabbit nibbled through the net
+    and freed the fish. The fish, grateful for its rescue, led the rabbit to a school
+    of shiny fish. Moral: Kindness is rewarded.
+
+
+    Wait, no, the given example for when your character is Fox, the fable is fox helping
+    a bird, but in input for Rabbit, the conflict is ''Helping someone in need'' which
+    is same as fox. So out of curiosity, would it be same fable pattern but character
+    and conflict adjusted.
+
+
+    Wait, perhaps example was given to fit the structure. So here, I need to translate
+    character from fox to rabbit, same trait as clever, and same conflict.
+
+
+    In example 1, for Fox: fox was clever, conflict was ''Helping someone in need'',
+    so the resolution was freeing bird and reward was berries.
+
+
+    So, for Rabbit trait brave: conflict ''Helping someone in need.''  resolution
+    is ''Reward'' so rabbit frees fish, fish reward with a school of fish. So that
+    is another version.
+
+
+    Ok, correct that.
+
+
+    Final fable: Once there was a brave rabbit in the river. One day, it was helping
+    a trapped fish escape from a hunter''s net. After much effort, the rabbit gnawed
+    through the net and freed the fish. The fish, grateful for its rescue,'
+- character: Rabbit
+  trait: Greedy
+  setting: Forest
+  conflict: Helping someone in need
+  resolution: Reward
+  moral: Hard work pays off
+  generated_fab: 'Wait a second, you said to create fables that are captivating and
+    morally-driven for a wide audience, especially young readers. So, structure-wise,
+    I think following the examples will work. But when I look at the input, the trait
+    is Greedy for this Rabbit. Original examples gave positive traits, but perhaps
+    a greedy character can be reformed? Also, the moral is "Hard work pays off." But
+    does that align with the conflict and resolution?
+
+
+    Wait, the example fables have the conflict, then resolution where a positive thing
+    happens because of someone''s actions, leading to a moral about kindness, courage,
+    etc., which are positive. If the trait is Greedy, maybe the conflict should be
+    something that the Rabbit''s greediness causes?
+
+
+    But according to the user''s structured input, the conflict is "Helping someone
+    in need," and the resolution is "Reward," and the moral is "Hard work pays off."
+    But that doesn''t make sense if the trait is Greedy. Maybe the conflict is different?
+    Or perhaps the user made a mistake.
+
+
+    Wait, the user wrote: Input: Character: Rabbit Trait: Greedy Setting: Forest Conflict:
+    Helping someone in need Resolution: Reward Moral: Hard work pays off
+
+
+    So the input is as such. Perhaps the story is intended to show that the Rabbit,
+    despite being greedy, helps someone in need and is rewarded. But this seems contradictory
+    because greed is about being selfish. Alternatively, maybe the Rabbit is taught
+    the value of kindness'
+- character: Rabbit
+  trait: Wise
   setting: Forest
   conflict: Competing for food
-  resolution: Punishment
-  moral: Hard work pays off
-  generated_fab: "Okay, so I need to create a fable based on the input provided. The\
-    \ user has given a structure, with examples, so I should follow that closely.\
-    \ Let me breakdown the input: \n\nCharacter: Rabbit  \nTrait: Brave  \nSetting:\
-    \ Forest  \nConflict: Competing for food  \nResolution: Punishment  \nMoral: Hard\
-    \ work pays off.\n\nWait, the example structure from the user had five specific\
-    \ parts: Once there was a {trait} {character} in a {setting}. One day, it was\
-    \ {conflict}. After much effort, {resolution}. Moral: {moral}. So I need to make\
-    \ sure to include each part without adding extra.\n\nFirst, the wording should\
-    \ be exactly as the structure requires. No deviations. The fable must start with\
-    \ \"Once there was a...\" Then include the trait and character, followed by the\
-    \ setting.\n\nConflict is about competing for food, and the resolution is punishment.\
-    \ The moral is that hard work pays off.\n\nI need to form a coherent story that\
-    \ flows naturally. Let's think about how a rabbit in a forest competing for food\
-    \ leads to punishment, which then teaches that hard work is rewarded.\n\nHmm,\
-    \ the rabbit is brave. Competing for food in the forest—maybe there's a limited\
-    \ food source, like a river or a good hunting spot. The conflict is the competition,\
-    \ so perhaps the rabbit is trying to get food but faces challenges.\n\nResolution\
-    \ is punishment—maybe the rabbit overstepped and gets caught. But"
+  resolution: Reward
+  moral: Kindness is rewarded
+  generated_fab: 'Alright, so I need to create a fable based on the given structure.
+    Let me first parse the input.
+
+
+    Character: Rabbit
+
+    Trait: Wise
+
+    Setting: Forest
+
+    Conflict: Competing for food
+
+    Resolution: Reward
+
+    Moral: Kindness is rewarded
+
+
+    Hmm, okay. So the fable should start like: "Once there was a wise rabbit in a
+    forest." That makes sense.
+
+
+    Now, the conflict is competing for food. So I need a scenario where the rabbit
+    is in a situation where it''s struggling to get food. Maybe during a difficult
+    time, like winter, food is scarce.
+
+
+    Maybe other animals are also competing, but the rabbit can''t find enough. How
+    did the dragon come into play? Oh, maybe the dragon is part of the challenge or
+    the problem. Wait, that''s a bit random, but let me think. Did the input mention
+    a dragon? No, the conflict is competing for food, so maybe other animals are being
+    harsh.
+
+
+    Wait, in the resolution, there needs to be a realization. The rabbit decides to
+    share food with others, even though it had a limited supply. So perhaps during
+    a harsh winter, food is scarce, and the rabbit''s store is not enough.
+
+
+    But then, the resolution should show that by being kind and sharing, the rabbit
+    gets help in return. So maybe after sharing, the other animals are grateful and
+    help the rabbit find more food.
+
+
+    I need to structure it so that the fable flows step by step'

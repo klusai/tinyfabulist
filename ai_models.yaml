@@ -1,0 +1,4 @@
+AiModels:
+  - DeepSeek-R1-Distill-Llama-8B: https://i479m9m7jbp0w8i4.eu-west-1.aws.endpoints.huggingface.cloud/v1/
+  - Llama-3.1-8B-Instruct: https://wc0hhrd4qrvnp90x.eu-west-1.aws.endpoints.huggingface.cloud/v1/
+  - Llama-3.2-3B-Instruct: https://o4d7qjr8aeavpeiz.us-east-1.aws.endpoints.huggingface.cloud/v1/

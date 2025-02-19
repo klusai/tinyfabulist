@@ -40,10 +40,10 @@ def main():
     args = parser.parse_args()
 
     if args.command == "generate":
-        fable_generator = FableGenerator(config_path=args.config_path, output_file=args.output_file, num_fables=args.num_fables)
+        fable_generator = FableGenerator(model=args.model, config_path=args.config_path, output_file=args.output_file, num_fables=args.num_fables)
         fable_generator.run()
     elif args.command == "evaluate":
-        execute_evaluations(args.csv_path, args.yaml_path, args.num_fables, args.evaluation_output, args.diversity_output)
+        execute_evaluations(args.csv_input, args.yaml_input, args.diversity_number, args.evaluation_output, args.diversity_output)
     elif args.command == "plot":
         plot_results()
 

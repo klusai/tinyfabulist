@@ -20,9 +20,14 @@ class FableGenerator:
         self.__system_prompt = self.config["system_prompt"]
         self.__fable_prompt = self.config["fable_prompt"]
 
-        # Load .env Config
+        # Load HuggingFace Config
         env_config = EnvConfig()
-        self.__hf_endpoint_url = env_config.hf_endpoint_url
+
+        ai_models = DataManager.read_yaml("ai_models.yaml")['AiModels']
+        self.__hf_endpoint_url = next((model[self.__model] for model in ai_models if self.__model in model), None)
+        if not self.__hf_endpoint_url:
+            raise ValueError(f"Model '{self.__model}' not found in ai_models.yaml")
+        
         self.__hf_token = env_config.hf_token
     
     def _load_config(self):

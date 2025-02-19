@@ -173,7 +173,7 @@ class DataManager:
             print(f"Failed to append entry to {file_path}: {e}")
 
     @staticmethod
-    def write_fables_to_csv(self, meta_rows, output_file):
+    def write_fables_to_csv(meta_rows, output_file):
         """Writes the generated fables with metadata to a CSV file."""
         fieldnames = [
             "fable_config",
@@ -203,3 +203,45 @@ class DataManager:
 
         print(f"Fables with metadata have been saved to {output_file}")
 
+    @staticmethod
+    def read_json_file(filename: str) -> dict | None:
+        """
+        Reads a JSON file and returns its content as a dictionary.
+
+        Args:
+            filename (str): The path to the JSON file.
+
+        Returns:
+            dict | None: The content of the JSON file as a dictionary, or None if an error occurs.
+        """
+        try:
+            with open(filename, 'r', encoding='utf-8') as file:
+                return json.load(file)
+        except FileNotFoundError:
+            print(f"Error: The file '{filename}' was not found.")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Error: The file '{filename}' contains invalid JSON: {e}")
+            return None
+        except Exception as e:
+            print(f"An unexpected error occurred while reading '{filename}': {e}")
+            return None
+        
+    @staticmethod
+    def read_yaml(file_path: str):
+        """
+        Reads the YAML file containing AI model configurations.
+
+        Args:
+            file_path (str): The path to the YAML file.
+
+        Returns:
+            dict: Parsed YAML content as a dictionary.
+        """
+        try:
+            with open(file_path, 'r') as file:
+                config = yaml.safe_load(file)
+            return config
+        except Exception as e:
+            print(f"Error reading YAML file: {e}")
+            return None
