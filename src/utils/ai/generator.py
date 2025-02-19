@@ -72,7 +72,6 @@ class GenerativeAICore:
         completion_stream = self.client.completions.create(
             model=self.model,
             prompt=prompt_text,
-            max_tokens=300,
             stream=True,  # Stream the text in chunks
             temperature=None,
             top_p=None,

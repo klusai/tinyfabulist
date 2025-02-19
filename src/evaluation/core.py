@@ -50,8 +50,3 @@ def execute_evaluations(csv_path: str, yaml_path: str, num_fables: int = 20,
         diversity_output=diversity_output
     )
 
-if __name__ == "__main__":
-    # Example usage with specified file paths and number of fables.
-    csv_path = "src/artifacts/fables_with_meta.csv"
-    yaml_path = "src/evaluation/config.yml"
-    execute_evaluations(csv_path, yaml_path)

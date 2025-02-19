@@ -70,8 +70,20 @@ class FableGenerator:
         """Generates fables with metadata for the given combinations."""
         meta_rows = []
         for (character, trait, setting, conflict, resolution, moral) in selected_combos:
-            row = self.generate_fable(character, trait, setting, conflict, resolution, moral)
-            meta_rows.append(row)
+            max_attempts = 3  # Maximum number of attempts to generate a fable
+            attempt = 0
+
+            while attempt < max_attempts:
+                try:
+                    row = self.generate_fable(character, trait, setting, conflict, resolution, moral)
+                    meta_rows.append(row)
+                    break  # If successful, break out of the retry loop
+                except Exception as e:
+                    print(f"Attempt {attempt + 1} failed: {e}")
+                    attempt += 1
+
+            if attempt == max_attempts:
+                print(f"Failed to generate fable after {max_attempts} attempts for combo: {(character, trait, setting, conflict, resolution, moral)}")
         return meta_rows
 
     def run(self):
