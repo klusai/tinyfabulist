@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from src.benchmark.evaluation_metrics import EvaluationMetrics 
+import os
+import glob
 
 class Plotter:
     def __init__(self, evaluation_metrics_list, labels=None):
@@ -74,21 +76,54 @@ class Plotter:
         plt.show()
 
 
+def plot_from_artifacts(artifacts_dir):
+    """
+    Finds JSON files in the artifacts directory, groups those with both
+    'diversity_evaluation.json' and 'evaluation_results.json' having the same prefix,
+    and plots the evaluation metrics for each group.
+
+    Args:
+        artifacts_dir (str): Path to the artifacts directory.
+    """
+
+    # Find all JSON files in the artifacts directory
+    json_files = glob.glob(os.path.join(artifacts_dir, "*.json"))
+
+    diversity_results = {}
+    evaluation_results = {}
+
+    for json_file in json_files:
+        if json_file.endswith("evaluation_results.json"):
+            prefix = json_file.replace("evaluation_results.json", "")
+            evaluation_results[prefix] = json_file
+        elif json_file.endswith("diversity_evaluation.json"):
+            prefix = json_file.replace("diversity_evaluation.json", "")
+            diversity_results[prefix] = json_file
+
+    # Group evaluation and diversity results by common prefix
+    grouped_results = []
+    for prefix, eval_file in evaluation_results.items():
+        if prefix in diversity_results:
+            div_file = diversity_results[prefix]
+            grouped_results.append((prefix, eval_file, div_file))
+
+    # Create EvaluationMetrics objects and labels for plotting
+    metrics_list = []
+    labels = []
+    for prefix, eval_file, div_file in grouped_results:
+        metrics = EvaluationMetrics(div_file, eval_file)
+        metrics_list.append(metrics)
+        prefix = prefix.split("/")[-1]
+        prefix = " ".join(prefix.split("-")[:-1])
+        labels.append(prefix)
+
+    # Plot the grouped results
+    if metrics_list:
+        plotter = Plotter(metrics_list, labels=labels)
+        plotter.plot_grouped_by_model()
+    else:
+        print("No matching evaluation and diversity results found.")
+
 if __name__ == '__main__':
-    # Example usage:
-    # Create multiple EvaluationMetrics instances. They can use the same or different JSON files.
-    metrics1 = EvaluationMetrics(
-        evaluation_filename='evaluation_results.json', 
-        diversity_filename='diversity_evaluation.json'
-    )
-    metrics2 = EvaluationMetrics(
-        evaluation_filename='evaluation_results.json', 
-        diversity_filename='diversity_evaluation.json'
-    )
-
-    evaluation_metrics_list = [metrics1, metrics2]
-    labels = ["Model1", "Model2"]
-
-    # Initialize the plotter with the list of evaluation metric objects and plot the grouped scores.
-    plotter = Plotter(evaluation_metrics_list, labels)
-    plotter.plot_grouped_by_model()
+    artifacts_directory = 'src/artifacts' 
+    plot_from_artifacts(artifacts_directory)

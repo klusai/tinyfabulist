@@ -67,7 +67,6 @@ class EvaluationMetrics:
         try:
             entries = DataManager.read_json_file(self._diversity_filename)
             diversity_score = int(float(entries['diversity_evaluation']['diversity_score']) * 10)
-            print(diversity_score)
             return diversity_score
         except (KeyError, ValueError, TypeError) as e:
             print(f"Error retrieving diversity score from {self._diversity_filename}: {e}")
