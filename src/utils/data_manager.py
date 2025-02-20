@@ -7,7 +7,7 @@ import csv
 class DataManager:
     def __init__(self, csv_path=None, yaml_path=None):
         """
-        Initialize the FableManager with paths to the CSV and YAML files.
+        Initialize the DataManager with paths to the CSV and YAML files.
 
         Args:
             csv_path (str): Path to the CSV file containing fable data.
@@ -16,6 +16,27 @@ class DataManager:
         self.csv_path = csv_path
         self.yaml_path = yaml_path
 
+    def read_from_csv(file_path: str):
+        """
+        Reads a CSV file and returns its content as a list of dictionaries.
+
+        Args:
+            file_path (str): Path to the CSV file.
+
+        Returns:
+            list[dict]: List of dictionaries representing each row in the CSV file.
+        """
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"CSV file '{file_path}' does not exist.")
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as csv_file:
+                reader = csv.DictReader(csv_file)
+                return list(reader)
+        except Exception as e:
+            print(f"Error reading CSV file '{file_path}': {e}")
+            return []
+
     def load_fables_from_csv(self):
         """
         Reads fables from the CSV file and extracts necessary fields.
@@ -23,14 +44,11 @@ class DataManager:
         Returns:
             list[dict]: A list of dictionaries with fable details.
         """
-        if not os.path.exists(self.csv_path):
-            raise FileNotFoundError(f"CSV file '{self.csv_path}' does not exist.")
+        rows = self.read_from_csv(self.csv_path)
 
         fables = []
-        with open(self.csv_path, "r", encoding="utf-8") as csv_file:
-            reader = csv.DictReader(csv_file)
-            for row in reader:
-                # Parse the YAML string in the "fable_config" field into a dictionary.
+        for row in rows:
+            try:
                 fable_config = yaml.safe_load(row["fable_config"])
                 fables.append({
                     "character": fable_config["character"],
@@ -41,29 +59,39 @@ class DataManager:
                     "moral": fable_config["moral"],
                     "generated_fab": row["fable_text_en"]
                 })
+            except yaml.YAMLError as e:
+                print(f"Error parsing YAML in row {row}: {e}")
+
         return fables
 
-    def update_yaml_with_fables(self, fables):
+    def update_yaml(self, new_data: dict):
         """
-        Updates the YAML configuration file by replacing its 'data' section with the provided fables.
+        Updates the YAML file with new data.
 
         Args:
-            fables (list[dict]): A list of fable dictionaries.
+            new_data (dict): The new data to update in the YAML file.
         """
         if not os.path.exists(self.yaml_path):
             raise FileNotFoundError(f"YAML file '{self.yaml_path}' does not exist.")
 
-        # Load the existing YAML configuration.
         with open(self.yaml_path, "r", encoding="utf-8") as yaml_file:
-            config = yaml.safe_load(yaml_file)
+            config = yaml.safe_load(yaml_file) or {}
 
-        # Update the "data" section with the new fables.
-        config["data"] = fables
+        config.update(new_data)
 
-        # Write the updated configuration back to the YAML file.
         with open(self.yaml_path, "w", encoding="utf-8") as yaml_file:
             yaml.dump(config, yaml_file, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
+        print(f"Updated {self.yaml_path} with new data.")
+
+    def update_yaml_with_fables(self, fables):
+        """
+        Updates the YAML configuration file by replacing its 'data' section with fables.
+
+        Args:
+            fables (list[dict]): A list of fable dictionaries.
+        """
+        self.update_yaml({"data": fables})
         print(f"Updated {self.yaml_path} with {len(fables)} fables.")
 
     def load_fables_from_yaml(self, num_fables):
@@ -76,11 +104,36 @@ class DataManager:
         Returns:
             list[str]: A list of generated fable texts.
         """
-        with open(self.yaml_path, "r", encoding="utf-8") as yaml_file:
-            config = yaml.safe_load(yaml_file)
+        config = self.read_yaml(self.yaml_path)
+        return [entry["generated_fab"] for entry in config.get("data", [])[:num_fables]] if config else []
 
-        fables = [entry["generated_fab"] for entry in config.get("data", [])[:num_fables]]
-        return fables
+    @staticmethod
+    def extract_data_from_json(response_text: str):
+        """
+        Extracts a JSON-like structure and any additional comments from a response text.
+
+        Args:
+            response_text (str): The evaluator's response text.
+
+        Returns:
+            tuple (dict or None, str): Parsed JSON data (or None if not found) and extracted comments.
+        """
+        try:
+            json_match = re.search(r'\{[\s\S]*\}', response_text)
+            if json_match:
+                json_text = json_match.group(0).strip()
+                parsed_json = json.loads(json_text)
+                
+                # Extract additional comments (anything after the JSON structure)
+                end_of_json = response_text.rindex('}') + 1
+                comments = response_text[end_of_json:].strip()
+                
+                return parsed_json, comments if comments else "No additional comments provided."
+            else:
+                return None, "No valid JSON found in response."
+        except json.JSONDecodeError as e:
+            print(f"Error extracting JSON: {e}\nResponse text:\n{response_text}")
+            return None, "No additional comments provided."
 
     @staticmethod
     def extract_json_from_response(response_text: str):
@@ -93,17 +146,8 @@ class DataManager:
         Returns:
             dict or None: Parsed JSON data if extraction is successful, else None.
         """
-        try:
-            json_match = re.search(r'\{[\s\S]*\}', response_text)
-            if json_match:
-                json_text = json_match.group(0).strip()
-                return json.loads(json_text)
-            else:
-                print("No valid JSON found in response.")
-                return None
-        except json.JSONDecodeError as e:
-            print(f"Error extracting JSON: {e}\nResponse text:\n{response_text}")
-            return None
+        parsed_json, _ = DataManager.extract_data_from_json(response_text)
+        return parsed_json
 
     @staticmethod
     def extract_additional_comments(response_text: str) -> str:
@@ -116,132 +160,104 @@ class DataManager:
         Returns:
             str: The extracted comments or a default message.
         """
-        try:
-            end_of_json = response_text.rindex('}') + 1
-            comments = response_text[end_of_json:].strip()
-            return comments if comments else "No additional comments provided."
-        except ValueError:
-            return "No additional comments provided."
+        _, comments = DataManager.extract_data_from_json(response_text)
+        return comments
 
     @staticmethod
-    def save_diversity_scores(fables, evaluation_data, output_file: str):
+    def save_to_json(data, file_path: str, append: bool = False):
         """
-        Saves diversity evaluation results to a JSON file.
+        Saves or appends data to a JSON file.
 
         Args:
-            fables (list): List of fable texts.
-            evaluation_data (dict): The diversity evaluation data.
-            output_file (str): Path to the output file.
-        """
-        print("Saving diversity scores to JSON...")
-        diversity_results = {
-            "fables": fables,
-            "diversity_evaluation": evaluation_data
-        }
-        with open(output_file, "w", encoding="utf-8") as json_file:
-            json.dump(diversity_results, json_file, indent=4, ensure_ascii=False)
-        print(f"Diversity evaluation saved to {output_file}")
-
-    @staticmethod
-    def append_to_json_file(file_path: str, entry: dict) -> None:
-        """
-        Appends a dictionary entry to a JSON file.
-        If the file doesn't exist or is invalid, a new list is created.
-
-        Args:
-            file_path (str): Path to the JSON file.
-            entry (dict): Dictionary entry to append.
+            data (dict or list): The data to save.
+            file_path (str): Path to the output JSON file.
+            append (bool): Whether to append data to an existing JSON file.
         """
         try:
-            if os.path.exists(file_path):
-                with open(file_path, "r") as f:
+            if append and os.path.exists(file_path):
+                with open(file_path, "r", encoding="utf-8") as file:
                     try:
-                        data = json.load(f)
-                        if not isinstance(data, list):
-                            data = [data]
+                        existing_data = json.load(file)
+                        if not isinstance(existing_data, list):
+                            existing_data = [existing_data]
                     except json.JSONDecodeError:
-                        data = []
-            else:
-                data = []
+                        existing_data = []
+                data = existing_data + ([data] if isinstance(data, dict) else data)
 
-            data.append(entry)
+            with open(file_path, "w", encoding="utf-8") as file:
+                json.dump(data, file, indent=4, ensure_ascii=False)
 
-            with open(file_path, "w") as f:
-                json.dump(data, f, indent=4)
-            print(f"Entry successfully appended to {file_path}")
+            print(f"Data successfully saved to {file_path}")
         except Exception as e:
-            print(f"Failed to append entry to {file_path}: {e}")
+            print(f"Error saving to {file_path}: {e}")
+
+    def save_diversity_scores(self, fables, evaluation_data, output_file: str):
+        """Saves diversity evaluation results to a JSON file."""
+        self.save_to_json({"fables": fables, "diversity_evaluation": evaluation_data}, output_file)
+
+    def append_to_json_file(self, file_path: str, entry: dict):
+        """Appends a dictionary entry to a JSON file."""
+        self.save_to_json(entry, file_path, append=True)
+
+    @staticmethod
+    def write_to_csv(data: list[dict], output_file: str, fieldnames: list[str]):
+        """
+        Writes a list of dictionaries to a CSV file.
+
+        Args:
+            data (list[dict]): List of dictionaries to write.
+            output_file (str): Path to the CSV output file.
+            fieldnames (list[str]): List of column names for the CSV file.
+        """
+        try:
+            with open(output_file, mode="w", newline="", encoding="utf-8") as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(data)
+            print(f"CSV data successfully saved to {output_file}")
+        except Exception as e:
+            print(f"Error writing to CSV file '{output_file}': {e}")
 
     @staticmethod
     def write_fables_to_csv(meta_rows, output_file):
-        """Writes the generated fables with metadata to a CSV file."""
+        """
+        Writes the generated fables with metadata to a CSV file.
+
+        Args:
+            meta_rows (list[dict]): List of fables with metadata.
+            output_file (str): Path to the CSV output file.
+        """
         fieldnames = [
-            "fable_config",
-            "fable_prompt",
-            "fable_text_en",
-            "llm_name",
-            "llm_input_tokens",
-            "llm_output_tokens",
-            "llm_inference_time",
-            "llm_inference_cost_usd",
-            "host_provider",
-            "host_dc_provider",
-            "host_dc_location",
-            "host_gpu",
-            "host_gpu_vram",
-            "host_cost_per_hour",
-            "generation_datetime",
-            "pipeline_version"
+            "fable_config", "fable_prompt", "fable_text_en", "llm_name",
+            "llm_input_tokens", "llm_output_tokens", "llm_inference_time",
+            "llm_inference_cost_usd", "host_provider", "host_dc_provider",
+            "host_dc_location", "host_gpu", "host_gpu_vram", "host_cost_per_hour",
+            "generation_datetime", "pipeline_version"
         ]
 
-        with open(output_file, mode="w", newline="", encoding="utf-8") as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in meta_rows:
+        # Convert `fable_config` from dict to JSON string format for CSV storage
+        for row in meta_rows:
+            if isinstance(row.get("fable_config"), dict):
                 row["fable_config"] = json.dumps(row["fable_config"])
-                writer.writerow(row)
 
-        print(f"Fables with metadata have been saved to {output_file}")
+        DataManager.write_to_csv(meta_rows, output_file, fieldnames)
 
     @staticmethod
     def read_json_file(filename: str) -> dict | None:
-        """
-        Reads a JSON file and returns its content as a dictionary.
-
-        Args:
-            filename (str): The path to the JSON file.
-
-        Returns:
-            dict | None: The content of the JSON file as a dictionary, or None if an error occurs.
-        """
+        """Reads a JSON file and returns its content as a dictionary."""
         try:
             with open(filename, 'r', encoding='utf-8') as file:
                 return json.load(file)
-        except FileNotFoundError:
-            print(f"Error: The file '{filename}' was not found.")
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Error reading JSON file '{filename}': {e}")
             return None
-        except json.JSONDecodeError as e:
-            print(f"Error: The file '{filename}' contains invalid JSON: {e}")
-            return None
-        except Exception as e:
-            print(f"An unexpected error occurred while reading '{filename}': {e}")
-            return None
-        
+
     @staticmethod
     def read_yaml(file_path: str):
-        """
-        Reads the YAML file containing AI model configurations.
-
-        Args:
-            file_path (str): The path to the YAML file.
-
-        Returns:
-            dict: Parsed YAML content as a dictionary.
-        """
+        """Reads the YAML file containing AI model configurations."""
         try:
             with open(file_path, 'r') as file:
-                config = yaml.safe_load(file)
-            return config
+                return yaml.safe_load(file)
         except Exception as e:
-            print(f"Error reading YAML file: {e}")
+            print(f"Error reading YAML file '{file_path}': {e}")
             return None
