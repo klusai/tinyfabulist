@@ -140,7 +140,8 @@ def generate_prompts(config: Dict[str, Any], count: int = 10, randomize: bool = 
                 used_combinations.add(combination)
                 char, trait, setting, conflict, resolution, moral = combination
                 context = {
-                    'character': f"{trait} {char}",
+                    'character': char,
+                    'trait': trait,
                     'setting': setting,
                     'conflict': conflict,
                     'resolution': resolution,
@@ -158,7 +159,8 @@ def generate_prompts(config: Dict[str, Any], count: int = 10, randomize: bool = 
             moral = features['morals'][idx % len(features['morals'])]
             
             context = {
-                'character': f"{trait} {char}",
+                'trait': trait,
+                'character': char,
                 'setting': setting,
                 'conflict': conflict,
                 'resolution': resolution,

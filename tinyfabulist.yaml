@@ -615,8 +615,8 @@ generator:
         - Structured around a classic fable format (character, setting, conflict, resolution, and moral).
     fable: |
       Create a fable based on the following elements. Weave them naturally into a story:
-        - Main Character: A {{trait}} {{character}}
-        - Setting: A {{setting}} where our story unfolds
+        - Main Character: a {{trait}} {{character}}
+        - Setting: a {{setting}} where our story unfolds
         - Challenge: {{conflict}}
         - Outcome: {{resolution}}
         - Teaching: {{moral}}
