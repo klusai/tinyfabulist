@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+temp/
 build/
 develop-eggs/
 dist/
@@ -169,3 +170,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+ai_models.yaml
