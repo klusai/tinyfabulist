@@ -1,0 +1,637 @@
+generator:
+  features:
+    characters:
+      - fox
+      - lion
+      - crow
+      - wolf
+      - hare
+      - tortoise
+      - owl
+      - mouse
+      - deer
+      - bear
+      - stork
+      - goat
+      - dog
+      - monkey
+      - eagle
+      - snake
+      - sheep
+      - tiger
+      - dolphin
+      - ant
+      - donkey
+      - cat
+      - rooster
+      - frog
+      - beaver
+      - swan
+      - bull
+      - zebra
+      - giraffe
+      - rhinoceros
+      - hippopotamus
+      - crocodile
+      - whale
+      - shark
+      - penguin
+      - goose
+      - parrot
+      - horse
+      - scorpion
+      - buffalo
+      - ostrich
+      - camel
+      - flamingo
+      - kangaroo
+      - koala
+      - platypus
+      - raccoon
+      - squirrel
+      - hedgehog
+      - badger
+      - mole
+      - hyena
+      - octopus
+      - crab
+      - lobster
+      - starfish
+      - seal
+      - walrus
+      - yak
+      - reindeer
+      - moose
+      - skunk
+      - pig
+      - boar
+      - fish
+      - shrimp
+      - bat
+      - chameleon
+      - gecko
+      - gorilla
+      - orangutan
+      - puma
+      - jaguar
+      - leopard
+      - cheetah
+      - cormorant
+      - pelican
+      - hummingbird
+      - cardinal
+      - robin
+      - hawk
+      - falcon
+      - vulture
+      - duck
+      - woodpecker
+      - magpie
+      - seagull
+      - stoat
+      - ferret
+      - worm
+      - spider
+      - butterfly
+      - moth
+      - honeybee
+      - wasp
+      - beetle
+      - cricket
+      - grasshopper
+      - ladybug
+      - firefly
+    traits:
+      - kind
+      - vicious
+      - clever
+      - loyal
+      - cunning
+      - wise
+      - patient
+      - timid
+      - proud
+      - greedy
+      - heroic
+      - curious
+      - mischievous
+      - friendly
+      - protective
+      - resourceful
+      - empathetic
+      - deceitful
+      - stubborn
+      - daring
+      - cautious
+      - brave
+      - naive
+      - thoughtful
+      - industrious
+      - determined
+      - fearless
+      - compassionate
+      - ambitious
+      - restless
+      - serious
+      - lazy
+      - impulsive
+      - reckless
+      - thrifty
+      - honest
+      - diplomatic
+      - savage
+      - arrogant
+      - benevolent
+      - bold
+      - calm
+      - charitable
+      - cheerful
+      - clumsy
+      - conceited
+      - cooperative
+      - courageous
+      - crafty
+      - cruel
+      - cultured
+      - defiant
+      - dependable
+      - devoted
+      - dignified
+      - discerning
+      - disciplined
+      - disloyal
+      - discreet
+      - dramatic
+      - eccentric
+      - enchanting
+      - energetic
+      - enthusiastic
+      - ethical
+      - forgiving
+      - forthright
+      - generous
+      - gracious
+      - gullible
+      - helpful
+      - humble
+      - imprudent
+      - indecisive
+      - independent
+      - insolent
+      - joyful
+      - just
+      - manipulative
+      - modest
+      - moody
+      - noble
+      - obedient
+      - observant
+      - optimistic
+      - outspoken
+      - passionate
+      - perceptive
+      - persevering
+      - persistent
+      - persuasive
+      - polite
+      - prudent
+      - rebellious
+      - relentless
+      - reserved
+      - ruthless
+      - sensible
+      - sincere
+      - sympathetic
+    settings:
+      - forest
+      - savanna
+      - orchard
+      - desert
+      - jungle
+      - mountains
+      - seashore
+      - riverbank
+      - village
+      - farmer's field
+      - meadow
+      - city outskirts
+      - swamp
+      - cave
+      - countryside
+      - garden
+      - snowy tundra
+      - bamboo grove
+      - castle courtyard
+      - rainforest
+      - underwater reef
+      - deep ocean
+      - coral reef
+      - tropical island
+      - arctic ice floe
+      - volcanic plain
+      - grassland
+      - steppe
+      - canyon
+      - cliffside
+      - lagoon
+      - marsh
+      - farmland
+      - marketplace
+      - temple ruins
+      - ancient ruins
+      - desert oasis
+      - abandoned warehouse
+      - haunted woods
+      - mystical lake
+      - fishing village
+      - mountain peak
+      - glacier
+      - polar region
+      - tropical coastline
+      - rolling hills
+      - dense underbrush
+      - remote hamlet
+      - foggy moor
+      - ancient temple
+      - floating island
+      - hidden valley
+      - dusty plateau
+      - rocky shoreline
+      - flower field
+      - enchanted grove
+      - wind-swept dunes
+      - treetop village
+      - undersea kingdom
+      - moonlit clearing
+      - abandoned fortress
+      - ruined castle
+      - bustling port
+      - winding river
+      - deep cavern
+      - steamy hot spring
+      - old library
+      - enchanted castle
+      - abandoned mine
+      - hanging bridge
+      - floating market
+      - desolate wasteland
+      - mysterious labyrinth
+      - magical forest
+      - abandoned shipyard
+      - cliff-top fortress
+      - windswept plains
+      - harbor town
+      - sunken temple
+      - abandoned church
+      - pirate cove
+      - mermaid lagoon
+      - rain-soaked cliff
+      - poisonous swamp
+      - enchanted greenhouse
+      - crystal cavern
+      - floating cloud city
+      - blazing desert
+      - frozen wasteland
+      - mossy temple
+      - shimmering lagoon
+      - shrouded glen
+      - crumbling monastery
+      - flying fortress
+      - overgrown garden
+      - abandoned carnival
+      - mysterious grotto
+      - deserted village
+      - cliffside shrine
+      - enchanted waterfall
+    conflicts:
+      - helping someone in need
+      - protecting a smaller animal
+      - overcoming jealousy
+      - stealing food
+      - selfishness vs. generosity
+      - betrayal by a friend
+      - trickery and deception
+      - overconfidence leads to trouble
+      - arrogance vs. humility
+      - a broken promise
+      - a test of loyalty
+      - sharing limited resources
+      - rivalry over territory
+      - a misunderstanding that leads to conflict
+      - insecurity about oneself
+      - facing a new threat or predator
+      - defending one's home or family
+      - breaking the rules for personal gain
+      - gossip and rumors
+      - struggling with greed
+      - refusal to cooperate
+      - leadership struggle
+      - fighting over an inheritance
+      - fear of the unknown
+      - jealousy of a new friend
+      - broken trust
+      - a hidden agenda
+      - competing for a scarce resource
+      - defying tradition
+      - a false accusation
+      - dealing with a bully
+      - rumors leading to chaos
+      - sacrifice for the greater good
+      - standing up against injustice
+      - unrequited love
+      - a secret revealed
+      - sabotage from within
+      - misguided revenge
+      - harmful competition
+      - conflict over territory boundaries
+      - accident that causes blame
+      - defending the weak
+      - ethical dilemma
+      - regret over a past mistake
+      - envy of another's success
+      - identity crisis
+      - ignoring wise advice
+      - miscommunication leading to a rift
+      - a prophecy that causes fear
+      - fighting prejudice
+      - fear of change
+      - refusal to accept help
+      - searching for lost treasure
+      - dishonesty leads to suspicion
+      - secret alliances
+      - moral compromise
+      - obsession with perfection
+      - pressure from peers
+      - hidden fear of failure
+      - dealing with harsh weather
+      - forced partnership with a rival
+      - a friend turned enemy
+      - standing up to a tyrant
+      - a test of patience
+      - unexpected betrayal
+      - scapegoating an innocent
+      - overshadowed by a sibling
+      - regret after a hasty decision
+      - a bounty placed on someone
+      - forging a fragile truce
+      - revenge for a past wrong
+      - navigating cultural differences
+      - unexpected leadership
+      - saving a life at personal risk
+      - dealing with a curse
+      - moral conflict between duty and desire
+      - external threat unites enemies
+      - love triangle
+      - negotiation with a sworn enemy
+      - coping with heartbreak
+      - deception uncovered
+      - resisting temptation
+      - heartbreak that fuels conflict
+      - a betrayal of confidence
+      - sabotage of a festival or event
+      - catastrophic misunderstanding
+      - unstoppable rumor
+      - shameful secret uncovered
+      - moral test in a crisis
+      - stolen identity
+      - challenge to authority
+      - mishandling of power
+      - denial of wrongdoing
+      - infiltration by a spy
+      - punishment for disobedience
+      - rivalry in love
+      - fleeing from injustice
+      - forced to confront one's fears
+      - battle of wits
+      - torn between loyalty to two sides
+    resolutions:
+      - reward
+      - gains respect
+      - found a clever way
+      - learns a lesson
+      - apologizes and is forgiven
+      - forms an unlikely friendship
+      - the community unites
+      - the cunning plan is exposed
+      - the conflict is resolved through compromise
+      - the troublemaker changes their ways
+      - the problem is solved with teamwork
+      - a hidden talent is discovered
+      - the bigger threat is overcome
+      - the victim stands up for themselves
+      - a fair trade is established
+      - they consult a wise elder
+      - they share the reward
+      - they realize their mistakes
+      - the outcome leads to personal growth
+      - they find peace in humility
+      - they part ways amicably
+      - a tradition is changed
+      - a confession reveals the truth
+      - forgiveness leads to understanding
+      - a sacrifice is recognized
+      - a beneficial alliance is formed
+      - unity through adversity
+      - the real culprit is found
+      - the antagonist redeems themselves
+      - a new rule is established to prevent conflict
+      - both sides compromise for the greater good
+      - the hero renounces reward to help others
+      - an exchange of gifts repairs friendship
+      - a lesson in empathy is learned
+      - the deceiver is outsmarted
+      - the feud ends with a handshake
+      - a wise mediator helps resolve the issue
+      - the group votes on a fair decision
+      - respect is earned through honesty
+      - the last-minute rescue changes hearts
+      - a heroic act fosters unity
+      - the villain is banished
+      - the rightful owner is restored
+      - new leadership emerges
+      - a misunderstanding is clarified
+      - unexpected kindness thaws hostility
+      - a festival is held to celebrate the peace
+      - they discover they share a common goal
+      - a vow is made to prevent future conflict
+      - an old feud is finally laid to rest
+      - an oath is honored
+      - knowledge from the wise saves the day
+      - a new perspective changes attitudes
+      - they accept each other's differences
+      - a caretaker is chosen to watch over all
+      - they vow to preserve harmony
+      - the solution is found in an ancient text
+      - they plant a tree to symbolize unity
+      - the treasure is shared among all
+      - the hero renounces violence
+      - an apology letter is read aloud
+      - a public confession clears the air
+      - a tale of caution is spread to others
+      - a peace treaty is signed
+      - they form a council to address issues
+      - the troublemaker leaves in shame
+      - a vow of friendship is renewed
+      - a joyous feast cements the resolution
+      - they pass a new law to protect the weak
+      - they dedicate a memorial to the lost
+      - the once greedy learn to share
+      - a wise judge arbitrates fairly
+      - the conflict transforms into cooperation
+      - a lesson is documented for future generations
+      - the hero is humbled by the resolution
+      - the community rebuilds together
+      - a new custom is created to celebrate unity
+      - the wrongdoing is rectified
+      - a new alliance welcomes outsiders
+      - old rivals become allies
+      - they split ways but maintain respect
+      - the bigger picture is realized
+      - mercy is granted to the defeated
+      - the offenders repay their debt
+      - a new tradition of annual peace gathering
+      - mutual respect fosters lasting friendship
+      - the wise elder's prophecy is fulfilled
+      - a final showdown ends in compromise
+      - the learning is passed on to the next generation
+      - the spirit of cooperation triumphs
+      - the error is forgiven through a heroic deed
+      - a second chance is offered
+      - the cunning plan fails, leading to humility
+      - a communal effort rebuilds what's destroyed
+      - the two sides unite against a greater threat
+      - a shared secret fosters trust
+      - they mark the day as a reminder
+      - ancient enemies sign a pact
+      - a new leader emerges from the conflict
+      - the entire community celebrates in harmony
+    morals:
+      - kindness is rewarded
+      - true strength lies in protecting others
+      - creativity solves problems
+      - honesty is the best policy
+      - friendship can overcome obstacles
+      - greed leads to downfall
+      - trust must be earned, not demanded
+      - unity is stronger than division
+      - a small act of kindness can make a big difference
+      - appearances can be deceiving
+      - patience leads to success
+      - arrogance is self-defeating
+      - compassion fosters understanding
+      - teamwork amplifies success
+      - pride blinds one to danger
+      - sharing benefits everyone
+      - listening brings wisdom
+      - forgiveness brings healing
+      - perseverance triumphs over difficulty
+      - gratitude keeps the heart humble
+      - generosity enriches the giver
+      - fear limits growth
+      - wisdom grows from mistakes
+      - respect is mutual
+      - humility earns admiration
+      - kindness transcends boundaries
+      - sincerity builds strong bonds
+      - fairness promotes harmony
+      - courage opens new paths
+      - ignorance breeds conflict
+      - empathy dissolves hatred
+      - loyalty is proven through deeds
+      - the truth surfaces eventually
+      - courtesy reflects character
+      - reliability fosters trust
+      - love conquers fear
+      - persistence finds solutions
+      - open-mindedness prevents conflict
+      - acceptance leads to unity
+      - illusions are shattered by reality
+      - justice serves all
+      - perseverance shapes destiny
+      - selflessness inspires others
+      - generosity quells greed
+      - reflection sparks growth
+      - second chances reveal new paths
+      - tolerance fosters peace
+      - honesty invites respect
+      - mistakes are stepping stones
+      - small deeds can spark great change
+      - watchfulness prevents disaster
+      - modesty preserves dignity
+      - learning never ends
+      - hopes can unite hearts
+      - rashness leads to regret
+      - gentle words quell anger
+      - empathy bridges differences
+      - truths heal deep wounds
+      - sincerity dispels suspicion
+      - acceptance fosters cooperation
+      - knowledge outlives ignorance
+      - harmony emerges from balance
+      - generosity overcomes envy
+      - one good turn deserves another
+      - wise counsel lights the way
+      - integrity defines character
+      - bravery arises from compassion
+      - envy poisons happiness
+      - sharing knowledge empowers all
+      - every challenge is a lesson
+      - resilience shapes the future
+      - regret teaches humility
+      - the golden rule prevails
+      - wise actions speak louder than boasts
+      - humility paves the path to wisdom
+      - caring for others is caring for oneself
+      - oppression sows rebellion
+      - justice balances power
+      - a kind heart finds friends
+      - mildness tames fury
+      - oppression cannot silence truth
+      - a bright mind sees beyond illusions
+      - timely help earns lasting loyalty
+      - gratitude nurtures relationships
+      - compassion reveals hidden beauty
+      - a watchful eye prevents betrayal
+      - cleverness must be guided by conscience
+      - giving fosters joy
+      - honesty outlives deceit
+      - cooperation wards off threats
+      - reflection clarifies confusion
+      - a humble spirit learns faster
+      - perseverance breaks barriers
+      - empathy softens the hardest hearts
+      - sincerity invites deep bonds
+      - perspective can change the outcome
+      - acceptance of flaws leads to harmony
+      - courtesy is never wasted
+      - second chances can rewrite destinies
+      - truth stands the test of time
+  prompt:
+    system: |
+      You are a world-class creative assistant that generates captivating and morally-driven fables based on structured inputs.
+      Each fable must be:
+        - Imaginative and coherent.
+        - Appropriate for a wide audience, including young readers.
+        - Structured around a classic fable format (character, setting, conflict, resolution, and moral).
+    fable: |
+      Create a fable based on the following elements. Weave them naturally into a story:
+        - Main Character: A {{trait}} {{character}}
+        - Setting: A {{setting}} where our story unfolds
+        - Challenge: {{conflict}}
+        - Outcome: {{resolution}}
+        - Teaching: {{moral}}
+      The fable should:
+        - Begin with vivid scene-setting
+        - Not use names for the characters, instead use the trait and character
+        - Include meaningful dialogue
+        - Show (don't tell) the character's growth
+        - End with a clear connection to the moral
+      Keep the story concise but engaging, around 250 words.
+llms:
+  hf-models:
+    llama-3-1-8b-instruct-mpp:
+      base_url: "https://wc0hhrd4qrvnp90x.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "Llama 3.1 8B Instruct"
+    deepseek-r1-distill-llama-8b-dmb:
+      base_url: "https://i479m9m7jbp0w8i4.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "DeepSeek R1 Distill Llama 8B"
