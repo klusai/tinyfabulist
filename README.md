@@ -51,5 +51,7 @@ Generate fables from a JSONL file using all available models:
 python tinyfabulist.py --generate-fables prompts.jsonl
 ```
 
-Generate fables from a JSONL file using specific models:
-
+Evaluate fables from a JSONL file using ChatGPT:
+```bash
+python tinyfabulist.py --evaluate results.jsonl
+```

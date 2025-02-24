@@ -12,6 +12,7 @@ import sys
 from openai import OpenAI
 import csv
 import threading
+from concurrent.futures import ThreadPoolExecutor  # Import ThreadPoolExecutor
 
 
 # Constants
@@ -193,7 +194,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--models', nargs='+',
                       help='Specify models to use')
     parser.add_argument('--evaluate', type=str,
-                help='Evaluate fables from a JSONL file')
+                      help='Evaluate fables from a JSONL file')
     return parser.parse_args()
 
 def read_prompts(filename: str) -> Iterator[Dict[str, Any]]:
@@ -209,9 +210,8 @@ def read_prompts(filename: str) -> Iterator[Dict[str, Any]]:
         with open(filename, 'r') as f:
             for line in f:
                 if line.strip():  # Skip empty lines
-                    prompt_list = json.loads(line)
-                    for prompt in prompt_list:  # Each line contains a list of prompts
-                        yield prompt
+                    data = json.loads(line)
+                    yield data
     except FileNotFoundError:
         logger.error(f"Prompt file '{filename}' not found")
         raise ConfigError(f"Prompt file '{filename}' not found")
@@ -347,7 +347,7 @@ def evaluate_fable(fable: str) -> str:
         str: The evaluation result from OpenAI.
     """
     try:
-        client = OpenAI(api_key=config('OPENAI_TOKEN'))  
+        client = OpenAI(api_key=config('OPENAI_TOKEN'))  # Use default base URL
 
         evaluation_prompt = f"""
         Please evaluate the following fable based on its creativity, coherence, 
@@ -359,7 +359,7 @@ def evaluate_fable(fable: str) -> str:
         """
 
         chat_completion = client.chat.completions.create(
-            model="gpt-4o", 
+            model="gpt-3.5-turbo",  # Or another suitable GPT model
             messages=[
                 {"role": "system", "content": "You are a fable critic providing grades."},
                 {"role": "user", "content": evaluation_prompt}
@@ -373,7 +373,6 @@ def evaluate_fable(fable: str) -> str:
     except Exception as e:
         logger.error(f"OpenAI API error during evaluation: {e}")
         return f"Error evaluating fable: {e}"
-    
 
 def main() -> None:
     """Main entry point for the script"""
@@ -440,21 +439,19 @@ def main() -> None:
             elapsed_time = end_time - start_time
             logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")  # Log elapsed time
         elif args.evaluate:
-                # Read and parse the JSONL file
-                with open(args.evaluate, 'r') as file:
-                    lines = file.readlines()
+            # Read fables from the specified JSONL file
+            fables_to_evaluate = list(read_prompts(args.evaluate))
 
-                # Parse each line as a JSON object
-                fables_to_evaluate = [json.loads(line) for line in lines]
+            # Evaluate each fable
+            for fable_data in fables_to_evaluate:
+                if 'fable' in fable_data:
+                    fable_text = fable_data['fable']
+                    evaluation = evaluate_fable(fable_text)
+                    logger.info(f"Fable Evaluation:\n{evaluation}")
+                    print(f"Fable:\n{fable_text}\nEvaluation:\n{evaluation}/10\n{'-'*80}")
+                else:
+                    logger.warning(f"Skipping entry due to missing 'fable' key: {fable_data}")
 
-                for fable_data in fables_to_evaluate:
-                    if 'fable' in fable_data:
-                        model = fable_data['model']
-                        fable_text = fable_data['fable']
-                        evaluation = evaluate_fable(fable_text)
-                        logger.info(f"model:{model} | evaluation:{evaluation}/10\n{'-'*80}")
-                    else:
-                        logger.warning(f"Skipping entry due to missing 'fable' key: {fable_data}")
         else:
             logger.error("No action specified. Use --generate-prompts or --generate-fables")
             sys.exit(1)
