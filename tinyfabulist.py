@@ -1,3 +1,4 @@
+import time
 import yaml
 from pybars import Compiler
 from itertools import product
@@ -10,6 +11,8 @@ import json
 import sys
 from openai import OpenAI
 import csv
+import threading
+
 
 # Constants
 CONFIG_FILE = 'tinyfabulist.yaml'
@@ -303,10 +306,42 @@ def write_output(system_prompt: str, fable_templates: List[str], output_format: 
         for i, template in enumerate(fable_templates, 1):
             print(f"\n{i}. {template}")
 
+
+def generate_fable_threaded(model_name: str, model_config: Dict[str, Any], prompt: str, system_prompt: str, all_fables: List[Dict[str, str]], lock: threading.Lock) -> None:
+    """
+    Generates a fable in a separate thread.
+
+    Args:
+        model_name: The name of the model being used.
+        model_config: The configuration for the model.
+        prompt: The fable prompt.
+        system_prompt: The system prompt.
+        all_fables: A list to store the generated fables.
+        lock: A thread lock to protect access to the shared list.
+    """
+    try:
+        fable = generate_fable(
+            system_prompt=system_prompt,
+            fable_prompt=prompt,
+            base_url=model_config['base_url']
+        )
+        with lock:
+            all_fables.append({
+                'model': model_config['name'],
+                'prompt': prompt,
+                'fable': fable
+            })
+        logger.info(f"Generated fable for prompt: {prompt[:50]}... using model {model_name}")
+    except Exception as e:
+        logger.error(f"Error generating fable in thread: {e}")
+
+
 def main() -> None:
     """Main entry point for the script"""
     args = parse_args()
-    
+
+    start_time = time.time()
+
     try:
         if args.generate_prompts:
             settings = load_settings()
@@ -318,57 +353,62 @@ def main() -> None:
             write_output(system_prompt, fable_templates, args.output)
         elif args.generate_fables:
             settings = load_settings()
-            
+
             # Get available models from settings
             available_models = settings.get('llms', {}).get('hf-models', {})
             if not available_models:
                 raise ConfigError("No models found in configuration")
-            
+
             # If no models specified, use all available
             models_to_use = args.models if args.models else list(available_models.keys())
-            
+
             # Validate requested models
             invalid_models = [m for m in models_to_use if m not in available_models]
             if invalid_models:
                 raise ConfigError(f"Invalid models: {', '.join(invalid_models)}")
-            
+
             # Read and process prompts
             prompts = list(read_prompts(args.generate_fables))
-            system_prompt = next(p['content'] for p in prompts 
-                               if p['prompt_type'] == 'system_prompt')
-            fable_prompts = [p['content'] for p in prompts 
-                           if p['prompt_type'] == 'generator_prompt']
-            
+            system_prompt = next((p['content'] for p in prompts if p['prompt_type'] == 'system_prompt'), None)
+            fable_prompts = [p['content'] for p in prompts if p['prompt_type'] == 'generator_prompt']
+
+            if not system_prompt:
+                raise ConfigError("No system prompt found in prompt file.")
+
             # Generate fables for each model
             all_fables = []
+            threads = []
+            lock = threading.Lock()  # Create a lock for thread-safe access to all_fables
+
             for model_name in models_to_use:
                 model_config = available_models[model_name]
                 logger.info(f"Generating fables using model: {model_config['name']}")
-                
+
                 for prompt in fable_prompts:
-                    fable = generate_fable(
-                        system_prompt=system_prompt,
-                        fable_prompt=prompt,
-                        base_url=model_config['base_url']  # Pass the base_url from model config
-                    )
-                    all_fables.append({
-                        'model': model_config['name'],
-                        'prompt': prompt,
-                        'fable': fable
-                    })
-                    logger.info(f"Generated fable for prompt: {prompt[:50]}...")
-            
+                    # Create a new thread for each fable generation
+                    thread = threading.Thread(target=generate_fable_threaded,
+                                              args=(model_name, model_config, prompt, system_prompt, all_fables, lock))
+                    threads.append(thread)
+                    thread.start()
+
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.join()
+
             write_fables(all_fables, args.output)
+            
+            end_time = time.time()  # Record end time
+            elapsed_time = end_time - start_time
+            logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")  # Log elapsed time
         else:
             logger.error("No action specified. Use --generate-prompts or --generate-fables")
             sys.exit(1)
-            
+
     except TinyFabulistError as e:
         logger.error(f"Configuration error: {e}")
         sys.exit(1)
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         sys.exit(1)
-
 if __name__ == "__main__":
     main()
