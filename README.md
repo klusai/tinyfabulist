@@ -42,7 +42,7 @@ TinyFabulist is a Python-based fable generation system that:
 Generate 10 random fable prompts in text format:
 
 ```bash
-python tinyfabulist.py --generate-prompts --count 10 > prompts.jsonl
+python tinyfabulist.py --generate-prompts --count 10 --output jsonl > prompts.jsonl
 ```
 
 Generate fables from a JSONL file using all available models:
