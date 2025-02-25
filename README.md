@@ -38,20 +38,118 @@ TinyFabulist is a Python-based fable generation system that:
    - Moral education resources
 
 ## Usage Examples
+Below is a usage guide for the `tinyfabulist.py` file, which serves as the main entry point for both generating and evaluating fables. This file uses subcommands to separate functionality.
 
-Generate 10 random fable prompts in text format:
+---
 
-```bash
-python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl > prompts.jsonl
-```
-
-Generate fables from a JSONL file using all available models:
+Run the script with one of the two subcommands: **generate** or **evaluate**.
 
 ```bash
-python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl 
+python tinyfabulist.py <command> [options]
 ```
 
-Evaluate fables from a JSONL file using ChatGPT:
-```bash
-python tinyfabulist.py evaluate --jsonl results.jsonl
-```
+---
+
+## Subcommands and Their Arguments
+
+### 1. **generate**
+
+This subcommand is used to either generate fable prompts or generate complete fables based on a JSONL prompt file.
+
+#### Arguments for `generate`:
+
+- `--generate-prompts`  
+  *Description:* Generate fable prompts only.  
+  *Example:*  
+  ```bash
+  python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl > prompts.jsonl
+  ```
+
+- `--generate-fables <file>`  
+  *Type:* `str`  
+  *Description:* Generate complete fables from the provided JSONL prompt file.  
+  *Example:*  
+  ```bash
+  python tinyfabulist.py generate --generate-fables prompts.jsonl --output text
+  ```
+
+- `--randomize`  
+  *Description:* Randomize the selection of story elements (characters, traits, settings, etc.).  
+  *Example:*  
+  ```bash
+  python tinyfabulist.py generate --generate-prompts --randomize --count 20
+  ```
+
+- `--output <format>`  
+  *Choices:* `text`, `jsonl`, `csv`  
+  *Default:* `text`  
+  *Description:* Set the output format for generated prompts or fables.  
+  *Example:*  
+  ```bash
+  python tinyfabulist.py generate --generate-fables prompts.jsonl --output csv
+  ```
+
+- `--output-file <file>`  
+  *Type:* `str`  
+  *Default:* `results.jsonl`  
+  *Description:* This file is used to load existing hashes to avoid duplicate fable generation.  
+  *Example:*  
+  ```bash
+  python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --output-file my_fables.jsonl
+  ```
+
+- `--count <number>`  
+  *Type:* `int`  
+  *Default:* `100`  
+  *Description:* Number of fable prompts to generate (used only when `--generate-prompts` is specified).  
+  *Example:*  
+  ```bash
+  python tinyfabulist.py generate --generate-prompts --count 50
+  ```
+
+- `--models <model_names>`  
+  *Type:* List of strings (`nargs='+'`)  
+  *Description:* Specify which LLM models (as defined in your configuration) to use for generating fables. If not provided, all available models in the configuration are used.  
+  *Example:*  
+  ```bash
+  python tinyfabulist.py generate --generate-fables prompts.jsonl --models model1 model2
+  ```
+
+---
+
+### 2. **evaluate**
+
+This subcommand is used to evaluate already generated fables from a JSONL file.
+
+#### Arguments for `evaluate`:
+
+- `--evaluate <file>`  
+  *Type:* `str`  
+  *Required:* Yes  
+  *Description:* Path to the JSONL file containing the fables to evaluate.  
+  *Example:*  
+  ```bash
+  python tinyfabulist.py evaluate --evaluate results.jsonl
+  ```
+
+---
+
+## Full Examples
+
+1. **Generating Fable Prompts in JSONL Format:**
+
+   ```bash
+   python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl > prompts.jsonl
+   ```
+
+2. **Generating Fables from a Prompt File with Deduplication (Using Specific Models):**
+
+   ```bash
+   python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --output-file results.jsonl --models model1 model2
+   ```
+
+3. **Evaluating Generated Fables:**
+
+   ```bash
+   python tinyfabulist.py evaluate --jsonl results.jsonl
+   ```
