@@ -1,4 +1,5 @@
 import json
+import sys
 from decouple import config
 from openai import OpenAI
 import yaml
@@ -22,44 +23,78 @@ def load_settings() -> dict:
         logger.error(f"Error parsing YAML file: {e}")
         raise ConfigError(f"Invalid YAML format: {e}")
 
-def evaluate_fable(fable: str) -> str:
+def evaluate_fable(fable: str) -> dict:
+    """
+    Evaluates a fable on three criteria: grammar, creativity, and consistency.
+    The model is instructed to respond with a JSON object with keys "grammar",
+    "creativity", and "consistency", each having a grade from 1 to 10.
+    """
     try:
-        client = OpenAI(api_key=config('OPENAI_TOKEN'))
+        client = OpenAI(api_key=config('OPENAI_API_KEY'))
         evaluation_prompt = f"""
-        Please evaluate the following fable based on its creativity, coherence, 
-        and moral lesson. Provide a grade from 1 to 10 (inclusive), where 1 is very poor and 10 is excellent.
-        Respond with the grade only.
+            Please evaluate the following fable and return a JSON object with the following format:
 
-        Fable:
-        {fable}
-        """
+            {{
+                "type": "Fable Evaluation",
+                "explanation": [
+                    "Explanation for the grammar score.",
+                    "Explanation for the creativity score.",
+                    "Explanation for the consistency score."
+                ]
+                "grammar": <grade between 1 and 10>,
+                "creativity": <grade between 1 and 10>,
+                "consistency": <grade between 1 and 10>,
+            }}
+
+            Fable:
+            {fable}"""
         chat_completion = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a fable critic providing grades."},
+                {"role": "system", "content": "You are a fable critic providing detailed evaluations. Ensure that your entire response is under 300 tokens"},
                 {"role": "user", "content": evaluation_prompt}
             ],
-            max_tokens=10,
+            max_tokens=350,
             temperature=0.0
         )
         evaluation_text = chat_completion.choices[0].message.content.strip()
-        return evaluation_text
+
+        #remove first and last line of chatgpt answer
+        evaluation_text = "\n".join(evaluation_text.split("\n")[1:-1])
+
+        evaluation_json = json.loads(evaluation_text)
+        return evaluation_json
     except Exception as e:
         logger.error(f"OpenAI API error during evaluation: {e}")
-        return f"Error evaluating fable: {e}"
+        return {"error": f"Error evaluating fable: {e}"}
 
 def run_evaluate(args) -> None:
+    results = []
     with open(args.jsonl, 'r') as file:
         lines = file.readlines()
+
     fables_to_evaluate = [json.loads(line) for line in lines]
     for fable_data in fables_to_evaluate:
         if 'fable' in fable_data:
             model = fable_data['model']
+            hash_value = fable_data['hash']
+
             fable_text = fable_data['fable']
             evaluation = evaluate_fable(fable_text)
-            logger.info(f"model: {model} | evaluation: {evaluation}/10\n{'-'*80}")
+
+            result = {
+                "model": model,
+                "evaluation": evaluation,
+                "hash": hash_value
+            }
+            print(result)
+            results.append(result)
         else:
             logger.warning(f"Skipping entry due to missing 'fable' key: {fable_data}")
+    
+    for res in results:
+        json.dump(res, sys.stdout)
+        sys.stdout.write('\n')
 
 def add_evaluate_subparser(subparsers) -> None:
     eval_parser = subparsers.add_parser('evaluate', help='Evaluate generated fables')
