@@ -635,3 +635,14 @@ llms:
     deepseek-r1-distill-llama-8b-dmb:
       base_url: "https://i479m9m7jbp0w8i4.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
       name: "DeepSeek R1 Distill Llama 8B"
+    smollm2-1-7b-instruct-ins:
+      base_url: "https://q5szr3nb7ghwlezw.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "SmolLM2-1.7B-Instruct"
+    llama-3-2-1b-instruct-sei:
+      base_url: "https://r09svj4wx82lsd5o.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "Llama-3.2-1B-Instruct"
+    mistral-7b-instruct-v0-3-qqj:
+      base_url: "https://ysxrfghc926vtdpu.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "Mistral-7B-Instruct-v0.3  "
+    
+    
