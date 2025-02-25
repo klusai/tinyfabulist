@@ -34,8 +34,13 @@ def evaluate_fable(fable: str) -> dict:
     try:
         client = OpenAI(api_key=config('OPENAI_API_KEY'))
         evaluation_prompt = f"""
-            Please evaluate the following fable and return a JSON object with the following format. Ensure your entire response is under 300 tokens:
+            Please evaluate the following fable based on the criteria below:
+            1. **Grammar:** Is the fable grammatically correct and well-written?
+            2. **Creativity:** Does it exhibit originality while following a classic fable format?
+            3. **Moral Clarity:** Is the moral lesson clearly conveyed and thought-provoking?
 
+            Ensure your entire response is under 300 tokens
+            Return your evaluation as a JSON object with the following format. Each criterion should receive a grade between 1 and 10:
             {{
                 "type": "Fable Evaluation",
                 "grammar": <grade between 1 and 10>,
