@@ -1,14 +1,16 @@
+import os
 import time
 import yaml
 import json
 import sys
 import csv
 import threading
+import hashlib  # For computing SHA-256 hash
 from pybars import Compiler
 from random import sample
 from decouple import config
 from openai import OpenAI
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 from logger import *
 
@@ -115,36 +117,83 @@ def generate_fable(system_prompt: str, fable_prompt: str, base_url: str) -> str:
         logger.error(f"OpenAI API error: {e}")
         return f"Error generating fable: {e}"
 
-def generate_fable_threaded(model_name: str, model_config: dict, prompt: str, system_prompt: str, all_fables: list, lock: threading.Lock) -> None:
+def compute_hash(model: str, prompt: str) -> str:
+    """
+    Computes a SHA-256 hash from the model and prompt.
+    """
+    hash_obj = hashlib.sha256()
+    hash_obj.update((model + prompt).encode('utf-8'))
+    return hash_obj.hexdigest()
+
+def load_existing_hashes(output_file: str, output_format: str) -> set:
+    """
+    Loads existing hashes from the output file based on the chosen format.
+    Returns a set of hash strings.
+    """
+    hashes = set()
+    if not os.path.exists(output_file):
+        return hashes
+
+    try:
+        with open(output_file, 'r') as f:
+            if output_format == 'jsonl':
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        record = json.loads(line)
+                        if 'hash' in record:
+                            hashes.add(record['hash'])
+                    except Exception as e:
+                        logger.error(f"Error parsing JSON line: {e}")
+            elif output_format == 'csv':
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if 'hash' in row:
+                        hashes.add(row['hash'])
+            # For text format, we cannot reliably extract hashes.
+    except Exception as e:
+        logger.error(f"Error reading output file {output_file}: {e}")
+    return hashes
+
+def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
+                             system_prompt: str, output_format: str,
+                             lock: threading.Lock, existing_hashes: set) -> None:
     try:
         fable = generate_fable(system_prompt, prompt, model_config['base_url'])
+        # Compute the hash based on the model and prompt
+        hash_val = compute_hash(model_config['name'], prompt)
         with lock:
-            all_fables.append({
-                'model': model_config['name'],
-                'prompt': prompt,
-                'fable': fable
-            })
+            if hash_val in existing_hashes:
+                logger.info(f"Skipping duplicate fable for hash: {hash_val}")
+                return
+            # Add the new hash to the set so subsequent tasks see it.
+            existing_hashes.add(hash_val)
+        result = {
+            'model': model_config['name'],
+            'prompt': prompt,
+            'fable': fable,
+            'hash': hash_val
+        }
+        with lock:
+            if output_format == 'csv':
+                writer = csv.DictWriter(sys.stdout, fieldnames=['model', 'prompt', 'fable', 'hash'])
+                writer.writerow(result)
+                sys.stdout.flush()
+            elif output_format == 'jsonl':
+                json.dump(result, sys.stdout)
+                sys.stdout.write('\n')
+                sys.stdout.flush()
+            else:  # text
+                print(f"\nModel: {result['model']}")
+                print(f"\nPrompt:\n{result['prompt']}")
+                print(f"\nFable:\n{result['fable']}")
+                print(f"\nHash: {result['hash']}")
+                print("-" * 80)
         logger.info(f"Generated fable for prompt: {prompt[:50]}... using model {model_name}")
     except Exception as e:
         logger.error(f"Error generating fable in thread: {e}")
-
-def write_fables(fables: list, output_format: str = 'text') -> None:
-    fields = ['model', 'prompt', 'fable']
-    if output_format == 'csv':
-        writer = csv.DictWriter(sys.stdout, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(fables)
-    elif output_format == 'jsonl':
-        for fable in fables:
-            output = {field: fable[field] for field in fields}
-            json.dump(output, sys.stdout)
-            sys.stdout.write('\n')
-    else:
-        for fable in fables:
-            print(f"\nModel: {fable['model']}")
-            print(f"\nPrompt:\n{fable['prompt']}")
-            print(f"\nFable:\n{fable['fable']}\n")
-            print("-" * 80)
 
 def write_output(system_prompt: str, fable_templates: list, output_format: str) -> None:
     if output_format == 'jsonl':
@@ -187,8 +236,19 @@ def run_generate(args) -> None:
         fable_prompts = [p['content'] for p in prompts if p['prompt_type'] == 'generator_prompt']
         if not system_prompt:
             raise ConfigError("No system prompt found in prompt file.")
-        all_fables = []
-        lock = threading.Lock()
+
+        # Load existing hashes from the output file
+        existing_hashes = load_existing_hashes(args.output_file, args.output)
+        logger.info(f"Found {len(existing_hashes)} existing hashes in {args.output_file}")
+
+        output_lock = threading.Lock()
+        # For CSV, write the header once before starting the threads if file is empty
+        if args.output == 'csv' and not os.path.exists(args.output_file):
+            with output_lock:
+                writer = csv.DictWriter(sys.stdout, fieldnames=['model', 'prompt', 'fable', 'hash'])
+                writer.writeheader()
+                sys.stdout.flush()
+
         with ThreadPoolExecutor(max_workers=40) as executor:
             futures = []
             for model_name in models_to_use:
@@ -198,12 +258,10 @@ def run_generate(args) -> None:
                     futures.append(
                         executor.submit(
                             generate_fable_threaded,
-                            model_name, model_config, prompt, system_prompt, all_fables, lock
+                            model_name, model_config, prompt, system_prompt,
+                            args.output, output_lock, existing_hashes
                         )
                     )
-            for future in as_completed(futures):
-                pass
-        write_fables(all_fables, args.output)
         elapsed_time = time.time() - start_time
         logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")
 
@@ -213,6 +271,7 @@ def add_generate_subparser(subparsers) -> None:
     generate_parser.add_argument('--generate-fables', type=str, help='Generate fables from a JSONL prompt file')
     generate_parser.add_argument('--randomize', action='store_true', help='Randomize feature selection')
     generate_parser.add_argument('--output', choices=['text', 'jsonl', 'csv'], default='text', help='Output format (default: text)')
+    generate_parser.add_argument('--output-file', type=str, default='results.jsonl', help='Output file')
     generate_parser.add_argument('--count', type=int, default=100, help='Number of prompts to generate (default: 100)')
     generate_parser.add_argument('--models', nargs='+', help='Specify models to use')
     generate_parser.set_defaults(func=run_generate)
