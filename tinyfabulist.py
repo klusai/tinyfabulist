@@ -12,7 +12,7 @@ import sys
 from openai import OpenAI
 import csv
 import threading
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Constants
 CONFIG_FILE = 'tinyfabulist.yaml'
@@ -308,7 +308,6 @@ def write_output(system_prompt: str, fable_templates: List[str], output_format: 
         for i, template in enumerate(fable_templates, 1):
             print(f"\n{i}. {template}")
 
-
 def generate_fable_threaded(model_name: str, model_config: Dict[str, Any], prompt: str, system_prompt: str, all_fables: List[Dict[str, str]], lock: threading.Lock) -> None:
     """
     Generates a fable in a separate thread.
@@ -414,47 +413,44 @@ def main() -> None:
             if not system_prompt:
                 raise ConfigError("No system prompt found in prompt file.")
 
-            # Generate fables for each model
+            # Generate fables for each model using a thread pool
             all_fables = []
-            threads = []
             lock = threading.Lock()  # Create a lock for thread-safe access to all_fables
 
-            for model_name in models_to_use:
-                model_config = available_models[model_name]
-                logger.info(f"Generating fables using model: {model_config['name']}")
-
-                for prompt in fable_prompts:
-                    # Create a new thread for each fable generation
-                    thread = threading.Thread(target=generate_fable_threaded,
-                                              args=(model_name, model_config, prompt, system_prompt, all_fables, lock))
-                    threads.append(thread)
-                    thread.start()
-
-            # Wait for all threads to complete
-            for thread in threads:
-                thread.join()
+            with ThreadPoolExecutor(max_workers=40) as executor:
+                futures = []
+                for model_name in models_to_use:
+                    model_config = available_models[model_name]
+                    logger.info(f"Generating fables using model: {model_config['name']}")
+                    for prompt in fable_prompts:
+                        futures.append(
+                            executor.submit(
+                                generate_fable_threaded,
+                                model_name, model_config, prompt, system_prompt, all_fables, lock
+                            )
+                        )
 
             write_fables(all_fables, args.output)
             
             end_time = time.time()  # Record end time
             elapsed_time = end_time - start_time
-            logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")  # Log elapsed time
+            logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")
         elif args.evaluate:
-                # Read and parse the JSONL file
-                with open(args.evaluate, 'r') as file:
-                    lines = file.readlines()
+            # Read and parse the JSONL file
+            with open(args.evaluate, 'r') as file:
+                lines = file.readlines()
 
-                # Parse each line as a JSON object
-                fables_to_evaluate = [json.loads(line) for line in lines]
+            # Parse each line as a JSON object
+            fables_to_evaluate = [json.loads(line) for line in lines]
 
-                for fable_data in fables_to_evaluate:
-                    if 'fable' in fable_data:
-                        model = fable_data['model']
-                        fable_text = fable_data['fable']
-                        evaluation = evaluate_fable(fable_text)
-                        logger.info(f"model:{model} | evaluation:{evaluation}/10\n{'-'*80}")
-                    else:
-                        logger.warning(f"Skipping entry due to missing 'fable' key: {fable_data}")
+            for fable_data in fables_to_evaluate:
+                if 'fable' in fable_data:
+                    model = fable_data['model']
+                    fable_text = fable_data['fable']
+                    evaluation = evaluate_fable(fable_text)
+                    logger.info(f"model:{model} | evaluation:{evaluation}/10\n{'-'*80}")
+                else:
+                    logger.warning(f"Skipping entry due to missing 'fable' key: {fable_data}")
         else:
             logger.error("No action specified. Use --generate-prompts or --generate-fables")
             sys.exit(1)
@@ -465,5 +461,6 @@ def main() -> None:
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         sys.exit(1)
+
 if __name__ == "__main__":
     main()
