@@ -16,6 +16,8 @@ from logger import *
 
 # Constants
 CONFIG_FILE = 'tinyfabulist.yaml'
+PROMPTS_FOLDER = 'data/prompts/'
+FABLES_FOLDER = 'data/fables/'
 
 logger = setup_logging()
 
@@ -125,17 +127,17 @@ def compute_hash(model: str, prompt: str) -> str:
     hash_obj.update((model + prompt).encode('utf-8'))
     return hash_obj.hexdigest()
 
-def load_existing_hashes(output_file: str, output_format: str) -> set:
+def load_existing_hashes(input_file: str, output_format: str) -> set:
     """
     Loads existing hashes from the output file based on the chosen format.
     Returns a set of hash strings.
     """
     hashes = set()
-    if not os.path.exists(output_file):
+    if not os.path.exists(input_file):
         return hashes
 
     try:
-        with open(output_file, 'r') as f:
+        with open(input_file, 'r') as f:
             if output_format == 'jsonl':
                 for line in f:
                     line = line.strip()
@@ -154,7 +156,7 @@ def load_existing_hashes(output_file: str, output_format: str) -> set:
                         hashes.add(row['hash'])
             # For text format, we cannot reliably extract hashes.
     except Exception as e:
-        logger.error(f"Error reading output file {output_file}: {e}")
+        logger.error(f"Error reading output file {input_file}: {e}")
     return hashes
 
 def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
@@ -171,7 +173,6 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
             logger.info(f"Skipping duplicate fable for hash: {hash_val}")
             return
 
-    
     # Retry loop for generating the fable.
     while attempt < max_retries:
         try:
@@ -186,12 +187,12 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
             else:
                 logger.error(f"Max retries reached. Failed to generate fable for prompt: {prompt[:50]}")
                 return  # Give up after maximum retries.
-    
+
     try:
         with lock:
             # Add the new hash to the set so subsequent tasks see it.
             existing_hashes.add(hash_val)
-        
+
         result = {
             'model': model_config['name'],
             'prompt': prompt,
@@ -214,10 +215,38 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
                 print(f"\nHash: {result['hash']}")
                 print("-" * 80)
         logger.info(f"Generated fable for prompt: {prompt[:50]}... using model {model_name}")
+
+        return result
     except Exception as e:
         logger.error(f"Error processing result in thread: {e}")
 
+def write_generated_prompts(system_prompt: str, fable_templates: list) -> None:
+    """
+    Writes the system prompt and generated fable prompts to a JSONL file in the PROMPTS_FOLDER.
+    The file is named as: tf_prompts_c{n}_dt{yymmdd-hhmmss}.jsonl,
+    where n is the number of fable templates.
+    """
+    # Ensure the prompts folder exists.
+    os.makedirs(PROMPTS_FOLDER, exist_ok=True)
+    
+    n = len(fable_templates)
+    timestamp = time.strftime("%y%m%d-%H%M%S")
+    file_name = f"tf_prompts_c{n}_dt{timestamp}.jsonl"
+    full_path = os.path.join(PROMPTS_FOLDER, file_name)
+
+    with open(full_path, 'w') as f:
+        # Write the system prompt as the first JSON object.
+        json.dump({"prompt_type": "system_prompt", "content": system_prompt}, f)
+        f.write("\n")
+        # Write each fable prompt as a separate JSON object.
+        for template in fable_templates:
+            json.dump({"prompt_type": "generator_prompt", "content": template}, f)
+            f.write("\n")
+    
+    logger.info(f"Generated prompts written to {full_path}")
+
 def write_output(system_prompt: str, fable_templates: list, output_format: str) -> None:
+    # For fable generation output (not for generated prompts)
     if output_format == 'jsonl':
         for template in fable_templates:
             json.dump([
@@ -244,7 +273,8 @@ def run_generate(args) -> None:
         system_prompt, fable_templates = generate_prompts(
             settings, count=args.count, randomize=args.randomize
         )
-        write_output(system_prompt, fable_templates, args.output)
+        # Write the generated prompts to a file using the specified naming convention.
+        write_generated_prompts(system_prompt, fable_templates)
     else:
         available_models = settings.get('llms', {}).get('hf-models', {})
         if not available_models:
@@ -260,12 +290,12 @@ def run_generate(args) -> None:
             raise ConfigError("No system prompt found in prompt file.")
 
         # Load existing hashes from the output file
-        existing_hashes = load_existing_hashes(args.output_file, args.output)
-        logger.info(f"Found {len(existing_hashes)} existing hashes in {args.output_file}")
+        existing_hashes = load_existing_hashes(args.input_file, args.output)
+        logger.info(f"Found {len(existing_hashes)} existing hashes in {args.input_file}")
 
         output_lock = threading.Lock()
-        # For CSV, write the header once before starting the threads if file is empty
-        if args.output == 'csv' and not os.path.exists(args.output_file):
+        # For CSV, write the header once before starting the threads if file is empty.
+        if args.output == 'csv':
             with output_lock:
                 writer = csv.DictWriter(sys.stdout, fieldnames=['model', 'prompt', 'fable', 'hash'])
                 writer.writeheader()
@@ -293,7 +323,7 @@ def add_generate_subparser(subparsers) -> None:
     generate_parser.add_argument('--generate-fables', type=str, help='Generate fables from a JSONL prompt file')
     generate_parser.add_argument('--randomize', action='store_true', help='Randomize feature selection')
     generate_parser.add_argument('--output', choices=['text', 'jsonl', 'csv'], default='text', help='Output format (default: text)')
-    generate_parser.add_argument('--output-file', type=str, default='results.jsonl', help='Output file')
+    generate_parser.add_argument('--input-file', type=str, default='results.jsonl', help='Input file')
     generate_parser.add_argument('--count', type=int, default=100, help='Number of prompts to generate (default: 100)')
     generate_parser.add_argument('--models', nargs='+', help='Specify models to use')
     generate_parser.set_defaults(func=run_generate)
