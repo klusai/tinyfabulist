@@ -45,13 +45,13 @@ def plot_model_averages(args):
     metrics = ["grammar", "creativity", "consistency"]
     models = list(averages.keys())
     x = np.arange(len(models))  # positions for each model on the x-axis
-    width = 0.25  # width of each bar
+    width = 0.2  # width of each bar
 
     fig, ax = plt.subplots(figsize=(12, 8))
     
     # Define colors for each metric.
     colors = ['#1DB954', '#191414', '#535353']
-        
+
     # Plot each metric as a group of bars.
     for i, metric in enumerate(metrics):
         # Get metric values for each model.
@@ -63,7 +63,7 @@ def plot_model_averages(args):
         # Annotate each bar with its average score.
         for bar in bars:
             height = bar.get_height()
-            ax.annotate(f'{height:.1f}',
+            ax.annotate(f'{height:.2f}',
                         xy=(bar.get_x() + bar.get_width() / 2, height),
                         xytext=(0, 3),  # vertical offset
                         textcoords="offset points",
