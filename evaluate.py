@@ -1,19 +1,22 @@
 import json
 import sys
+import os
 from decouple import config
 from openai import OpenAI
 import yaml
 from logger import *
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 # Constants
-CONFIG_FILE = 'tinyfabulist.yaml'
+CONFIG_FILE = "tinyfabulist.yaml"
+EVALUATOR = "gpt-4o"
 
 logger = setup_logging()
 
 def load_settings() -> dict:
     try:
-        with open(CONFIG_FILE, 'r') as file:
+        with open(CONFIG_FILE, "r") as file:
             settings = yaml.safe_load(file)
             logger.info("Settings loaded successfully")
             return settings
@@ -58,7 +61,7 @@ def evaluate_fable(fable: str) -> dict:
             {fable}
         """
         chat_completion = client.chat.completions.create(
-            model="gpt-4o",
+            model=EVALUATOR,
             messages=[
                 {"role": "system", "content": "You are a fable critic providing detailed evaluations. Keep your entire response under 300 tokens."},
                 {"role": "user", "content": evaluation_prompt}
@@ -94,16 +97,16 @@ def evaluate_fable_threaded(fable_data: dict) -> dict:
         logger.error(f"Error in evaluating fable: {e}")
         return {"error": f"Error evaluating fable: {e}"}
 
-def run_evaluate(args) -> None:
-    # Read the input JSONL file containing the fables to evaluate.
-    with open(args.jsonl, 'r') as file:
+def evaluate_file(file_path: str) -> list:
+    """
+    Reads the JSONL file at file_path, evaluates each fable (if present)
+    using a ThreadPoolExecutor, and returns a list of evaluation results.
+    """
+    with open(file_path, 'r') as file:
         lines = file.readlines()
     fables_to_evaluate = [json.loads(line) for line in lines]
-
     results = []
-    # Use a thread pool to evaluate fables concurrently.
     with ThreadPoolExecutor(max_workers=600) as executor:
-        # Submit tasks only for entries that contain a 'fable' key.
         futures = [
             executor.submit(evaluate_fable_threaded, fable_data)
             for fable_data in fables_to_evaluate if 'fable' in fable_data
@@ -112,13 +115,62 @@ def run_evaluate(args) -> None:
             result = future.result()
             if result:
                 results.append(result)
+    return results
 
-    # Output each result as a JSON line.
-    for res in results:
-        json.dump(res, sys.stdout)
-        sys.stdout.write('\n')
+def run_evaluate(args) -> None:
+    """
+    Depending on whether the provided --jsonl argument is a file or a directory:
+      - If it is a file, evaluates that file.
+      - If it is a directory, recursively finds all files that start with "tf_fables"
+        and evaluates each one.
+    The evaluation results for each input file are stored in the folder
+    data/evaluations with a filename format:
+      {initial_file_name}_jsonl_eval_e{evaluator_name}_dt{yymmdd-hhmmss}.jsonl
+    """
+    evaluator_name = EVALUATOR
+    output_dir = os.path.join("data", "evaluations")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    input_path = args.jsonl
+
+    if os.path.isfile(input_path):
+        # Process a single file
+        results = evaluate_file(input_path)
+        base_name = os.path.splitext(os.path.basename(input_path))[0]
+        timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
+        output_file = os.path.join(output_dir, f"{base_name}_jsonl_eval_e{evaluator_name}_dt{timestamp}.jsonl")
+        with open(output_file, 'w') as out_file:
+            for res in results:
+                out_file.write(json.dumps(res) + "\n")
+        print(f"Evaluations written to {output_file}")
+
+    elif os.path.isdir(input_path):
+        # Process all files starting with "tf_fables" recursively
+        for root, _, files in os.walk(input_path):
+            for file in files:
+                if file.startswith("tf_fables"):
+                    file_path = os.path.join(root, file)
+                    results = evaluate_file(file_path)
+                    base_name = os.path.splitext(file)[0]
+                    timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
+                    output_file = os.path.join(output_dir, f"{base_name}_jsonl_eval_e{evaluator_name}_dt{timestamp}.jsonl")
+                    with open(output_file, 'w') as out_file:
+                        for res in results:
+                            out_file.write(json.dumps(res) + "\n")
+                    print(f"Evaluations for {file_path} written to {output_file}")
+    else:
+        logger.error("Provided path is neither a file nor a directory.")
+        sys.exit(1)
 
 def add_evaluate_subparser(subparsers) -> None:
-    eval_parser = subparsers.add_parser('evaluate', help='Evaluate generated fables')
-    eval_parser.add_argument('--jsonl', type=str, help='Evaluate fables from a JSONL file', required=True)
+    eval_parser = subparsers.add_parser(
+        'evaluate',
+        help='Evaluate generated fables from a JSONL file or a directory containing files starting with "tf_fables"'
+    )
+    eval_parser.add_argument(
+        '--jsonl',
+        type=str,
+        help='Path to a JSONL file or a directory to evaluate fables from',
+        required=True
+    )
     eval_parser.set_defaults(func=run_evaluate)

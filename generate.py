@@ -199,6 +199,7 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
             'fable': fable,
             'hash': hash_val
         }
+        # Optionally, you can still write to stdout:
         with lock:
             if output_format == 'csv':
                 writer = csv.DictWriter(sys.stdout, fieldnames=['model', 'prompt', 'fable', 'hash'])
@@ -226,7 +227,6 @@ def write_generated_prompts(system_prompt: str, fable_templates: list) -> None:
     The file is named as: tf_prompts_c{n}_dt{yymmdd-hhmmss}.jsonl,
     where n is the number of fable templates.
     """
-    # Ensure the prompts folder exists.
     os.makedirs(PROMPTS_FOLDER, exist_ok=True)
     
     n = len(fable_templates)
@@ -235,18 +235,38 @@ def write_generated_prompts(system_prompt: str, fable_templates: list) -> None:
     full_path = os.path.join(PROMPTS_FOLDER, file_name)
 
     with open(full_path, 'w') as f:
-        # Write the system prompt as the first JSON object.
         json.dump({"prompt_type": "system_prompt", "content": system_prompt}, f)
         f.write("\n")
-        # Write each fable prompt as a separate JSON object.
         for template in fable_templates:
             json.dump({"prompt_type": "generator_prompt", "content": template}, f)
             f.write("\n")
     
     logger.info(f"Generated prompts written to {full_path}")
 
+def write_generated_fables(model: str, fables: list) -> None:
+    """
+    Writes the generated fable results to a JSONL file in the folder data/fables/model/
+    using the naming convention:
+        tf_fables_{model}_c{n}_dt{yymmdd-hhmmss}.jsonl
+    where n is the number of fables for that model.
+    """
+    # Create the folder for this model if it doesn't exist.
+    model_folder = os.path.join(FABLES_FOLDER, model)
+    os.makedirs(model_folder, exist_ok=True)
+
+    n = len(fables)
+    timestamp = time.strftime("%y%m%d-%H%M%S")
+    file_name = f"tf_fables_{model}_c{n}_dt{timestamp}.jsonl"
+    full_path = os.path.join(model_folder, file_name)
+
+    with open(full_path, 'w') as f:
+        for result in fables:
+            json.dump(result, f)
+            f.write("\n")
+    logger.info(f"Generated fables for model {model} written to {full_path}")
+
 def write_output(system_prompt: str, fable_templates: list, output_format: str) -> None:
-    # For fable generation output (not for generated prompts)
+    # For fable generation output (if writing to stdout)
     if output_format == 'jsonl':
         for template in fable_templates:
             json.dump([
@@ -273,7 +293,6 @@ def run_generate(args) -> None:
         system_prompt, fable_templates = generate_prompts(
             settings, count=args.count, randomize=args.randomize
         )
-        # Write the generated prompts to a file using the specified naming convention.
         write_generated_prompts(system_prompt, fable_templates)
     else:
         available_models = settings.get('llms', {}).get('hf-models', {})
@@ -289,20 +308,18 @@ def run_generate(args) -> None:
         if not system_prompt:
             raise ConfigError("No system prompt found in prompt file.")
 
-        # Load existing hashes from the output file
         existing_hashes = load_existing_hashes(args.input_file, args.output)
         logger.info(f"Found {len(existing_hashes)} existing hashes in {args.input_file}")
 
         output_lock = threading.Lock()
-        # For CSV, write the header once before starting the threads if file is empty.
         if args.output == 'csv':
             with output_lock:
                 writer = csv.DictWriter(sys.stdout, fieldnames=['model', 'prompt', 'fable', 'hash'])
                 writer.writeheader()
                 sys.stdout.flush()
 
+        futures = []
         with ThreadPoolExecutor(max_workers=100) as executor:
-            futures = []
             for model_name in models_to_use:
                 model_config = available_models[model_name]
                 logger.info(f"Generating fables using model: {model_config['name']}")
@@ -314,6 +331,18 @@ def run_generate(args) -> None:
                             args.output, output_lock, existing_hashes
                         )
                     )
+
+        # Collect the results from the futures and group by model.
+        model_fables = {}
+        for future in futures:
+            result = future.result()
+            if result is not None:
+                model_fables.setdefault(result['model'], []).append(result)
+
+        # Write fables for each model to the appropriate file.
+        for model, fables in model_fables.items():
+            write_generated_fables(model, fables)
+
         elapsed_time = time.time() - start_time
         logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")
 
