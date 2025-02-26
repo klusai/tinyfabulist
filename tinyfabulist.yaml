@@ -644,5 +644,14 @@ llms:
     mistral-7b-instruct-v0-3-qqj:
       base_url: "https://ysxrfghc926vtdpu.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
       name: "Mistral-7B-Instruct-v0.3  "
+    qwen2-5-dyanka-7b-preview-lfu:
+      base_url: "https://ty11p1i9gctnoaph.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "Xiaojian9992024/Qwen2.5-Dyanka-7B-Preview"
+    phi-3-small-8k-instruct-lui:
+        base_url: "https://ty11p1i9gctnoaph.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+        name: "microsoft/Phi-3-small-8k-instruct"
+    qwen2-5-7b-instruct-oxw:
+        base_url: "https://hynv4qzw264ruykp.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+        name: "Qwen/Qwen2.5-7B-Instruct "
     
     

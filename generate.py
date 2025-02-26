@@ -115,7 +115,7 @@ def generate_fable(system_prompt: str, fable_prompt: str, base_url: str) -> str:
         return fable_text
     except Exception as e:
         logger.error(f"OpenAI API error: {e}")
-        return f"Error generating fable: {e}"
+        raise Exception(f"Error generating fable: {e}")
 
 def compute_hash(model: str, prompt: str) -> str:
     """
@@ -159,17 +159,39 @@ def load_existing_hashes(output_file: str, output_format: str) -> set:
 
 def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
                              system_prompt: str, output_format: str,
-                             lock: threading.Lock, existing_hashes: set) -> None:
+                             lock: threading.Lock, existing_hashes: set,
+                             max_retries: int = 8, retry_delay: float = 15.0) -> None:
+    fable = None
+    attempt = 0
+
+    # Compute the hash based on the model and prompt.
+    hash_val = compute_hash(model_config['name'], prompt)
+    with lock:
+        if hash_val in existing_hashes:
+            logger.info(f"Skipping duplicate fable for hash: {hash_val}")
+            return
+
+    
+    # Retry loop for generating the fable.
+    while attempt < max_retries:
+        try:
+            fable = generate_fable(system_prompt, prompt, model_config['base_url'])
+            break  # Successful generation, exit the loop.
+        except Exception as e:
+            attempt += 1
+            logger.error(f"Error generating fable (attempt {attempt}/{max_retries}) for prompt: {prompt[:50]}: {e}")
+            if attempt < max_retries:
+                retry_delay += 5
+                time.sleep(retry_delay)
+            else:
+                logger.error(f"Max retries reached. Failed to generate fable for prompt: {prompt[:50]}")
+                return  # Give up after maximum retries.
+    
     try:
-        fable = generate_fable(system_prompt, prompt, model_config['base_url'])
-        # Compute the hash based on the model and prompt
-        hash_val = compute_hash(model_config['name'], prompt)
         with lock:
-            if hash_val in existing_hashes:
-                logger.info(f"Skipping duplicate fable for hash: {hash_val}")
-                return
             # Add the new hash to the set so subsequent tasks see it.
             existing_hashes.add(hash_val)
+        
         result = {
             'model': model_config['name'],
             'prompt': prompt,
@@ -193,7 +215,7 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
                 print("-" * 80)
         logger.info(f"Generated fable for prompt: {prompt[:50]}... using model {model_name}")
     except Exception as e:
-        logger.error(f"Error generating fable in thread: {e}")
+        logger.error(f"Error processing result in thread: {e}")
 
 def write_output(system_prompt: str, fable_templates: list, output_format: str) -> None:
     if output_format == 'jsonl':
@@ -249,7 +271,7 @@ def run_generate(args) -> None:
                 writer.writeheader()
                 sys.stdout.flush()
 
-        with ThreadPoolExecutor(max_workers=40) as executor:
+        with ThreadPoolExecutor(max_workers=100) as executor:
             futures = []
             for model_name in models_to_use:
                 model_config = available_models[model_name]
