@@ -34,6 +34,7 @@ def evaluate_fable(fable: str) -> dict:
     try:
         client = OpenAI(api_key=config('OPENAI_API_KEY'))
         evaluation_prompt = f"""
+            Be very strict in your evaluations, but just and concise.
             Please evaluate the following fable based on the criteria below:
             1. **Grammar:** Is the fable grammatically correct and well-written?
             2. **Creativity:** Does it exhibit originality while following a classic fable format?
@@ -101,7 +102,7 @@ def run_evaluate(args) -> None:
 
     results = []
     # Use a thread pool to evaluate fables concurrently.
-    with ThreadPoolExecutor(max_workers=40) as executor:
+    with ThreadPoolExecutor(max_workers=600) as executor:
         # Submit tasks only for entries that contain a 'fable' key.
         futures = [
             executor.submit(evaluate_fable_threaded, fable_data)
