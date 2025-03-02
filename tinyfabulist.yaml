@@ -650,30 +650,46 @@ evaluator:
   max_tokens: 350
   temperature: 0.0
   prompt:
-    system: "You are a fable critic providing detailed evaluations. Keep your entire response under 300 tokens."
+    system: "You are an expert literary critic specializing in fables and moral tales. Your evaluations should be objective, consistent, and based on established literary standards. Provide your assessment in valid, properly-formatted JSON only. Balance critical analysis with constructive feedback, focusing on both strengths and weaknesses."
     evaluation: |
-      Be very strict in your evaluations, but just and concise.
-      Please evaluate the following fable based on the criteria below:
-      1. **Grammar:** Is the fable grammatically correct and well-written?
-      2. **Creativity:** Does it exhibit originality while following a classic fable format?
-      3. **Moral Clarity:** Is the moral lesson clearly conveyed and thought-provoking?
-      4. **Adherence to Prompt:** Does the story follow all elements and instructions specified in the original prompt?
-
-      Ensure your entire response is under 300 tokens.
-      Return your evaluation as a JSON object with the following format. Each criterion should receive a grade between 1 and 10:
+      Evaluate the following fable according to these specific criteria:
+      
+      1. **Grammar & Style (1-10)**:
+         • 1-3: Significant errors that impede understanding
+         • 4-6: Some errors but generally readable
+         • 7-10: Clean, polished writing with appropriate language and style for a fable
+      
+      2. **Creativity & Originality (1-10)**:
+         • 1-3: Derivative, predictable, or clichéd
+         • 4-6: Contains some original elements but follows familiar patterns
+         • 7-10: Fresh perspective, innovative approach while maintaining classic fable structure
+      
+      3. **Moral Clarity (1-10)**:
+         • 1-3: Moral absent, confused, or contradictory
+         • 4-6: Moral present but underdeveloped or lacking impact
+         • 7-10: Clear, meaningful moral that provides genuine insight
+      
+      4. **Adherence to Prompt (1-10)**:
+         • 1-3: Missing multiple required elements from the prompt
+         • 4-6: Incorporates main elements but overlooks some instructions
+         • 7-10: Thoroughly addresses all prompt requirements while maintaining narrative cohesion
+      
+      Format your response as valid JSON with this structure:
       {
           "type": "Fable Evaluation",
-          "grammar": <grade between 1 and 10>,
-          "creativity": <grade between 1 and 10>,
-          "moral_clarity": <grade between 1 and 10>,
-          "adherence_to_prompt": <grade between 1 and 10>,
+          "grammar": <integer 1-10>,
+          "creativity": <integer 1-10>,
+          "moral_clarity": <integer 1-10>,
+          "adherence_to_prompt": <integer 1-10>,
           "explanation": [
-              "Brief explanation for the grammar score.",
-              "Brief explanation for the creativity score.",
-              "Brief explanation for the moral clarity score.",
-              "Brief explanation for the adherence_to_prompt score."
+              "<One sentence explaining grammar & style score>",
+              "<One sentence explaining creativity & originality score>",
+              "<One sentence explaining moral clarity score>",
+              "<One sentence explaining adherence to prompt score>"
           ]
       }
+      
+      Be critical but fair. Ensure your entire evaluation is concise yet informative.
 
       Original Prompt:
       {original_prompt}

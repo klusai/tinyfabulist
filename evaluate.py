@@ -14,16 +14,22 @@ logger = setup_logging()
 
 def evaluate_fable(fable: str, original_prompt: str = None) -> dict:
     """
-    Evaluates a fable on multiple criteria: grammar, creativity, moral clarity, and adherence to prompt.
-    The model is instructed to respond with a JSON object with these criteria, along with an explanation.
-    The entire response must be under 300 tokens.
+    Evaluates a fable based on four specific criteria with detailed scoring guidelines:
+
+    1. Grammar & Style (1-10): Assesses writing quality, language usage, and structural clarity
+    2. Creativity & Originality (1-10): Evaluates uniqueness and innovation while maintaining fable format
+    3. Moral Clarity (1-10): Measures how effectively the moral lesson is conveyed
+    4. Adherence to Prompt (1-10): Determines how well all required elements from the prompt are incorporated
+
+    Each criterion is scored on a 1-10 scale with specific definitions for low (1-3),
+    medium (4-6), and high (7-10) scores.
 
     Args:
         fable (str): The fable text to evaluate
         original_prompt (str, optional): The original prompt used to generate the fable. Defaults to None.
 
     Returns:
-        dict: The evaluation results
+        dict: JSON evaluation with scores and explanations for each criterion
     """
     try:
         # Load settings from config file
