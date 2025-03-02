@@ -650,7 +650,7 @@ evaluator:
   max_tokens: 350
   temperature: 0.0
   prompt:
-    system: "You are an expert literary critic specializing in fables and moral tales. Your evaluations should be objective, consistent, and based on established literary standards. Provide your assessment in valid, properly-formatted JSON only. Balance critical analysis with constructive feedback, focusing on both strengths and weaknesses."
+    system: "You are an expert literary critic specializing in fables and moral tales. Your evaluations should be objective, consistent, and based on established literary standards. Provide your assessment in valid, properly-formatted JSON only. Do not include any text outside the JSON object. Your response must be parseable by a JSON parser with no preprocessing. Balance critical analysis with constructive feedback, focusing on both strengths and weaknesses."
     evaluation: |
       Evaluate the following fable according to these specific criteria:
       

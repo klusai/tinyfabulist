@@ -8,8 +8,32 @@ from logger import *
 from utils import load_settings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+import uuid  # Add this import for generating unique filenames
 
 logger = setup_logging()
+
+
+def save_debug_response(text, error):
+    """
+    Saves a problematic API response to a file for debugging.
+
+    Args:
+        text (str): The API response text
+        error (str): The error message
+    """
+    debug_dir = os.path.join("data", "debug")
+    os.makedirs(debug_dir, exist_ok=True)
+
+    # Create a unique filename
+    filename = f"api_response_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%y%m%d-%H%M%S')}.txt"
+    filepath = os.path.join(debug_dir, filename)
+
+    with open(filepath, "w") as f:
+        f.write(f"ERROR: {error}\n\n")
+        f.write("API RESPONSE:\n")
+        f.write(text)
+
+    logger.info(f"Saved problematic API response to {filepath}")
 
 
 def evaluate_fable(fable: str, original_prompt: str = None) -> dict:
@@ -56,6 +80,9 @@ def evaluate_fable(fable: str, original_prompt: str = None) -> dict:
             fable=fable, original_prompt=original_prompt
         )
 
+        # Add an explicit reminder to return valid JSON
+        evaluation_prompt += "\n\nRemember to respond with only a valid JSON object, with no additional text before or after the JSON."
+
         client = OpenAI(api_key=config("OPENAI_API_KEY"))
         chat_completion = client.chat.completions.create(
             model=model,
@@ -65,13 +92,27 @@ def evaluate_fable(fable: str, original_prompt: str = None) -> dict:
             ],
             max_tokens=max_tokens,
             temperature=temperature,
+            response_format={"type": "json_object"},
         )
         evaluation_text = chat_completion.choices[0].message.content.strip()
-        evaluation_json = json.loads(evaluation_text)
-        return evaluation_json
+
+        try:
+            logger.info(
+                f"Parsing response: {evaluation_text[:100]}..."
+            )  # Log first 100 chars for debugging
+            evaluation_json = json.loads(evaluation_text)
+            return evaluation_json
+        except json.JSONDecodeError as json_err:
+            # Improved logging for JSON parsing errors
+            error_context = f"JSON error: {str(json_err)}, Response starts with: {evaluation_text[:200]}"
+            logger.error(error_context)
+            save_debug_response(evaluation_text, error_context)
+            return {"error": error_context}
+
     except Exception as e:
-        logger.error(f"OpenAI API error during evaluation: {e}")
-        return {"error": f"Error evaluating fable: {e}"}
+        logger.error(f"OpenAI API error during evaluation: {str(e)}")
+        save_debug_response(f"Error evaluating fable: {str(e)}", str(e))
+        return {"error": f"Error evaluating fable: {str(e)}"}
 
 
 def evaluate_fable_threaded(fable_data: dict) -> dict:
