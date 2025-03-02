@@ -5,27 +5,11 @@ from decouple import config
 from openai import OpenAI
 import yaml
 from logger import *
+from utils import load_settings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-# Constants
-CONFIG_FILE = "tinyfabulist.yaml"
-
 logger = setup_logging()
-
-
-def load_settings() -> dict:
-    try:
-        with open(CONFIG_FILE, "r") as file:
-            settings = yaml.safe_load(file)
-            logger.info("Settings loaded successfully")
-            return settings
-    except FileNotFoundError:
-        logger.error(f"Settings file '{CONFIG_FILE}' not found")
-        raise ConfigError(f"Settings file '{CONFIG_FILE}' not found")
-    except yaml.YAMLError as e:
-        logger.error(f"Error parsing YAML file: {e}")
-        raise ConfigError(f"Invalid YAML format: {e}")
 
 
 def evaluate_fable(fable: str) -> dict:
