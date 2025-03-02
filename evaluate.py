@@ -12,12 +12,18 @@ from datetime import datetime
 logger = setup_logging()
 
 
-def evaluate_fable(fable: str) -> dict:
+def evaluate_fable(fable: str, original_prompt: str = None) -> dict:
     """
-    Evaluates a fable on three criteria: grammar, creativity, and consistency.
-    The model is instructed to respond with a JSON object with keys "grammar",
-    "creativity", and "consistency", along with an explanation.
+    Evaluates a fable on multiple criteria: grammar, creativity, moral clarity, and adherence to prompt.
+    The model is instructed to respond with a JSON object with these criteria, along with an explanation.
     The entire response must be under 300 tokens.
+
+    Args:
+        fable (str): The fable text to evaluate
+        original_prompt (str, optional): The original prompt used to generate the fable. Defaults to None.
+
+    Returns:
+        dict: The evaluation results
     """
     try:
         # Load settings from config file
@@ -31,12 +37,18 @@ def evaluate_fable(fable: str) -> dict:
         prompts = evaluator_config.get("prompt", {})
         system_prompt = prompts.get(
             "system",
-            "You are a fable critic providing detailed evaluations. Keep your entire response under 300 tokens.",
+            None,
         )
         evaluation_prompt_template = prompts.get("evaluation", "")
 
-        # Format the evaluation prompt with the fable
-        evaluation_prompt = evaluation_prompt_template.format(fable=fable)
+        # If original_prompt is not provided, use a default message
+        if original_prompt is None:
+            original_prompt = "Original prompt not available."
+
+        # Format the evaluation prompt with the fable and original prompt
+        evaluation_prompt = evaluation_prompt_template.format(
+            fable=fable, original_prompt=original_prompt
+        )
 
         client = OpenAI(api_key=config("OPENAI_API_KEY"))
         chat_completion = client.chat.completions.create(
@@ -67,11 +79,37 @@ def evaluate_fable_threaded(fable_data: dict) -> dict:
         model = fable_data["model"]
         hash_value = fable_data["hash"]
         fable_text = fable_data["fable"]
-        evaluation = evaluate_fable(fable_text)
+
+        # Extract original prompt if available
+        original_prompt = fable_data.get("original_prompt", None)
+
+        # Pass the original prompt to the evaluation function
+        evaluation = evaluate_fable(fable_text, original_prompt)
+
         return {"model": model, "evaluation": evaluation, "hash": hash_value}
     except Exception as e:
         logger.error(f"Error in evaluating fable: {e}")
         return {"error": f"Error evaluating fable: {e}"}
+
+
+def get_original_prompt() -> str:
+    """
+    Gets the original prompt template from the generator configuration.
+
+    Returns:
+        str: The full prompt template used for generating fables
+    """
+    settings = load_settings()
+    generator_config = settings.get("generator", {})
+    prompt_config = generator_config.get("prompt", {})
+
+    system_prompt = prompt_config.get("system", "")
+    fable_prompt = prompt_config.get("fable", "")
+
+    combined_prompt = (
+        f"System Prompt:\n{system_prompt}\n\nFable Prompt:\n{fable_prompt}"
+    )
+    return combined_prompt
 
 
 def evaluate_file(file_path: str) -> list:
@@ -82,6 +120,15 @@ def evaluate_file(file_path: str) -> list:
     with open(file_path, "r") as file:
         lines = file.readlines()
     fables_to_evaluate = [json.loads(line) for line in lines]
+
+    # Get the original prompt from the configuration
+    original_prompt = get_original_prompt()
+
+    # Add the original prompt to each fable data if not already present
+    for fable_data in fables_to_evaluate:
+        if "fable" in fable_data and "original_prompt" not in fable_data:
+            fable_data["original_prompt"] = original_prompt
+
     results = []
     with ThreadPoolExecutor(max_workers=600) as executor:
         futures = [
