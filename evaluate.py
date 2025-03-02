@@ -67,8 +67,6 @@ def evaluate_fable(fable: str, original_prompt: str = None) -> dict:
             temperature=temperature,
         )
         evaluation_text = chat_completion.choices[0].message.content.strip()
-        # Optionally, remove any extraneous header/footer lines if present.
-        evaluation_text = "\n".join(evaluation_text.split("\n")[1:-1])
         evaluation_json = json.loads(evaluation_text)
         return evaluation_json
     except Exception as e:
