@@ -692,7 +692,7 @@ evaluator:
       Be critical but fair. Ensure your entire evaluation is concise yet informative.
 
       Original Prompt:
-      {original_prompt}
+      {{prompt}}
 
       Fable:
-      {fable}
+      {{fable}}

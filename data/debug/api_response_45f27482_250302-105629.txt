@@ -1,0 +1,36 @@
+ERROR: JSON error: Unterminated string starting at: line 31 column 24 (char 1470), Response starts with: {
+    "title": "The Wind's Gift",
+    "setting": "The plains were vast and endless, their golden grasses swaying like dancers in the wind. High above, a pelican with a heart full of joy soared effortl
+
+API RESPONSE:
+{
+    "title": "The Wind's Gift",
+    "setting": "The plains were vast and endless, their golden grasses swaying like dancers in the wind. High above, a pelican with a heart full of joy soared effortlessly, its laughter echoing across the open sky.",
+    "characters": [
+        {
+            "type": "joyful pelican",
+            "traits": ["joyful", "wise", "empathetic"]
+        },
+        {
+            "type": "group of birds",
+            "traits": ["divided", "suspicious", "fearful"]
+        }
+    ],
+    "plot": {
+        "introduction": "The joyful pelican glided over the rolling hills, bringing joy to all it passed.",
+        "challenge": "A storm was coming, and the pelican saw a group of birds, once united, now divided.",
+        "conflict": "The pelican called out to the birds to gather for safety, but they were suspicious and refused.",
+        "resolution": "As the storm hit, the birds panicked and turned to the pelican for help. Together, they weathered the storm.",
+        "outcome": "The birds learned to rely on one another and created a new custom to celebrate their unity."
+    },
+    "dialogue": [
+        {
+            "speaker": "joyful pelican",
+            "line": "Come, we must gather before the storm hits. Together, we can weather this."
+        },
+        {
+            "speaker": "bird leader",
+            "line": "We don’t trust you. You’re just like them—always trying to meddle."
+        },
+        {
+            "speaker": "joyful pelican

@@ -9,6 +9,7 @@ from utils import load_settings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import uuid  # Add this import for generating unique filenames
+from pybars import Compiler
 
 logger = setup_logging()
 
@@ -36,7 +37,7 @@ def save_debug_response(text, error):
     logger.info(f"Saved problematic API response to {filepath}")
 
 
-def evaluate_fable(fable: str, original_prompt: str = None) -> dict:
+def evaluate_fable(fable: str, prompt: str = None) -> dict:
     """
     Evaluates a fable based on four specific criteria with detailed scoring guidelines:
 
@@ -71,17 +72,10 @@ def evaluate_fable(fable: str, original_prompt: str = None) -> dict:
         )
         evaluation_prompt_template = prompts.get("evaluation", "")
 
-        # If original_prompt is not provided, use a default message
-        if original_prompt is None:
-            original_prompt = "Original prompt not available."
-
-        # Format the evaluation prompt with the fable and original prompt
-        evaluation_prompt = evaluation_prompt_template.format(
-            fable=fable, original_prompt=original_prompt
-        )
-
-        # Add an explicit reminder to return valid JSON
-        evaluation_prompt += "\n\nRemember to respond with only a valid JSON object, with no additional text before or after the JSON."
+        # Format the evaluation prompt with the fable and original prompt using pybars
+        compiler = Compiler()
+        template = compiler.compile(evaluation_prompt_template)
+        evaluation_prompt = template({"fable": fable, "prompt": prompt})
 
         client = OpenAI(api_key=config("OPENAI_API_KEY"))
         chat_completion = client.chat.completions.create(
@@ -124,12 +118,9 @@ def evaluate_fable_threaded(fable_data: dict) -> dict:
         model = fable_data["model"]
         hash_value = fable_data["hash"]
         fable_text = fable_data["fable"]
-
-        # Extract original prompt if available
-        original_prompt = fable_data.get("original_prompt", None)
-
+        prompt = fable_data["prompt"]
         # Pass the original prompt to the evaluation function
-        evaluation = evaluate_fable(fable_text, original_prompt)
+        evaluation = evaluate_fable(fable_text, prompt)
 
         return {"model": model, "evaluation": evaluation, "hash": hash_value}
     except Exception as e:
@@ -165,14 +156,6 @@ def evaluate_file(file_path: str) -> list:
     with open(file_path, "r") as file:
         lines = file.readlines()
     fables_to_evaluate = [json.loads(line) for line in lines]
-
-    # Get the original prompt from the configuration
-    original_prompt = get_original_prompt()
-
-    # Add the original prompt to each fable data if not already present
-    for fable_data in fables_to_evaluate:
-        if "fable" in fable_data and "original_prompt" not in fable_data:
-            fable_data["original_prompt"] = original_prompt
 
     results = []
     with ThreadPoolExecutor(max_workers=600) as executor:
