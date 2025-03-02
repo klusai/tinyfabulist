@@ -644,3 +644,33 @@ llms:
     mistral-7b-instruct-v0-3-qqj:
       base_url: "https://ysxrfghc926vtdpu.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
       name: "Mistral-7B-Instruct-v0.3  "
+
+evaluator:
+  model: "gpt-4o"
+  max_tokens: 350
+  temperature: 0.0
+  prompt:
+    system: "You are a fable critic providing detailed evaluations. Keep your entire response under 300 tokens."
+    evaluation: |
+      Be very strict in your evaluations, but just and concise.
+      Please evaluate the following fable based on the criteria below:
+      1. **Grammar:** Is the fable grammatically correct and well-written?
+      2. **Creativity:** Does it exhibit originality while following a classic fable format?
+      3. **Moral Clarity:** Is the moral lesson clearly conveyed and thought-provoking?
+
+      Ensure your entire response is under 300 tokens
+      Return your evaluation as a JSON object with the following format. Each criterion should receive a grade between 1 and 10:
+      {
+          "type": "Fable Evaluation",
+          "grammar": <grade between 1 and 10>,
+          "creativity": <grade between 1 and 10>,
+          "consistency": <grade between 1 and 10>,
+          "explanation": [
+              "Brief explanation for the grammar score.",
+              "Brief explanation for the creativity score.",
+              "Brief explanation for the consistency score."
+          ]
+      }
+
+      Fable:
+      {fable}
