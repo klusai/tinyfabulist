@@ -2,6 +2,7 @@ import argparse
 from stats import add_stats_subparser
 from generate import add_generate_subparser
 from evaluate import add_evaluate_subparser
+from translate import add_translate_subparser
 
 def main():
     parser = argparse.ArgumentParser(description='TinyFabulist - Fable generator and evaluator')
@@ -9,6 +10,7 @@ def main():
     add_generate_subparser(subparsers)
     add_evaluate_subparser(subparsers)
     add_stats_subparser(subparsers)
+    add_translate_subparser(subparsers)
     args = parser.parse_args()
 
     if hasattr(args, 'func'):
