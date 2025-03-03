@@ -10,7 +10,7 @@ def plot_model_averages(args):
     """
     Reads one or more JSONL files from a given file or directory, then:
       - For files with 'eval_e' in their filename: aggregates evaluation scores 
-        (grammar, creativity, consistency), computes per-model averages, generates
+        (grammar, creativity, moral_clarity, adherence_to_prompt), computes per-model averages, generates
         a Markdown table, and plots a grouped bar chart.
       - For files whose names start with 'tf_fables': generates a SINGLE consolidated report (Markdown table)
         of how many fables each model has across all files.
@@ -51,7 +51,7 @@ def plot_model_averages(args):
 
     # --- Process Evaluation Files (those with 'eval_e' in their filename) ---
     if eval_files:
-        score_totals = defaultdict(lambda: {"grammar": 0, "creativity": 0, "consistency": 0, "count": 0})
+        score_totals = defaultdict(lambda: {"grammar": 0, "creativity": 0, "moral_clarity": 0, "adherence_to_prompt": 0, "count": 0})
         for file_path in eval_files:
             with open(file_path, "r") as f:
                 for line in f:
@@ -61,7 +61,8 @@ def plot_model_averages(args):
                         evaluation = data["evaluation"]
                         score_totals[model]["grammar"] += evaluation.get("grammar", 0)
                         score_totals[model]["creativity"] += evaluation.get("creativity", 0)
-                        score_totals[model]["consistency"] += evaluation.get("consistency", 0)
+                        score_totals[model]["moral_clarity"] += evaluation.get("moral_clarity", 0)
+                        score_totals[model]["adherence_to_prompt"] += evaluation.get("adherence_to_prompt", 0)
                         score_totals[model]["count"] += 1
                     else:
                         score_totals[model]["count"] += 1
@@ -74,15 +75,17 @@ def plot_model_averages(args):
                 averages[model] = {
                     "grammar": scores["grammar"] / count,
                     "creativity": scores["creativity"] / count,
-                    "consistency": scores["consistency"] / count,
+                    "moral_clarity": scores["moral_clarity"] / count,
+                    "adherence_to_prompt": scores["adherence_to_prompt"] / count,
+                    "overall_average": (scores["grammar"] + scores["creativity"] + scores["moral_clarity"] + scores["adherence_to_prompt"]) / (count * 4),
                     "count": count
                 }
 
         # Build Markdown table for evaluation averages.
-        md_table_eval = "| Model | Grammar | Creativity | Consistency | Count |\n"
-        md_table_eval += "|-------|---------|------------|-------------|-------|\n"
+        md_table_eval = "| Model | Grammar | Creativity | Moral Clarity | Adherence to Prompt | Overall Average | Count |\n"
+        md_table_eval += "|-------|---------|------------|--------------|---------------------|----------------|-------|\n"
         for model, metrics in averages.items():
-            md_table_eval += f"| {model} | {metrics['grammar']:.2f} | {metrics['creativity']:.2f} | {metrics['consistency']:.2f} | {metrics['count']} |\n"
+            md_table_eval += f"| {model} | {metrics['grammar']:.2f} | {metrics['creativity']:.2f} | {metrics['moral_clarity']:.2f} | {metrics['adherence_to_prompt']:.2f} | {metrics['overall_average']:.2f} | {metrics['count']} |\n"
         
         md_eval_filename = os.path.join(stats_folder, f"tf_stats_eval_table_{timestamp}.md")
         with open(md_eval_filename, "w") as f:
@@ -91,18 +94,18 @@ def plot_model_averages(args):
         print(f"Evaluation Markdown table saved to {md_eval_filename}")
 
         # Plot grouped bar chart for evaluation scores.
-        metrics_list = ["grammar", "creativity", "consistency"]
+        metrics_list = ["grammar", "creativity", "moral_clarity", "adherence_to_prompt", "overall_average"]
         models_list = list(averages.keys())
         x = np.arange(len(models_list))
-        width = 0.2
+        width = 0.17  # Adjusted width for 5 metrics
 
-        fig, ax = plt.subplots(figsize=(12, 8))
-        colors = ['#1DB954', '#191414', '#535353']
+        fig, ax = plt.subplots(figsize=(14, 8))
+        colors = ['#1DB954', '#191414', '#535353', '#B3B3B3', '#E60012']  # Added a color for overall average
 
         for i, metric in enumerate(metrics_list):
             values = [averages[model][metric] for model in models_list]
-            offset = (i - 1) * width
-            bars = ax.bar(x + offset, values, width, label=metric.capitalize(), color=colors[i])
+            offset = (i - 2) * width  # Adjusted offset for 5 metrics
+            bars = ax.bar(x + offset, values, width, label=metric.replace('_', ' ').title(), color=colors[i % len(colors)])
             for bar in bars:
                 height = bar.get_height()
                 ax.annotate(f'{height:.2f}',
@@ -110,7 +113,7 @@ def plot_model_averages(args):
                             xytext=(0, 3),
                             textcoords="offset points",
                             ha='center', va='bottom',
-                            fontsize=10, fontweight='bold')
+                            fontsize=9, fontweight='bold')
         ax.set_ylabel("Average Score", fontsize=12)
         ax.set_title("Average Evaluation Scores by Model", fontsize=14, fontweight='bold')
         ax.set_xticks(x)
