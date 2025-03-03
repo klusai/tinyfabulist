@@ -194,6 +194,7 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
             existing_hashes.add(hash_val)
 
         result = {
+            'language': 'en',
             'model': model_config['name'],
             'prompt': prompt,
             'fable': fable,
@@ -202,14 +203,15 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
         # Optionally, you can still write to stdout:
         with lock:
             if output_format == 'csv':
-                writer = csv.DictWriter(sys.stdout, fieldnames=['model', 'prompt', 'fable', 'hash'])
+                writer = csv.DictWriter(sys.stdout, fieldnames=['language', 'model', 'prompt', 'fable', 'hash'])
                 writer.writerow(result)
                 sys.stdout.flush()
             elif output_format == 'jsonl':
                 json.dump(result, sys.stdout)
                 sys.stdout.write('\n')
                 sys.stdout.flush()
-            else:  # text
+            else: 
+                print(f"\nLanguage: {result['language']}")
                 print(f"\nModel: {result['model']}")
                 print(f"\nPrompt:\n{result['prompt']}")
                 print(f"\nFable:\n{result['fable']}")
