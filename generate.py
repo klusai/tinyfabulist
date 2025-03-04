@@ -11,6 +11,7 @@ from random import sample
 from decouple import config
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor
+from itertools import count
 
 from logger import *
 
@@ -162,6 +163,7 @@ def load_existing_hashes(input_file: str, output_format: str) -> set:
 def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
                              system_prompt: str, output_format: str,
                              lock: threading.Lock, existing_hashes: set,
+                             output_files: dict, counter,   # new counter parameter
                              max_retries: int = 8, retry_delay: float = 15.0) -> None:
     fable = None
     attempt = 0
@@ -180,12 +182,12 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
             break  # Successful generation, exit the loop.
         except Exception as e:
             attempt += 1
-            logger.error(f"Error generating fable (attempt {attempt}/{max_retries}) for prompt: {prompt[:50]}: {e}")
+            logger.error(f"Error generating fable (attempt {attempt}/{max_retries}) for fable with hash: {hash_val}: {e}")
             if attempt < max_retries:
                 retry_delay += 5
                 time.sleep(retry_delay)
             else:
-                logger.error(f"Max retries reached. Failed to generate fable for prompt: {prompt[:50]}")
+                logger.error(f"Max retries reached. Failed to generate fable for fable with hash: {hash_val}")
                 return  # Give up after maximum retries.
 
     try:
@@ -200,28 +202,31 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
             'fable': fable,
             'hash': hash_val
         }
-        # Optionally, you can still write to stdout:
         with lock:
+            # Write the result immediately to the file corresponding to this model.
+            f = output_files[model_name]
             if output_format == 'csv':
-                writer = csv.DictWriter(sys.stdout, fieldnames=['language', 'model', 'prompt', 'fable', 'hash'])
+                writer = csv.DictWriter(f, fieldnames=['language', 'model', 'prompt', 'fable', 'hash'])
                 writer.writerow(result)
-                sys.stdout.flush()
             elif output_format == 'jsonl':
-                json.dump(result, sys.stdout)
-                sys.stdout.write('\n')
-                sys.stdout.flush()
-            else: 
-                print(f"\nLanguage: {result['language']}")
-                print(f"\nModel: {result['model']}")
-                print(f"\nPrompt:\n{result['prompt']}")
-                print(f"\nFable:\n{result['fable']}")
-                print(f"\nHash: {result['hash']}")
-                print("-" * 80)
-        logger.info(f"Generated fable for prompt: {prompt[:50]}... using model {model_name}")
+                json.dump(result, f)
+                f.write('\n')
+            else:
+                f.write(f"Language: {result['language']}\n")
+                f.write(f"Model: {result['model']}\n")
+                f.write(f"Prompt:\n{result['prompt']}\n")
+                f.write(f"Fable:\n{result['fable']}\n")
+                f.write(f"Hash: {result['hash']}\n")
+                f.write("-" * 80 + "\n")
+            f.flush()
+        # Retrieve the current count in a thread-safe manner.
+        with lock:
+            current_count = next(counter)
+        logger.info(f"Generated fable #{current_count} with hash: {hash_val} using model {model_name}")
 
         return result
     except Exception as e:
-        logger.error(f"Error processing result in thread: {e}")
+        logger.error(f"Error processing result in thread for fable with hash: {hash_val}: {e}")
 
 def write_generated_prompts(system_prompt: str, fable_templates: list) -> None:
     """
@@ -244,28 +249,6 @@ def write_generated_prompts(system_prompt: str, fable_templates: list) -> None:
             f.write("\n")
     
     logger.info(f"Generated prompts written to {full_path}")
-
-def write_generated_fables(model: str, fables: list) -> None:
-    """
-    Writes the generated fable results to a JSONL file in the folder data/fables/model/
-    using the naming convention:
-        tf_fables_{model}_c{n}_dt{yymmdd-hhmmss}.jsonl
-    where n is the number of fables for that model.
-    """
-    # Create the folder for this model if it doesn't exist.
-    model_folder = os.path.join(FABLES_FOLDER, model)
-    os.makedirs(model_folder, exist_ok=True)
-
-    n = len(fables)
-    timestamp = time.strftime("%y%m%d-%H%M%S")
-    file_name = f"tf_fables_{model}_c{n}_dt{timestamp}.jsonl"
-    full_path = os.path.join(model_folder, file_name)
-
-    with open(full_path, 'w') as f:
-        for result in fables:
-            json.dump(result, f)
-            f.write("\n")
-    logger.info(f"Generated fables for model {model} written to {full_path}")
 
 def write_output(system_prompt: str, fable_templates: list, output_format: str) -> None:
     # For fable generation output (if writing to stdout)
@@ -314,11 +297,29 @@ def run_generate(args) -> None:
         logger.info(f"Found {len(existing_hashes)} existing hashes in {args.input_file}")
 
         output_lock = threading.Lock()
-        if args.output == 'csv':
-            with output_lock:
-                writer = csv.DictWriter(sys.stdout, fieldnames=['model', 'prompt', 'fable', 'hash'])
+
+        # Open output files for each model so results can be written gradually.
+        output_files = {}
+        for model_name in models_to_use:
+            model_folder = os.path.join(FABLES_FOLDER, model_name)
+            os.makedirs(model_folder, exist_ok=True)
+            timestamp = time.strftime("%y%m%d-%H%M%S")
+            if args.output == 'csv':
+                file_name = f"tf_fables_{model_name}_dt{timestamp}.csv"
+            elif args.output == 'jsonl':
+                file_name = f"tf_fables_{model_name}_dt{timestamp}.jsonl"
+            else:
+                file_name = f"tf_fables_{model_name}_dt{timestamp}.txt"
+            full_path = os.path.join(model_folder, file_name)
+            f = open(full_path, 'w', encoding='utf-8')
+            if args.output == 'csv':
+                writer = csv.DictWriter(f, fieldnames=['language', 'model', 'prompt', 'fable', 'hash'])
                 writer.writeheader()
-                sys.stdout.flush()
+                f.flush()
+            output_files[model_name] = f
+
+        # Create a shared counter for fable generation.
+        counter = count(1)
 
         futures = []
         with ThreadPoolExecutor(max_workers=100) as executor:
@@ -330,20 +331,17 @@ def run_generate(args) -> None:
                         executor.submit(
                             generate_fable_threaded,
                             model_name, model_config, prompt, system_prompt,
-                            args.output, output_lock, existing_hashes
+                            args.output, output_lock, existing_hashes, output_files, counter
                         )
                     )
 
-        # Collect the results from the futures and group by model.
-        model_fables = {}
+        # Wait for all threads to finish.
         for future in futures:
-            result = future.result()
-            if result is not None:
-                model_fables.setdefault(result['model'], []).append(result)
+            future.result()
 
-        # Write fables for each model to the appropriate file.
-        for model, fables in model_fables.items():
-            write_generated_fables(model, fables)
+        # Close all output files.
+        for f in output_files.values():
+            f.close()
 
         elapsed_time = time.time() - start_time
         logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")
