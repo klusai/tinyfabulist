@@ -12,6 +12,7 @@ from decouple import config
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor
 from itertools import count
+from transformers import AutoTokenizer
 
 from logger import *
 
@@ -163,9 +164,10 @@ def load_existing_hashes(input_file: str, output_format: str) -> set:
 def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
                              system_prompt: str, output_format: str,
                              lock: threading.Lock, existing_hashes: set,
-                             output_files: dict, counter,   # new counter parameter
+                             output_files: dict, counter, metadata: dict,
                              max_retries: int = 8, retry_delay: float = 15.0) -> None:
-    fable = None
+    # Measure the inference start time.
+    start_inference_time = time.time()
     attempt = 0
 
     # Compute the hash based on the model and prompt.
@@ -176,6 +178,7 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
             return
 
     # Retry loop for generating the fable.
+    fable = None
     while attempt < max_retries:
         try:
             fable = generate_fable(system_prompt, prompt, model_config['base_url'])
@@ -190,23 +193,50 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
                 logger.error(f"Max retries reached. Failed to generate fable for fable with hash: {hash_val}")
                 return  # Give up after maximum retries.
 
+    # Calculate inference time.
+    inference_time = time.time() - start_inference_time
+
     try:
         with lock:
-            # Add the new hash to the set so subsequent tasks see it.
+            # Add the new hash so subsequent tasks skip duplicates.
             existing_hashes.add(hash_val)
 
+        llm_name = model_config.get('name', 'unknown')
+        llm_input_tokens = None
+        llm_output_tokens = None
+
+        if llm_name != 'unknown':
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(llm_name)
+                llm_input_tokens = len(tokenizer.encode(prompt))
+                llm_output_tokens = len(tokenizer.encode(fable))
+            except Exception as e:
+                logger.error(f"Error computing LLM token counts: {e}")
+
+        # Build the result dictionary with additional metadata.
         result = {
             'language': 'en',
-            'model': model_config['name'],
             'prompt': prompt,
+            'hash': hash_val,
             'fable': fable,
-            'hash': hash_val
+            'llm_name': llm_name,
+            'llm_input_tokens': llm_input_tokens,    
+            'llm_output_tokens': llm_output_tokens,
+            'llm_inference_time': inference_time,
+            'host_provider': metadata.get('host_provider'),
+            'host_dc_provider': metadata.get('host_dc_provider'),
+            'host_dc_location': metadata.get('host_dc_location'),
+            'host_gpu': model_config.get('host_gpu'),
+            'host_gpu_vram': model_config.get('host_gpu_vram'),
+            'host_cost_per_hour': model_config.get('host_cost_per_hour'),
+            'generation_datetime': time.strftime("%Y-%m-%d %H:%M:%S"),
+            'pipeline_version': metadata.get('pipeline_version')
         }
         with lock:
             # Write the result immediately to the file corresponding to this model.
             f = output_files[model_name]
             if output_format == 'csv':
-                writer = csv.DictWriter(f, fieldnames=['language', 'model', 'prompt', 'fable', 'hash'])
+                writer = csv.DictWriter(f, fieldnames=list(result.keys()))
                 writer.writerow(result)
             elif output_format == 'jsonl':
                 json.dump(result, f)
@@ -219,11 +249,9 @@ def generate_fable_threaded(model_name: str, model_config: dict, prompt: str,
                 f.write(f"Hash: {result['hash']}\n")
                 f.write("-" * 80 + "\n")
             f.flush()
-        # Retrieve the current count in a thread-safe manner.
         with lock:
             current_count = next(counter)
         logger.info(f"Generated fable #{current_count} with hash: {hash_val} using model {model_name}")
-
         return result
     except Exception as e:
         logger.error(f"Error processing result in thread for fable with hash: {hash_val}: {e}")
@@ -313,13 +341,21 @@ def run_generate(args) -> None:
             full_path = os.path.join(model_folder, file_name)
             f = open(full_path, 'w', encoding='utf-8')
             if args.output == 'csv':
-                writer = csv.DictWriter(f, fieldnames=['language', 'model', 'prompt', 'fable', 'hash'])
+                writer = csv.DictWriter(f, fieldnames=['language', 'model', 'prompt', 'fable', 'hash',
+                                                         'llm_name','llm_input_tokens','llm_output_tokens',
+                                                         'llm_inference_time','llm_inference_cost_usd',
+                                                         'host_provider','host_dc_provider','host_dc_location',
+                                                         'host_gpu','host_gpu_vram','host_cost_per_hour',
+                                                         'generation_datetime','pipeline_version'])
                 writer.writeheader()
                 f.flush()
             output_files[model_name] = f
 
         # Create a shared counter for fable generation.
         counter = count(1)
+
+        # Extract metadata from settings. You can store these details in a dedicated key in your YAML.
+        metadata = settings.get('metadata', {})
 
         futures = []
         with ThreadPoolExecutor(max_workers=100) as executor:
@@ -331,7 +367,8 @@ def run_generate(args) -> None:
                         executor.submit(
                             generate_fable_threaded,
                             model_name, model_config, prompt, system_prompt,
-                            args.output, output_lock, existing_hashes, output_files, counter
+                            args.output, output_lock, existing_hashes, output_files, counter,
+                            metadata
                         )
                     )
 

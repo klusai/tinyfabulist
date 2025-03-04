@@ -1,3 +1,8 @@
+metadata:
+  pipeline_version: "1.0"
+  host_dc_location: "eu-west-1"
+  host_dc_provider: "eu-west-1"
+  host_provider: "endpoints.huggingface"
 generator:
   features:
     characters:
@@ -631,19 +636,34 @@ llms:
   hf-models:
     llama-3-1-8b-instruct-mpp:
       base_url: "https://wc0hhrd4qrvnp90x.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
-      name: "Llama 3.1 8B Instruct"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
     deepseek-r1-distill-llama-8b-dmb:
       base_url: "https://i479m9m7jbp0w8i4.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
       name: "DeepSeek R1 Distill Llama 8B"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
     smollm2-1-7b-instruct-ins:
       base_url: "https://q5szr3nb7ghwlezw.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
       name: "SmolLM2-1.7B-Instruct"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
     llama-3-2-1b-instruct-sei:
       base_url: "https://r09svj4wx82lsd5o.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
       name: "Llama-3.2-1B-Instruct"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
     mistral-7b-instruct-v0-3-qqj:
       base_url: "https://ysxrfghc926vtdpu.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
-      name: "Mistral-7B-Instruct-v0.3"
+      name: "mistralai/Mistral-7B-Instruct-v0.3"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
 
 evaluator:
   model: "gpt-4o"
