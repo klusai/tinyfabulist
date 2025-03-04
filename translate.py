@@ -58,7 +58,7 @@ def translate_jsonl(input_file: str, output_file: str, target_lang: str,
         fields_to_translate: List of JSON fields to translate (default: ['fable'])
     """
     if fields_to_translate is None:
-        fields_to_translate = ['fable']
+        fields_to_translate = ['prompt','fable']
     
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
@@ -82,6 +82,10 @@ def translate_jsonl(input_file: str, output_file: str, target_lang: str,
                         record[field] = translate_text(record[field], target_lang, auth_key)
                         # Add a small delay to avoid hitting API rate limits
                         time.sleep(0.1)
+                
+                # Update language field
+                record['language'] = target_lang.lower()
+                
                 
                 translated_records.append(record)
                 processed_count += 1
@@ -135,8 +139,12 @@ def translate_fables(args):
     if not output_file:
         base_name = os.path.basename(args.input)
         name_parts = os.path.splitext(base_name)
-        output_file = f"{name_parts[0]}_{args.target_lang.lower()}{name_parts[1]}"
-        output_file = os.path.join(os.path.dirname(args.input), output_file)
+        output_dir = os.path.join('data', 'translations')
+        os.makedirs(output_dir, exist_ok=True)
+        output_file = os.path.join(
+            output_dir,
+            f"{name_parts[0]}_translation_{args.target_lang.lower()}{name_parts[1]}"
+        )
 
     logger.info(f"Translating {args.input} to {args.target_lang}")
     logger.info(f"Output will be saved to {output_file}")
@@ -147,7 +155,7 @@ def translate_fables(args):
         target_lang=args.target_lang,
         auth_key=auth_key,
         batch_size=args.batch_size,
-        fields_to_translate=args.fields.split(',') if args.fields else ['fable']
+        fields_to_translate=args.fields.split(',') if args.fields else ['fable','prompt']
     )
 
 def add_translate_subparser(subparsers) -> None:
