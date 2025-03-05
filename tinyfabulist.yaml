@@ -716,3 +716,51 @@ evaluator:
 
       Fable:
       {{fable}}
+    system_ro: |
+        Ești un critic literar expert specializat în fabule și povestiri morale. 
+        Evaluările tale trebuie să fie obiective, consecvente și bazate pe standarde literare consacrate. 
+        Oferă-ți evaluarea într-un JSON valid și formatat corect, fără a include text în afara obiectului JSON. 
+        Echilibrează analiza critică cu feedback constructiv, concentrându-te atât pe punctele forte, cât și pe punctele slabe.
+    evaluation_ro: |
+        Evaluează următoarea fabulă conform următoarelor criterii specifice:
+
+          1. Gramatică și Stil (1-10):
+            - 1-3: Erori semnificative care împiedică înțelegerea
+            - 4-6: Unele erori, dar textul este, în general, lizibil
+            - 7-10: Scriere curată și rafinată, cu un limbaj și stil adecvat pentru o fabulă
+
+          2. Creativitate și Originalitate (1-10):
+            - 1-3: Derivat, previzibil sau clișeic
+            - 4-6: Conține unele elemente originale, dar urmează tipare familiare
+            - 7-10: O perspectivă proaspătă, o abordare inovatoare, menținând structura clasică a fabulei
+
+          3. Claritatea Morală (1-10):
+            - 1-3: Morală absentă, confuză sau contradictorie
+            - 4-6: Morală prezentă, dar subdezvoltată sau cu impact redus
+            - 7-10: Morală clară și semnificativă, care oferă o perspectivă autentică
+
+          4. Respectarea Instrucțiunilor (1-10):
+            - 1-3: Lipsesc multiple elemente cerute de instrucțiuni
+            - 4-6: Încorporează elementele principale, dar omite unele instrucțiuni
+            - 7-10: Abordează în mod complet toate cerințele instrucțiunilor, menținând coeziunea narativă
+
+        Formatează răspunsul tău ca JSON valid cu următoarea structură:
+        {
+            "type": "Evaluare Fabula",
+            "grammar": <număr întreg 1-10>,
+            "creativity": <număr întreg 1-10>,
+            "moral_clarity": <număr întreg 1-10>,
+            "adherence_to_prompt": <număr întreg 1-10>,
+            "explanation": [
+                "<O propoziție care explică nota pentru gramatică și stil>",
+                "<O propoziție care explică nota pentru creativitate și originalitate>",
+                "<O propoziție care explică nota pentru claritatea morală>",
+                "<O propoziție care explică nota pentru respectarea instrucțiunilor>"
+            ]
+        }
+
+        Fabulă:
+        {{fable}}
+
+        Prompt:
+        {{prompt}}
