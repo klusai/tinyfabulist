@@ -1,4 +1,0 @@
-ERROR: '\n    "type"'
-
-API RESPONSE:
-Error evaluating fable: '\n    "type"'

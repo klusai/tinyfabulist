@@ -270,10 +270,10 @@ def write_generated_prompts(system_prompt: str, fable_templates: list) -> None:
     full_path = os.path.join(PROMPTS_FOLDER, file_name)
 
     with open(full_path, 'w') as f:
-        json.dump({"prompt_type": "system_prompt", "content": system_prompt}, f)
+        json.dump([{"prompt_type": "system_prompt", "content": system_prompt}], f)
         f.write("\n")
         for template in fable_templates:
-            json.dump({"prompt_type": "generator_prompt", "content": template}, f)
+            json.dump([{"prompt_type": "generator_prompt", "content": template}], f)
             f.write("\n")
     
     logger.info(f"Generated prompts written to {full_path}")
