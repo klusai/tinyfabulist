@@ -85,7 +85,7 @@ def evaluate_fable(fable: str, prompt: str = None) -> dict:
             #max_tokens=max_tokens,
             #temperature=temperature,
             response_format={"type": "json_object"},
-            reasoning_effort="medium"
+            reasoning_effort="high"
         )
         evaluation_text = chat_completion.choices[0].message.content.strip()
 

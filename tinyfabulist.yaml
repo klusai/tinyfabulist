@@ -666,7 +666,7 @@ llms:
       host_gpu: "Nvidia A10G"
 
 evaluator:
-  model: "gpt-4o"
+  model: "o3-mini-2025-01-31"
   max_tokens: 350
   temperature: 0.0
   prompt:
