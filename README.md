@@ -159,3 +159,9 @@ This subcommand is used to evaluate already generated fables from a JSONL file.
    ```bash
    python ./tinyfabulist.py stats --jsonl data/evaluations
    ```
+
+5. **Translate module Stats:**
+
+   ```bash
+   python tinyfabulist.py translate --input <file.jsonl> --target-lang RO
+   ```
