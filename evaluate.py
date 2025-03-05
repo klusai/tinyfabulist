@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import uuid  # Add this import for generating unique filenames
 from pybars import Compiler
+import time  # Needed for sleep
 
 logger = setup_logging()
 
@@ -51,7 +52,7 @@ def evaluate_fable(fable: str, prompt: str = None) -> dict:
 
     Args:
         fable (str): The fable text to evaluate
-        original_prompt (str, optional): The original prompt used to generate the fable. Defaults to None.
+        prompt (str, optional): The original prompt used to generate the fable. Defaults to None.
 
     Returns:
         dict: JSON evaluation with scores and explanations for each criterion
@@ -66,10 +67,7 @@ def evaluate_fable(fable: str, prompt: str = None) -> dict:
 
         # Get prompts from config
         prompts = evaluator_config.get("prompt", {})
-        system_prompt = prompts.get(
-            "system",
-            None,
-        )
+        system_prompt = prompts.get("system", None)
         evaluation_prompt_template = prompts.get("evaluation", "")
 
         # Format the evaluation prompt with the fable and original prompt using pybars
@@ -84,20 +82,18 @@ def evaluate_fable(fable: str, prompt: str = None) -> dict:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": evaluation_prompt},
             ],
-            max_tokens=max_tokens,
-            temperature=temperature,
+            #max_tokens=max_tokens,
+            #temperature=temperature,
             response_format={"type": "json_object"},
+            reasoning_effort="medium"
         )
         evaluation_text = chat_completion.choices[0].message.content.strip()
 
         try:
-            logger.info(
-                f"Parsing response: {evaluation_text[:100]}..."
-            )  # Log first 100 chars for debugging
+            logger.info(f"Parsing response: {evaluation_text[:100]}...")
             evaluation_json = json.loads(evaluation_text)
             return evaluation_json
         except json.JSONDecodeError as json_err:
-            # Improved logging for JSON parsing errors
             error_context = f"JSON error: {str(json_err)}, Response starts with: {evaluation_text[:200]}"
             logger.error(error_context)
             save_debug_response(evaluation_text, error_context)
@@ -112,20 +108,52 @@ def evaluate_fable(fable: str, prompt: str = None) -> dict:
 def evaluate_fable_threaded(fable_data: dict) -> dict:
     """
     Worker function to evaluate a single fable.
-    Returns a dictionary with model, evaluation result, and the hash.
+    Returns a dictionary with llm_name, evaluation result, and the hash.
+    Retries evaluation up to 5 times if an error occurs.
     """
-    try:
-        model = fable_data["model"]
-        hash_value = fable_data["hash"]
-        fable_text = fable_data["fable"]
-        prompt = fable_data["prompt"]
-        # Pass the original prompt to the evaluation function
-        evaluation = evaluate_fable(fable_text, prompt)
+    llm_name = fable_data.get("llm_name", "unknown")
+    hash_value = fable_data.get("hash", "")
+    fable_text = fable_data.get("fable", "")
+    prompt = fable_data.get("prompt", "")
+    llm_input_tokens = fable_data.get("llm_input_tokens", 0)
+    llm_output_tokens = fable_data.get("llm_output_tokens", 0)
+    llm_inference_time = fable_data.get("llm_inference_time", 0)
+    host_provider = fable_data.get("host_provider", "unknown")
+    host_gpu = fable_data.get("host_gpu", "unknown")
 
-        return {"model": model, "evaluation": evaluation, "hash": hash_value}
-    except Exception as e:
-        logger.error(f"Error in evaluating fable: {e}")
-        return {"error": f"Error evaluating fable: {e}"}
+    max_attempts = 5
+    for attempt in range(1, max_attempts + 1):
+        try:
+            evaluation = evaluate_fable(fable_text, prompt)
+            if "error" not in evaluation:
+                return {
+                    "llm_name": llm_name,
+                    "evaluation": evaluation,
+                    "hash": hash_value,
+                    "llm_input_tokens": llm_input_tokens,
+                    "llm_output_tokens": llm_output_tokens,
+                    "llm_inference_time": llm_inference_time,
+                    "host_provider": host_provider,
+                    "host_gpu": host_gpu,
+                }
+            else:
+                logger.error(f"Evaluation error on attempt {attempt}: {evaluation.get('error')}")
+        except Exception as e:
+            logger.error(f"Exception in evaluation on attempt {attempt}: {e}")
+        if attempt < max_attempts:
+            time.sleep(1)  # wait a second before retrying
+    error_msg = f"Failed to evaluate fable after {max_attempts} attempts."
+    logger.error(error_msg)
+    return {
+        "llm_name": llm_name,
+        "evaluation": {"error": error_msg},
+        "hash": hash_value,
+        "llm_input_tokens": llm_input_tokens,
+        "llm_output_tokens": llm_output_tokens,
+        "llm_inference_time": llm_inference_time,
+        "host_provider": host_provider,
+        "host_gpu": host_gpu,
+    }
 
 
 def get_original_prompt() -> str:
@@ -142,9 +170,7 @@ def get_original_prompt() -> str:
     system_prompt = prompt_config.get("system", "")
     fable_prompt = prompt_config.get("fable", "")
 
-    combined_prompt = (
-        f"System Prompt:\n{system_prompt}\n\nFable Prompt:\n{fable_prompt}"
-    )
+    combined_prompt = f"System Prompt:\n{system_prompt}\n\nFable Prompt:\n{fable_prompt}"
     return combined_prompt
 
 
@@ -181,10 +207,10 @@ def run_evaluate(args) -> None:
     data/evaluations with a filename format:
       {initial_file_name}_jsonl_eval_e{evaluator_name}_dt{yymmdd-hhmmss}.jsonl
     """
-    # Get the evaluator model name from config
+    # Get the evaluator llm_name name from config
     settings = load_settings()
     evaluator_config = settings.get("evaluator", {})
-    evaluator_name = evaluator_config.get("model", "gpt-4o")
+    evaluator_name = evaluator_config.get("llm_name", "gpt-4o")
 
     output_dir = os.path.join("data", "evaluations")
     os.makedirs(output_dir, exist_ok=True)
