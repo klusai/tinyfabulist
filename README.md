@@ -145,7 +145,7 @@ This subcommand is used to evaluate already generated fables from a JSONL file.
 2. **Generating Fables from a Prompt File with Deduplication (Using Specific Models):**
 
    ```bash
-   python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --input-file results.jsonl --models model1 model2 >> fallback.jsonl
+   python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --models model1 model2
    ```
 
 3. **Evaluating Generated Fables:**

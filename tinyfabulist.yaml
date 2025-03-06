@@ -664,6 +664,13 @@ llms:
       host_cost_per_hour: 1.0
       host_gpu_vram: 24
       host_gpu: "Nvidia A10G"
+    aya-23-8b-kzw:
+      base_url: "https://w8141pwygh3apkkp.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "CohereForAI/aya-23-8B"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
+
 
 evaluator:
   model: "o3-mini-2025-01-31"
@@ -764,3 +771,7 @@ evaluator:
 
         Prompt:
         {{prompt}}
+
+translator_ro:
+  model: "mbart-large-50-many-to-many--pll" 
+  endpoint: "https://o9vfdo2qwt8wztoc.eu-west-1.aws.endpoints.huggingface.cloud"
