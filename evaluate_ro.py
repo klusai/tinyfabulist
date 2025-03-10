@@ -64,7 +64,7 @@ def evaluate_fable_save(fable_data: dict, lock:threading.Lock) -> dict:
                 {"role": "user", "content": evaluation_prompt},
             ],
             response_format={"type": "json_object"},
-            reasoning_effort="low"
+            reasoning_effort="medium"
         )
         evaluation_text = chat_completion.choices[0].message.content.strip()
         try:
