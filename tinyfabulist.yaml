@@ -773,5 +773,5 @@ evaluator:
         {{prompt}}
 
 translator_ro:
-  model: "mbart-large-50-many-to-many--pll" 
-  endpoint: "https://o9vfdo2qwt8wztoc.eu-west-1.aws.endpoints.huggingface.cloud"
+  model: "Llama-3.3-70B-Instruct"
+  endpoint: "https://oe8q601rmy8lqqgk.us-east-1.aws.endpoints.huggingface.cloud/v1/"
