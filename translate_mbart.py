@@ -1,23 +1,19 @@
 import os
 import json
 import argparse
-import random
 import time
-from openai import OpenAI
-import yaml
 from typing import Dict, Any, List, Optional
 from tqdm import tqdm
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
+import yaml
 
 from logger import setup_logging
 
 logger = setup_logging()
 
-
-
-def load_translator_config(config_file: str, translator_key: str) -> Dict[str, str]:
+def load_translator_config(config_file: str, translator_key: str) -> Dict[str, Any]:
     """
     Load translator configuration from YAML file.
     
@@ -36,22 +32,28 @@ def load_translator_config(config_file: str, translator_key: str) -> Dict[str, s
             logger.error(f"Translator key '{translator_key}' not found in config file")
             raise ValueError(f"Translator key '{translator_key}' not found in config file")
         
-        return config[translator_key]
+        translator_config = config[translator_key]
+        
+        # Set default model_type as "mbart" if not specified
+        if "model_type" not in translator_config:
+            translator_config["model_type"] = "mbart"
+            
+        return translator_config
     except Exception as e:
         logger.error(f"Error loading config file: {e}")
         raise
 
-def translate_text(text: str, api_key: str, endpoint: str, model_type: str = "chat", 
-                   source_lang: str = "EN", target_lang: str = "RO",
+def translate_text(text: str, api_key: str, endpoint: str, model_type: str = "mbart", 
+                   source_lang: str = "en_XX", target_lang: str = "ro_RO",
                    max_retries: int = 3, backoff_factor: float = 5.0) -> str:
     """
-    Translate text using either chat-based LLMs or direct translation models.
+    Translate text using mBART or other translation models.
     
     Parameters:
         text: Text to translate.
         api_key: API key for authentication.
         endpoint: The API endpoint for the translation service.
-        model_type: Type of model - "chat" or "translation"
+        model_type: Type of model - "mbart", "translation", or "chat"
         source_lang: Source language code.
         target_lang: Target language code.
         max_retries: Number of retry attempts before giving up.
@@ -62,8 +64,52 @@ def translate_text(text: str, api_key: str, endpoint: str, model_type: str = "ch
     """
     for attempt in range(1, max_retries + 1):
         try:
-            if model_type == "translation":
-                # Direct translation model approach (e.g., MADLAD-400)
+            if model_type == "mbart":
+                # mBART-specific approach
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                }
+                
+                # Format specific to mBART models
+                payload = {
+                    "inputs": text,
+                    "parameters": {
+                        "src_lang": source_lang,
+                        "tgt_lang": target_lang,
+                        "max_length": 1024
+                    }
+                }
+                
+                response = requests.post(endpoint, headers=headers, json=payload)
+                response.raise_for_status()  # Raise exception for HTTP errors
+                
+                # Extract translated text from response
+                translation = response.json()
+                
+                # Handle mBART response format
+                if isinstance(translation, list) and len(translation) > 0:
+                    if "translation_text" in translation[0]:
+                        return translation[0]["translation_text"]
+                    elif "generated_text" in translation[0]:
+                        return translation[0]["generated_text"]
+                    else:
+                        logger.warning(f"Unexpected mBART response format: {translation}")
+                        return text
+                elif isinstance(translation, dict):
+                    if "translation_text" in translation:
+                        return translation["translation_text"]
+                    elif "generated_text" in translation:
+                        return translation["generated_text"]
+                    else:
+                        logger.warning(f"Unexpected mBART response format: {translation}")
+                        return text
+                else:
+                    logger.warning(f"Unexpected response format: {translation}")
+                    return text
+            
+            elif model_type == "translation":
+                # Other translation model approach (e.g., MADLAD-400)
                 headers = {
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
@@ -73,13 +119,13 @@ def translate_text(text: str, api_key: str, endpoint: str, model_type: str = "ch
                 payload = {
                     "inputs": text,
                     "parameters": {
-                        "src_lang": source_lang,
-                        "tgt_lang": target_lang,
+                        "source_lang": source_lang,
+                        "target_lang": target_lang,
                     }
                 }
                 
                 response = requests.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()  # Raise exception for HTTP errors
+                response.raise_for_status()
                 
                 # Extract translated text from response
                 translation = response.json()
@@ -93,8 +139,10 @@ def translate_text(text: str, api_key: str, endpoint: str, model_type: str = "ch
                     logger.warning(f"Unexpected response format: {translation}")
                     return text
             
-            else:
+            else:  # Chat-based translation
                 # Chat-based translation (LLM approach)
+                from openai import OpenAI
+                
                 client = OpenAI(
                     base_url=endpoint,
                     api_key=api_key
@@ -119,6 +167,7 @@ def translate_text(text: str, api_key: str, endpoint: str, model_type: str = "ch
                     if message.choices[0].delta.content is not None:
                         fable_translation += message.choices[0].delta.content
                 return fable_translation
+                
         except Exception as e:
             logger.error(
                 f"Translation error on attempt {attempt}/{max_retries}: {e}. "
@@ -134,16 +183,18 @@ def translate_record(record: Dict[str, Any],
                      fields: List[str],
                      api_key: str,
                      endpoint: str,
+                     model_type: str,  
                      source_lang: str,
-                     target_lang: str,
-                     model_name:str = "") -> Dict[str, Any]:
+                     target_lang: str) -> Dict[str, Any]:
     """
+    Translate specified fields in a record.
     
     Parameters:
         record: A dictionary representing a JSONL record.
         fields: List of fields to translate.
-        api_key: Hugging Face API key for authentication.
+        api_key: API key for authentication.
         endpoint: The API endpoint for the translation service.
+        model_type: Type of model - "mbart", "translation", or "chat"
         source_lang: Source language code.
         target_lang: Target language code.
         
@@ -152,13 +203,23 @@ def translate_record(record: Dict[str, Any],
     """
     for field in fields:
         if field in record and record[field]:
-            record[field] = translate_text(record[field], api_key, endpoint, source_lang=source_lang, target_lang=target_lang)
+            record[field] = translate_text(
+                record[field], 
+                api_key, 
+                endpoint, 
+                model_type,
+                source_lang, 
+                target_lang
+            )
             time.sleep(0.1)
-    record['language'] = 'ro'  # Hardcoded to Romanian
-
-    if 'llm_name' in record:
-        record['llm_name'] += f"_{model_name}"
-
+    
+    # Update language marker based on target_lang
+    if target_lang.startswith("ro"):
+        record['language'] = 'ro'
+    else:
+        # Extract language code from target_lang (e.g., "de_DE" -> "de")
+        record['language'] = target_lang.split('_')[0]
+        
     return record
 
 def save_progress(records: List[Dict[str, Any]], output_file: str, is_first_batch: bool) -> None:
@@ -179,19 +240,21 @@ def translate_jsonl(input_file: str,
                     output_file: str,
                     api_key: str,
                     endpoint: str,
+                    model_type: str,
                     source_lang: str,
                     target_lang: str,
                     batch_size: int = 100,
                     fields_to_translate: Optional[List[str]] = None,
-                    max_workers: int = 30,
-                    model_name: str = "") -> None:
+                    max_workers: int = 30) -> None:
     """
+    Translate content from a JSONL file.
     
     Parameters:
         input_file: Path to the input JSONL file.
         output_file: Path to the output JSONL file.
-        api_key: Hugging Face API key for authentication.
+        api_key: API key for authentication.
         endpoint: The API endpoint for the translation service.
+        model_type: Type of model - "mbart", "translation", or "chat"
         source_lang: Source language code.
         target_lang: Target language code.
         batch_size: Number of records to process before saving progress.
@@ -208,10 +271,13 @@ def translate_jsonl(input_file: str,
     translated_records = []
     processed_count = 0
     
+    # Get language name for display
+    language_display = target_lang.split('_')[0].upper() if '_' in target_lang else target_lang.upper()
+    
     # Use a ThreadPoolExecutor to process records concurrently
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
-        with open(input_file, 'r', encoding='utf-8') as f, tqdm(total=total_lines, desc="Translating to Romanian") as pbar:
+        with open(input_file, 'r', encoding='utf-8') as f, tqdm(total=total_lines, desc=f"Translating to {language_display}") as pbar:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -225,9 +291,9 @@ def translate_jsonl(input_file: str,
                         fields_to_translate,
                         api_key,
                         endpoint,
+                        model_type,
                         source_lang,
-                        target_lang,
-                        model_name
+                        target_lang
                     )
                     futures.append(future)
                 except json.JSONDecodeError as e:
@@ -268,7 +334,8 @@ def translate_fables(args):
     # Load the translator configuration
     config = load_translator_config(args.config, args.translator_key)
     endpoint = config.get('endpoint')
-    hf_model = config.get('model','')
+    hf_model = config.get('model')
+    model_type = config.get('model_type', 'mbart')  # Default to mbart
     
     if not endpoint:
         logger.critical(f"Endpoint not found in config for translator key: {args.translator_key}")
@@ -284,12 +351,16 @@ def translate_fables(args):
         output_dir = os.path.join('data', 'translations')
         timestamp = time.strftime("%y%m%d-%H%M%S")
         os.makedirs(output_dir, exist_ok=True)
+        
+        # Extract short language code for filename
+        lang_code = target_lang.split('_')[0] if '_' in target_lang else target_lang
         output_file = os.path.join(
             output_dir,
-            f"{name_parts[0]}_translation_ro_{hf_model}_{timestamp}.jsonl"
+            f"{name_parts[0]}_translation_{lang_code}_{hf_model.split('/')[-1]}_{timestamp}.jsonl"
         )
     
-    logger.info(f"Translating {args.input} from {source_lang} to {target_lang} using endpoint: {endpoint}")
+    logger.info(f"Translating {args.input} from {source_lang} to {target_lang}")
+    logger.info(f"Using model: {hf_model} (type: {model_type})")
     logger.info(f"Output will be saved to {output_file}")
     
     translate_jsonl(
@@ -297,12 +368,12 @@ def translate_fables(args):
         output_file=output_file,
         api_key=api_key,
         endpoint=endpoint,
+        model_type=model_type,
         source_lang=source_lang,
         target_lang=target_lang,
         batch_size=args.batch_size,
         fields_to_translate=args.fields.split(',') if args.fields else ['fable', 'prompt'],
-        max_workers=args.max_workers,
-        model_name=hf_model
+        max_workers=args.max_workers
     )
 
 def add_translate_subparser(subparsers) -> None:
@@ -311,7 +382,7 @@ def add_translate_subparser(subparsers) -> None:
     """
     translate_parser = subparsers.add_parser(
         'translate', 
-        help='Translate content in a JSONL file to Romanian'
+        help='Translate content in a JSONL file using mBART or other models'
     )
     
     translate_parser.add_argument(
@@ -322,7 +393,7 @@ def add_translate_subparser(subparsers) -> None:
     
     translate_parser.add_argument(
         '--output', 
-        help='Path to output translated JSONL file (default: input_filename_ro.jsonl)'
+        help='Path to output translated JSONL file'
     )
     
     translate_parser.add_argument(
@@ -334,19 +405,19 @@ def add_translate_subparser(subparsers) -> None:
     translate_parser.add_argument(
         '--translator-key', 
         default='translator_ro',
-        help='Key in the YAML config file for the Romanian translator (default: translator_ro)'
+        help='Key in the YAML config file for the translator configuration'
     )
     
     translate_parser.add_argument(
         '--source-lang', 
-        default='eng_Latn',
-        help='Source language code(default: en_XX)'
+        default='en_XX',
+        help='Source language code (default: en_XX)'
     )
     
     translate_parser.add_argument(
         '--target-lang', 
-        default='ron_Latn',
-        help='Target language code(default: ro_RO)'
+        default='ro_RO',
+        help='Target language code (default: ro_RO)'
     )
     
     translate_parser.add_argument(
@@ -371,7 +442,7 @@ def add_translate_subparser(subparsers) -> None:
     translate_parser.set_defaults(func=translate_fables)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Translate JSONL content to Romanian using Open Source models')
+    parser = argparse.ArgumentParser(description='Translate JSONL content using mBART or other models')
     subparsers = parser.add_subparsers()
     add_translate_subparser(subparsers)
     args = parser.parse_args()
