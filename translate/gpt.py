@@ -2,14 +2,13 @@ import os
 import json
 import argparse
 import time
-import yaml
 from typing import Dict, Any, List, Optional
 from tqdm import tqdm
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
-from logger import setup_logging
+from tiny_fabulist.logger import setup_logging
 
 logger = setup_logging()
 

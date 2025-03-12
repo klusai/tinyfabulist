@@ -1,7 +1,6 @@
 import os
 import json
 import argparse
-import random
 import time
 from openai import OpenAI
 import yaml
@@ -11,7 +10,7 @@ from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
-from logger import setup_logging
+from tiny_fabulist.logger import setup_logging
 
 logger = setup_logging()
 

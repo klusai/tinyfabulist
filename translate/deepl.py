@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import deepl  # Using the official DeepL library
 
-from logger import setup_logging
+from tiny_fabulist.logger import setup_logging
 
 logger = setup_logging()
 

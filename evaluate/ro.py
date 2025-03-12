@@ -10,8 +10,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from pybars import Compiler
 
-from logger import setup_logging
-from utils import load_settings
+from tiny_fabulist.logger import setup_logging
+from tiny_fabulist.utils import load_settings
 
 logger = setup_logging()
 

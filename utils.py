@@ -1,5 +1,5 @@
 import yaml
-from logger import *
+from tiny_fabulist.logger import *
 
 # Constants
 CONFIG_FILE = "tinyfabulist.yaml"

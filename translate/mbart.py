@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 import yaml
 
-from logger import setup_logging
+from tiny_fabulist.logger import setup_logging
 
 logger = setup_logging()
 

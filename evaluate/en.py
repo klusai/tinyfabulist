@@ -3,9 +3,8 @@ import sys
 import os
 from decouple import config
 from openai import OpenAI
-import yaml
-from logger import *
-from utils import load_settings
+from tiny_fabulist.logger import *
+from tiny_fabulist.utils import load_settings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import uuid  # Add this import for generating unique filenames
