@@ -133,7 +133,7 @@ def plot_model_averages(args):
             with open(file_path, "r") as f:
                 for line in f:
                     data = json.loads(line)
-                    model = data.get("llm_name", "unknown").split("/")[-1]
+                    model = data.get("llm_name", "unknown").split("/")[-1] #.split("Instruct")[-1][1:]
                     if "evaluation" in data:
                         evaluation = data["evaluation"]
                         score_totals[model]["grammar"] += evaluation.get("grammar", 0)
@@ -225,7 +225,7 @@ def plot_model_averages(args):
             performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
             source = averages
 
-        width_perf = 0.25
+        width_perf = 0.15
         colors_perf = ['#4CAF50', '#2196F3', '#FFC107']
         for i, metric in enumerate(performance_metrics):
             # For each model, if the metric is missing, default to 0.
