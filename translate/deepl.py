@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import deepl  # Using the official DeepL library
 
 from tiny_fabulist.logger import setup_logging
+from tiny_fabulist.translate.subparser import add_translate_subparser
 
 logger = setup_logging()
 
@@ -192,57 +193,10 @@ def translate_fables(args):
         max_workers=args.max_workers
     )
 
-def add_translate_subparser(subparsers) -> None:
-    """
-    Add the translate subparser to the main parser.
-    """
-    translate_parser = subparsers.add_parser(
-        'translate', 
-        help='Translate content in a JSONL file to a specified language using DeepL API'
-    )
-    
-    translate_parser.add_argument(
-        '--input', 
-        required=True,
-        help='Path to input JSONL file'
-    )
-    
-    translate_parser.add_argument(
-        '--output', 
-        help='Path to output translated JSONL file (default: input_filename_targetlang.jsonl)'
-    )
-    
-    translate_parser.add_argument(
-        '--target-lang', 
-        required=True,
-        help='Target language code (e.g., RO for Romanian, EN for English)'
-    )
-    
-    translate_parser.add_argument(
-        '--batch-size', 
-        type=int,
-        default=100,
-        help='Number of records to process before saving progress (default: 100)'
-    )
-    
-    translate_parser.add_argument(
-        '--fields', 
-        help='Comma-separated list of fields to translate (default: fable)'
-    )
-    
-    translate_parser.add_argument(
-        '--max-workers', 
-        type=int,
-        default=10,
-        help='Maximum number of threads to use (default: 10)'
-    )
-    
-    translate_parser.set_defaults(func=translate_fables)
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Translate JSONL content using DeepL API')
     subparsers = parser.add_subparsers()
-    add_translate_subparser(subparsers)
+    add_translate_subparser(subparsers,translate_fables,'EN', 'RO')
     args = parser.parse_args()
     
     if hasattr(args, 'func'):
