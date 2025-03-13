@@ -12,34 +12,12 @@ import requests
 
 from tiny_fabulist.logger import setup_logging
 from tiny_fabulist.translate.subparser import add_translate_subparser
+from tiny_fabulist.translate.utils import save_progress, load_translator_config
+from translate.utils import build_output_path, read_api_key
+
 
 logger = setup_logging()
 
-
-
-def load_translator_config(config_file: str, translator_key: str) -> Dict[str, str]:
-    """
-    Load translator configuration from YAML file.
-    
-    Parameters:
-        config_file: Path to the YAML configuration file.
-        translator_key: Key in the YAML file identifying the translator configuration.
-        
-    Returns:
-        Dictionary containing model and endpoint information.
-    """
-    try:
-        with open(config_file, 'r') as f:
-            config = yaml.safe_load(f)
-        
-        if translator_key not in config:
-            logger.error(f"Translator key '{translator_key}' not found in config file")
-            raise ValueError(f"Translator key '{translator_key}' not found in config file")
-        
-        return config[translator_key]
-    except Exception as e:
-        logger.error(f"Error loading config file: {e}")
-        raise
 
 def translate_text(text: str, api_key: str, endpoint: str, model_type: str = "chat", 
                    source_lang: str = "EN", target_lang: str = "RO",
@@ -161,20 +139,6 @@ def translate_record(record: Dict[str, Any],
 
     return record
 
-def save_progress(records: List[Dict[str, Any]], output_file: str, is_first_batch: bool) -> None:
-    """
-    Save a batch of translated records to the output file.
-    
-    Parameters:
-        records: List of translated records.
-        output_file: Path to the output file.
-        is_first_batch: If True, the file will be overwritten; otherwise, records are appended.
-    """
-    mode = 'w' if is_first_batch else 'a'
-    with open(output_file, mode, encoding='utf-8') as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + '\n')
-
 def translate_jsonl(input_file: str,
                     output_file: str,
                     api_key: str,
@@ -260,11 +224,8 @@ def translate_fables(args):
     """
     load_dotenv()
     
-    api_key = os.getenv('HF_ACCESS_TOKEN')
-    if not api_key:
-        logger.critical("HF_ACCESS_TOKEN must be set in the .env file")
-        raise ValueError("HF_ACCESS_TOKEN must be set in the .env file")
-    
+    api_key = read_api_key('HF_ACCESS_TOKEN')
+
     # Load the translator configuration
     config = load_translator_config(args.config, args.translator_key)
     endpoint = config.get('endpoint')
@@ -279,19 +240,8 @@ def translate_fables(args):
     
     output_file = args.output
     if not output_file:
-        base_name = os.path.basename(args.input)
-        name_parts = os.path.splitext(base_name)
-        output_dir = os.path.join('data', 'translations')
-        timestamp = time.strftime("%y%m%d-%H%M%S")
-        os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(
-            output_dir,
-            f"{name_parts[0]}_translation_ro_{hf_model}_{timestamp}.jsonl"
-        )
-    
-    logger.info(f"Translating {args.input} from {source_lang} to {target_lang} using endpoint: {endpoint}")
-    logger.info(f"Output will be saved to {output_file}")
-    
+        output_file = build_output_path(args, hf_model)
+
     translate_jsonl(
         input_file=args.input,
         output_file=output_file,

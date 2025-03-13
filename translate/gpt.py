@@ -9,7 +9,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from tiny_fabulist.logger import setup_logging
-from translate.subparser import add_translate_subparser
+from tiny_fabulist.translate.subparser import add_translate_subparser
+from tiny_fabulist.translate.utils import save_progress
+from translate.utils import build_output_path, read_api_key
 
 logger = setup_logging()
 
@@ -101,20 +103,6 @@ def translate_record(record: Dict[str, Any],
     record['language'] = target_lang.split('_')[0]  # e.g., 'ro'
     return record
 
-def save_progress(records: List[Dict[str, Any]], output_file: str, is_first_batch: bool) -> None:
-    """
-    Save a batch of translated records to the output file.
-    
-    Parameters:
-        records: List of translated records.
-        output_file: Path to the output file.
-        is_first_batch: If True, the file will be overwritten; otherwise, records are appended.
-    """
-    mode = 'w' if is_first_batch else 'a'
-    with open(output_file, mode, encoding='utf-8') as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + '\n')
-
 def translate_jsonl(input_file: str,
                     output_file: str,
                     api_key: str,
@@ -199,31 +187,18 @@ def translate_fables(args):
     """
     load_dotenv()
     
-    api_key = os.getenv('OPENAI_API_KEY')
-    if not api_key:
-        logger.critical("OPENAI_API_KEY must be set in the .env file")
-        raise ValueError("OPENAI_API_KEY must be set in the .env file")
-    
+    api_key = read_api_key('OPENAI_API_KEY')
+
     model = 'o3-mini-2025-01-31' #'gpt-4o'
 
     source_lang = args.source_lang
     target_lang = args.target_lang
     
     output_file = args.output
+    
     if not output_file:
-        base_name = os.path.basename(args.input)
-        name_parts = os.path.splitext(base_name)
-        output_dir = os.path.join('data', 'translations')
-        timestamp = time.strftime("%y%m%d-%H%M%S")
-        os.makedirs(output_dir, exist_ok=True)
-        output_file = os.path.join(
-            output_dir,
-            f"{name_parts[0]}_translation_{target_lang}_{model}_{timestamp}.jsonl"
-        )
-    
-    logger.info(f"Translating {args.input} from {source_lang} to {target_lang} using model: {model}")
-    logger.info(f"Output will be saved to {output_file}")
-    
+        output_file = build_output_path(args, model)
+
     translate_jsonl(
         input_file=args.input,
         output_file=output_file,
