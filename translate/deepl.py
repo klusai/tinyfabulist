@@ -13,7 +13,7 @@ import deepl  # Using the official DeepL library
 from tiny_fabulist.logger import setup_logging
 from tiny_fabulist.translate.subparser import add_translate_subparser
 from tiny_fabulist.translate.utils import save_progress
-from translate.utils import build_output_path, read_api_key
+from translate.utils import build_output_path, read_api_key, translate_main, translate_record
 
 logger = setup_logging()
 
@@ -46,37 +46,14 @@ def translate_text(text: str, target_lang: str, auth_key: str,
     logger.error("Max retries exceeded. Returning original text.")
     return text
 
-def translate_record(record: Dict[str, Any],
-                     fields: List[str],
-                     target_lang: str,
-                     auth_key: str) -> Dict[str, Any]:
-    """
-    Translate specified fields in a record.
-    
-    Parameters:
-        record: A dictionary representing a JSONL record.
-        fields: List of fields to translate.
-        target_lang: Target language code.
-        auth_key: DeepL API authentication key.
-        
-    Returns:
-        The record with the specified fields translated and a 'language' field updated.
-    """
-    for field in fields:
-        if field in record and record[field]:
-            record[field] = translate_text(record[field], target_lang, auth_key)
-            # Small delay to avoid hitting API rate limits too quickly
-            time.sleep(0.1)
-    record['language'] = target_lang.lower()
-    return record
-
 def translate_jsonl(input_file: str,
                     output_file: str,
                     target_lang: str,
                     auth_key: str,
                     batch_size: int = 100,
                     fields_to_translate: Optional[List[str]] = None,
-                    max_workers: int = 10) -> None:
+                    max_workers: int = 10,
+                    model_name: str = "") -> None:
     """
     Translate records in a JSONL file concurrently.
     
@@ -91,9 +68,6 @@ def translate_jsonl(input_file: str,
     """
     if fields_to_translate is None:
         fields_to_translate = ['prompt', 'fable']
-    
-    # Ensure output directory exists
-    os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
     
     # Count total lines for progress tracking
     with open(input_file, 'r', encoding='utf-8') as f:
@@ -115,10 +89,14 @@ def translate_jsonl(input_file: str,
                     record = json.loads(line)
                     future = executor.submit(
                         translate_record,
+                        translate_text,
                         record,
                         fields_to_translate,
-                        target_lang,
-                        auth_key
+                        model_name,
+                        **{
+                            "target_lang":target_lang,
+                            "auth_key":auth_key
+                        }
                     )
                     futures.append(future)
                 except json.JSONDecodeError as e:
@@ -169,12 +147,4 @@ def translate_fables(args):
     )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Translate JSONL content using DeepL API')
-    subparsers = parser.add_subparsers()
-    add_translate_subparser(subparsers,translate_fables,'EN', 'RO')
-    args = parser.parse_args()
-    
-    if hasattr(args, 'func'):
-        args.func(args)
-    else:
-        parser.print_help()
+    translate_main(translate_fables, "EN", "RO", description='Translate JSONL content using DeepL API')

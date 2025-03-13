@@ -1,17 +1,14 @@
-import os
 import json
-import argparse
 import time
-from typing import Dict, Any, List, Optional
+from typing import List, Optional
 from tqdm import tqdm
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from tiny_fabulist.logger import setup_logging
-from tiny_fabulist.translate.subparser import add_translate_subparser
 from tiny_fabulist.translate.utils import save_progress
-from translate.utils import build_output_path, read_api_key
+from translate.utils import build_output_path, read_api_key, translate_main, translate_record
 
 logger = setup_logging()
 
@@ -46,8 +43,6 @@ def translate_text(text: str, api_key: str, model: str, source_lang: str = "en",
             {"role": "system", "content": "You are a helpful translator."},
             {"role": "user", "content": prompt.strip()}
         ],
-        "temperature": 0,
-        "max_tokens": 1000
     }
     
     for attempt in range(1, max_retries + 1):
@@ -75,33 +70,6 @@ def translate_text(text: str, api_key: str, model: str, source_lang: str = "en",
             time.sleep(backoff_factor)
     logger.error("Max retries exceeded. Returning original text.")
     return text
-
-def translate_record(record: Dict[str, Any],
-                     fields: List[str],
-                     api_key: str,
-                     model: str,
-                     source_lang: str,
-                     target_lang: str) -> Dict[str, Any]:
-    """
-    Translate specified fields in a record using the ChatGPT API.
-    
-    Parameters:
-        record: A dictionary representing a JSONL record.
-        fields: List of fields to translate.
-        api_key: OpenAI API key for authentication.
-        model: ChatGPT model to use (e.g., 'gpt-3.5-turbo').
-        source_lang: Source language.
-        target_lang: Target language.
-        
-    Returns:
-        The record with the specified fields translated and a 'language' field updated.
-    """
-    for field in fields:
-        if field in record and record[field]:
-            record[field] = translate_text(record[field], api_key, model, source_lang, target_lang)
-            time.sleep(0.1)
-    record['language'] = target_lang.split('_')[0]  # e.g., 'ro'
-    return record
 
 def translate_jsonl(input_file: str,
                     output_file: str,
@@ -149,12 +117,16 @@ def translate_jsonl(input_file: str,
                     record = json.loads(line)
                     future = executor.submit(
                         translate_record,
+                        translate_text,
                         record,
                         fields_to_translate,
-                        api_key,
                         model,
-                        source_lang,
-                        target_lang
+                        **{
+                            "model": model,
+                            "api_key": api_key,
+                            "source_lang":source_lang,
+                            "target_lang":target_lang,
+                        }
                     )
                     futures.append(future)
                 except json.JSONDecodeError as e:
@@ -212,12 +184,4 @@ def translate_fables(args):
     )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Translate JSONL content using the ChatGPT API')
-    subparsers = parser.add_subparsers()
-    add_translate_subparser(subparsers, translate_fables, 'en', 'ro')
-    args = parser.parse_args()
-    
-    if hasattr(args, 'func'):
-        args.func(args)
-    else:
-        parser.print_help()
+    translate_main(translate_fables, "en", "ro", description='Translate JSONL content using the ChatGPT API')

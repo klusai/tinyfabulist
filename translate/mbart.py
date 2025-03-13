@@ -12,7 +12,7 @@ import yaml
 from tiny_fabulist.logger import setup_logging
 from tiny_fabulist.translate.subparser import add_translate_subparser
 from tiny_fabulist.translate.utils import save_progress, load_translator_config
-from translate.utils import build_output_path, read_api_key
+from translate.utils import build_output_path, read_api_key, translate_main, translate_record
 
 logger = setup_logging()
 
@@ -152,49 +152,6 @@ def translate_text(text: str, api_key: str, endpoint: str, model_type: str = "mb
                 logger.error("Max retries exceeded. Returning original text.")
                 return text
 
-def translate_record(record: Dict[str, Any],
-                     fields: List[str],
-                     api_key: str,
-                     endpoint: str,
-                     model_type: str,  
-                     source_lang: str,
-                     target_lang: str) -> Dict[str, Any]:
-    """
-    Translate specified fields in a record.
-    
-    Parameters:
-        record: A dictionary representing a JSONL record.
-        fields: List of fields to translate.
-        api_key: API key for authentication.
-        endpoint: The API endpoint for the translation service.
-        model_type: Type of model - "mbart", "translation", or "chat"
-        source_lang: Source language code.
-        target_lang: Target language code.
-        
-    Returns:
-        The record with the specified fields translated and a 'language' field updated.
-    """
-    for field in fields:
-        if field in record and record[field]:
-            record[field] = translate_text(
-                record[field], 
-                api_key, 
-                endpoint, 
-                model_type,
-                source_lang, 
-                target_lang
-            )
-            time.sleep(0.1)
-    
-    # Update language marker based on target_lang
-    if target_lang.startswith("ro"):
-        record['language'] = 'ro'
-    else:
-        # Extract language code from target_lang (e.g., "de_DE" -> "de")
-        record['language'] = target_lang.split('_')[0]
-        
-    return record
-
 def translate_jsonl(input_file: str,
                     output_file: str,
                     api_key: str,
@@ -204,7 +161,8 @@ def translate_jsonl(input_file: str,
                     target_lang: str,
                     batch_size: int = 100,
                     fields_to_translate: Optional[List[str]] = None,
-                    max_workers: int = 30) -> None:
+                    max_workers: int = 30,
+                    model_name: str = "mbart") -> None:
     """
     Translate content from a JSONL file.
     
@@ -230,13 +188,10 @@ def translate_jsonl(input_file: str,
     translated_records = []
     processed_count = 0
     
-    # Get language name for display
-    language_display = target_lang.split('_')[0].upper() if '_' in target_lang else target_lang.upper()
-    
     # Use a ThreadPoolExecutor to process records concurrently
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
-        with open(input_file, 'r', encoding='utf-8') as f, tqdm(total=total_lines, desc=f"Translating to {language_display}") as pbar:
+        with open(input_file, 'r', encoding='utf-8') as f, tqdm(total=total_lines, desc=f"Translating to {target_lang}") as pbar:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -246,13 +201,17 @@ def translate_jsonl(input_file: str,
                     record = json.loads(line)
                     future = executor.submit(
                         translate_record,
+                        translate_text,
                         record,
                         fields_to_translate,
-                        api_key,
-                        endpoint,
-                        model_type,
-                        source_lang,
-                        target_lang
+                        model_name,
+                        **{
+                            "api_key": api_key,
+                            "endpoint":endpoint,
+                            "model_type": model_type,
+                            "source_lang":source_lang,
+                            "target_lang":target_lang,
+                        }
                     )
                     futures.append(future)
                 except json.JSONDecodeError as e:
@@ -317,13 +276,6 @@ def translate_fables(args):
         max_workers=args.max_workers
     )
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Translate JSONL content using mBART or other models')
-    subparsers = parser.add_subparsers()
-    add_translate_subparser(subparsers, translate_fables, 'en_XX', 'ro_RO')
-    args = parser.parse_args()
-    
-    if hasattr(args, 'func'):
-        args.func(args)
-    else:
-        parser.print_help()
+    translate_main(translate_fables, "en_XX", "ro_RO", description='Translate JSONL content using mBART or other models')
