@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import requests
 
 from tiny_fabulist.logger import setup_logging
+from translate.subparser import add_translate_subparser
 from translate.utils import build_output_path, read_api_key, translate_jsonl, translate_main, translate_record
 
 logger = setup_logging()
@@ -98,6 +99,9 @@ def translate_fables(args):
             "target_lang":target_lang,
         }
     )
+
+def gpt_subparser(subparsers):
+    return add_translate_subparser(subparsers, translate_fables, "en", "ro")
 
 if __name__ == "__main__":
     translate_main(translate_fables, "en", "ro", description='Translate JSONL content using the ChatGPT API')

@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import deepl  # Using the official DeepL library
 
 from tiny_fabulist.logger import setup_logging
+from translate.subparser import add_translate_subparser
 from translate.utils import build_output_path, read_api_key, translate_jsonl, translate_main, translate_record
 
 logger = setup_logging()
@@ -63,6 +64,9 @@ def translate_fables(args):
             "target_lang":args.target_lang
         }
     )
+
+def deepl_subparser(subparsers):
+    return add_translate_subparser(subparsers, translate_fables, "EN", "RO")
 
 if __name__ == "__main__":
     translate_main(translate_fables, "EN", "RO", description='Translate JSONL content using DeepL API')

@@ -166,7 +166,8 @@ def translate_jsonl(input_file: str,
 
 def translate_main(translate_fables, source_lang, target_lang, description = "Translate JSONL (EN --> RO)"):
     parser = argparse.ArgumentParser(description=description)
-    subparsers = parser.add_subparsers()
+
+    subparsers = parser.translate_main()
     add_translate_subparser(subparsers, translate_fables, source_lang, target_lang)
     args = parser.parse_args()
     

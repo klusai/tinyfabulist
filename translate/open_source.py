@@ -5,6 +5,7 @@ import requests
 
 from tiny_fabulist.logger import setup_logging
 from tiny_fabulist.translate.utils import  load_translator_config
+from translate.subparser import add_translate_subparser
 from translate.utils import build_output_path, read_api_key, translate_jsonl, translate_main, translate_record
 
 
@@ -139,6 +140,10 @@ def translate_fables(args):
             "target_lang":target_lang
         }
     )
+
+
+def open_source_translate_subparser(subparsers):
+    return add_translate_subparser(subparsers, translate_fables, "EN", "RO")
 
 if __name__ == "__main__":
     translate_main(translate_fables, "EN", "RO", description='Translate JSONL content to Romanian using Open Source models')
