@@ -214,7 +214,7 @@ def run_evaluate(args) -> None:
     output_dir = os.path.join("data", "evaluations")
     os.makedirs(output_dir, exist_ok=True)
 
-    input_path = args.jsonl
+    input_path = args.input
 
     if os.path.isfile(input_path):
         # Process a single file
@@ -257,7 +257,7 @@ def add_evaluate_subparser(subparsers) -> None:
         help='Evaluate generated fables from a JSONL file or a directory containing files starting with "tf_fables"',
     )
     eval_parser.add_argument(
-        "--jsonl",
+        "--input",
         type=str,
         help="Path to a JSONL file or a directory to evaluate fables from",
         required=True,
