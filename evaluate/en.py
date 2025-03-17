@@ -1,15 +1,17 @@
 import json
-import sys
 import os
-from decouple import config
-from openai import OpenAI
-from tiny_fabulist.logger import *
-from tiny_fabulist.utils import load_settings
+import sys
+import time  # Needed for sleep
+import uuid  # Add this import for generating unique filenames
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-import uuid  # Add this import for generating unique filenames
+
+from decouple import config
+from openai import OpenAI
 from pybars import Compiler
-import time  # Needed for sleep
+
+from tiny_fabulist.logger import *
+from tiny_fabulist.utils import load_settings
 
 logger = setup_logging()
 
@@ -81,10 +83,10 @@ def evaluate_fable(fable: str, prompt: str = None) -> dict:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": evaluation_prompt},
             ],
-            #max_tokens=max_tokens,
-            #temperature=temperature,
+            # max_tokens=max_tokens,
+            # temperature=temperature,
             response_format={"type": "json_object"},
-            reasoning_effort="high"
+            reasoning_effort="high",
         )
         evaluation_text = chat_completion.choices[0].message.content.strip()
 
@@ -136,7 +138,9 @@ def evaluate_fable_threaded(fable_data: dict) -> dict:
                     "host_gpu": host_gpu,
                 }
             else:
-                logger.error(f"Evaluation error on attempt {attempt}: {evaluation.get('error')}")
+                logger.error(
+                    f"Evaluation error on attempt {attempt}: {evaluation.get('error')}"
+                )
         except Exception as e:
             logger.error(f"Exception in evaluation on attempt {attempt}: {e}")
         if attempt < max_attempts:
@@ -169,7 +173,9 @@ def get_original_prompt() -> str:
     system_prompt = prompt_config.get("system", "")
     fable_prompt = prompt_config.get("fable", "")
 
-    combined_prompt = f"System Prompt:\n{system_prompt}\n\nFable Prompt:\n{fable_prompt}"
+    combined_prompt = (
+        f"System Prompt:\n{system_prompt}\n\nFable Prompt:\n{fable_prompt}"
+    )
     return combined_prompt
 
 

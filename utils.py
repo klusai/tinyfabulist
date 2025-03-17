@@ -1,4 +1,5 @@
 import yaml
+
 from tiny_fabulist.logger import *
 
 # Constants
