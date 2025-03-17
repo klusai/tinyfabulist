@@ -14,16 +14,16 @@ def plot_model_averages(args):
         generates a Markdown table, and plots a grouped bar chart.
       - For files whose names start with 'tf_fables': generates a SINGLE consolidated report (Markdown table)
         of how many fables each model has across all files along with performance metrics.
-    The Markdown files and plot image are saved to the folder data/stats/.
     
     Parameters:
         args: An object with attribute 'jsonl' specifying the path to a JSONL file 
-              or a folder to scan recursively.
+              or a folder to scan recursively, and 'output_mode' controlling where 
+              results are displayed (terminal, files, or both).
     """
     # Separate files into evaluation files and tf_fable files.
     eval_files = []
     tf_files = []
-    input_path = args.jsonl
+    input_path = args.input
 
     if os.path.isfile(input_path):
         base_name = os.path.basename(input_path)
@@ -45,8 +45,14 @@ def plot_model_averages(args):
         print("Provided path is neither a file nor a directory.")
         return
 
+    # Get output mode
+    output_mode = args.output_mode
+    should_output_files = output_mode in ['files', 'both']
+    should_output_terminal = output_mode in ['terminal', 'both']
+    
     stats_folder = "data/stats/"
-    os.makedirs(stats_folder, exist_ok=True)
+    if should_output_files:
+        os.makedirs(stats_folder, exist_ok=True)
     timestamp = time.strftime("%y%m%d-%H%M%S")
 
     # --- Process tf_fable Files first (so performance metrics are available) ---
@@ -111,10 +117,14 @@ def plot_model_averages(args):
             avg_cost_per_hour = stats["host_cost_per_hour"]
             md_table_tf += f"| {model} | {stats['count']} | {stats['avg_input_tokens']:.1f} | {stats['avg_output_tokens']:.1f} | {stats['avg_inference_time']:.2f} | {primary_provider} | {primary_gpu} | {primary_gpu_vram} | {primary_dc_provider} | {primary_dc_location} | {avg_cost_per_hour:.2f} |\n"
         
-        md_tf_filename = os.path.join(stats_folder, f"tf_stats_fables_{timestamp}.md")
-        with open(md_tf_filename, "w") as f:
-            f.write(md_table_tf)
-        print(f"Consolidated tf_fable report saved to {md_tf_filename}")
+        if should_output_files:
+            md_tf_filename = os.path.join(stats_folder, f"tf_stats_fables_{timestamp}.md")
+            with open(md_tf_filename, "w") as f:
+                f.write(md_table_tf)
+            print(f"Consolidated tf_fable report saved to {md_tf_filename}")
+        
+        if should_output_terminal:
+            print("\n" + md_table_tf + "\n")
 
     # --- Process Evaluation Files ---
     if eval_files:
@@ -164,7 +174,8 @@ def plot_model_averages(args):
                 }
 
         # Build Markdown table for evaluation averages including performance metrics.
-        md_table_eval = (
+        md_table_eval = "## Evaluation Averages\n\n"
+        md_table_eval += (
             "| Model | Grammar | Creativity | Moral Clarity | Adherence to Prompt | Average Score (Mean) | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |\n"
             "|-------|---------|------------|---------------|---------------------|-----------------|-------|-----------------|------------------|------------------------|\n"
         )
@@ -175,11 +186,14 @@ def plot_model_averages(args):
                 f"{metrics['input_tokens']:.1f} | {metrics['output_tokens']:.1f} | {metrics['inference_time']:.2f} |\n"
             )
         
-        md_eval_filename = os.path.join(stats_folder, f"tf_stats_eval_table_{timestamp}.md")
-        with open(md_eval_filename, "w") as f:
-            f.write("## Evaluation Averages\n")
-            f.write(md_table_eval)
-        print(f"Evaluation Markdown table saved to {md_eval_filename}")
+        if should_output_files:
+            md_eval_filename = os.path.join(stats_folder, f"tf_stats_eval_table_{timestamp}.md")
+            with open(md_eval_filename, "w") as f:
+                f.write(md_table_eval)
+            print(f"Evaluation Markdown table saved to {md_eval_filename}")
+        
+        if should_output_terminal:
+            print("\n" + md_table_eval + "\n")
 
         # --- Plotting ---
         metrics_list = ["grammar", "creativity", "moral_clarity", "adherence_to_prompt", "average_score_(mean)"]
@@ -247,10 +261,14 @@ def plot_model_averages(args):
         ax2.grid(axis='y', linestyle='--', alpha=0.7)
 
         plt.tight_layout()
-        plot_filename = os.path.join(stats_folder, f"tf_stats_eval_plot_{timestamp}.png")
-        plt.savefig(plot_filename)
-        print(f"Evaluation plot saved to {plot_filename}")
-        plt.show()
+        
+        if should_output_files:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_eval_plot_{timestamp}.png")
+            plt.savefig(plot_filename)
+            print(f"Evaluation plot saved to {plot_filename}")
+        
+        if should_output_terminal or not should_output_files:
+            plt.show()
     else:
         print("No evaluation files (with 'eval_e' in filename) found.")
 
@@ -260,8 +278,14 @@ def add_stats_subparser(subparsers) -> None:
         help='Compute aggregated statistics from evaluation JSONL files (file or directory).'
     )
     generate_parser.add_argument(
-        '--jsonl', 
+        '--input', 
         default="evaluate.jsonl", 
         help='Path to a JSONL file or a folder containing JSONL files'
+    )
+    generate_parser.add_argument(
+        '--output-mode',
+        choices=['terminal', 'files', 'both'],
+        default='both',
+        help='Control where to output results: terminal only, files only, or both (default: both)'
     )
     generate_parser.set_defaults(func=plot_model_averages)
