@@ -1,9 +1,9 @@
 import argparse
 
-from evaluate.en import add_evaluate_subparser
-from generate import add_generate_subparser
-from stats import add_stats_subparser
-from translate.deepl import deepl_subparser
+from tinyfabulist.evaluate.en import add_evaluate_subparser
+from tinyfabulist.generate import add_generate_subparser
+from tinyfabulist.stats import add_stats_subparser
+from tinyfabulist.translate.deepl import deepl_subparser
 
 
 def main():

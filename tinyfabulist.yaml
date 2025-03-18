@@ -723,55 +723,104 @@ evaluator:
 
       Fable:
       {{fable}}
+    # system_ro: |
+    #     Ești un critic literar expert specializat în fabule și povestiri morale. 
+    #     Evaluările tale trebuie să fie obiective, consecvente și bazate pe standarde literare consacrate. 
+    #     Oferă-ți evaluarea într-un JSON valid și formatat corect, fără a include text în afara obiectului JSON. 
+    #     Echilibrează analiza critică cu feedback constructiv, concentrându-te atât pe punctele forte, cât și pe punctele slabe.
+    # evaluation_ro: |
+    #     Evaluează următoarea fabulă conform următoarelor criterii specifice:
+
+    #       1. Gramatică și Stil (1-10):
+    #         - 1-3: Erori semnificative care împiedică înțelegerea
+    #         - 4-6: Unele erori, dar textul este, în general, lizibil
+    #         - 7-10: Scriere curată și rafinată, cu un limbaj și stil adecvat pentru o fabulă
+
+    #       2. Creativitate și Originalitate (1-10):
+    #         - 1-3: Derivat, previzibil sau clișeic
+    #         - 4-6: Conține unele elemente originale, dar urmează tipare familiare
+    #         - 7-10: O perspectivă proaspătă, o abordare inovatoare, menținând structura clasică a fabulei
+
+    #       3. Claritatea Morală (1-10):
+    #         - 1-3: Morală absentă, confuză sau contradictorie
+    #         - 4-6: Morală prezentă, dar subdezvoltată sau cu impact redus
+    #         - 7-10: Morală clară și semnificativă, care oferă o perspectivă autentică
+
+    #       4. Respectarea Instrucțiunilor (1-10):
+    #         - 1-3: Lipsesc multiple elemente cerute de instrucțiuni
+    #         - 4-6: Încorporează elementele principale, dar omite unele instrucțiuni
+    #         - 7-10: Abordează în mod complet toate cerințele instrucțiunilor, menținând coeziunea narativă
+
+    #     Formatează răspunsul tău ca JSON valid cu următoarea structură:
+    #     {
+    #         "type": "Evaluare Fabula",
+    #         "grammar": <număr întreg 1-10>,
+    #         "creativity": <număr întreg 1-10>,
+    #         "moral_clarity": <număr întreg 1-10>,
+    #         "adherence_to_prompt": <număr întreg 1-10>,
+    #         "explanation": [
+    #             "<O propoziție care explică nota pentru gramatică și stil>",
+    #             "<O propoziție care explică nota pentru creativitate și originalitate>",
+    #             "<O propoziție care explică nota pentru claritatea morală>",
+    #             "<O propoziție care explică nota pentru respectarea instrucțiunilor>"
+    #         ]
+    #     }
+
+    #     Fabulă:
+    #     {{fable}}
+
+    #     Prompt:
+    #     {{prompt}}
     system_ro: |
-        Ești un critic literar expert specializat în fabule și povestiri morale. 
-        Evaluările tale trebuie să fie obiective, consecvente și bazate pe standarde literare consacrate. 
+        Ești un critic literar expert specializat în fabule și traduceri literare. 
+        Evaluările tale trebuie să fie obiective, consecvente și bazate pe standarde lingvistice și literare consacrate. 
         Oferă-ți evaluarea într-un JSON valid și formatat corect, fără a include text în afara obiectului JSON. 
-        Echilibrează analiza critică cu feedback constructiv, concentrându-te atât pe punctele forte, cât și pe punctele slabe.
+        Echilibrează analiza critică cu feedback constructiv, concentrându-te atât pe punctele forte, cât și pe punctele slabe ale traducerii.
+
     evaluation_ro: |
-        Evaluează următoarea fabulă conform următoarelor criterii specifice:
+        Evaluează următoarea traducere a unei fabule conform următoarelor criterii specifice:
 
-          1. Gramatică și Stil (1-10):
-            - 1-3: Erori semnificative care împiedică înțelegerea
-            - 4-6: Unele erori, dar textul este, în general, lizibil
-            - 7-10: Scriere curată și rafinată, cu un limbaj și stil adecvat pentru o fabulă
+          1. Acuratețea traducerii (1-10):
+            - 1-3: Sensul este pierdut sau distorsionat semnificativ
+            - 4-6: Traducerea este lizibilă, dar există unele inexactități notabile
+            - 7-10: Traducerea redă fidel sensul original, păstrând claritatea și intenția autorului
 
-          2. Creativitate și Originalitate (1-10):
-            - 1-3: Derivat, previzibil sau clișeic
-            - 4-6: Conține unele elemente originale, dar urmează tipare familiare
-            - 7-10: O perspectivă proaspătă, o abordare inovatoare, menținând structura clasică a fabulei
+          2. Fluenta și naturalețea limbajului (1-10):
+            - 1-3: Traducerea sună forțată sau greoaie, cu structuri nenaturale
+            - 4-6: Limbajul este inteligibil, dar are unele exprimări nefiresc traduse
+            - 7-10: Traducerea curge natural și se potrivește registrului unei fabule în limba română
 
-          3. Claritatea Morală (1-10):
-            - 1-3: Morală absentă, confuză sau contradictorie
-            - 4-6: Morală prezentă, dar subdezvoltată sau cu impact redus
-            - 7-10: Morală clară și semnificativă, care oferă o perspectivă autentică
+          3. Păstrarea stilului și tonului original (1-10):
+            - 1-3: Stilul și tonul sunt pierdute sau schimbate semnificativ
+            - 4-6: Stilul general este păstrat, dar sunt diferențe notabile de ton
+            - 7-10: Traducerea reușește să păstreze fidel stilul și tonul original al fabulei
 
-          4. Respectarea Instrucțiunilor (1-10):
-            - 1-3: Lipsesc multiple elemente cerute de instrucțiuni
-            - 4-6: Încorporează elementele principale, dar omite unele instrucțiuni
-            - 7-10: Abordează în mod complet toate cerințele instrucțiunilor, menținând coeziunea narativă
+          4. Claritatea morală (1-10):
+            - 1-3: Morală absentă, confuză sau distorsionată prin traducere
+            - 4-6: Morală prezentă, dar impactul este redus față de original
+            - 7-10: Morală clară și bine transmisă, păstrând mesajul original
 
         Formatează răspunsul tău ca JSON valid cu următoarea structură:
         {
-            "type": "Evaluare Fabula",
-            "grammar": <număr întreg 1-10>,
-            "creativity": <număr întreg 1-10>,
+            "type": "Evaluare Traducere Fabula",
+            "translation_accuracy": <număr întreg 1-10>,
+            "fluency": <număr întreg 1-10>,
+            "style_preservation": <număr întreg 1-10>,
             "moral_clarity": <număr întreg 1-10>,
-            "adherence_to_prompt": <număr întreg 1-10>,
             "explanation": [
-                "<O propoziție care explică nota pentru gramatică și stil>",
-                "<O propoziție care explică nota pentru creativitate și originalitate>",
-                "<O propoziție care explică nota pentru claritatea morală>",
-                "<O propoziție care explică nota pentru respectarea instrucțiunilor>"
+                "<O propoziție care explică nota pentru acuratețea traducerii>",
+                "<O propoziție care explică nota pentru fluența și naturalețea limbajului>",
+                "<O propoziție care explică nota pentru păstrarea stilului și tonului original>",
+                "<O propoziție care explică nota pentru claritatea morală>"
             ]
         }
 
-        Fabulă:
-        {{fable}}
+        Fabula originală:
+        {{original_fable}}
 
-        Prompt:
-        {{prompt}}
+        Traducerea în română:
+        {{translated_fable}}
 
 translator_ro:
-  model: "Llama-3.3-70B-Instruct"
-  endpoint: "https://oe8q601rmy8lqqgk.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+  model: "Llama-3.1-8B-Instruct"
+  endpoint: "https://wc0hhrd4qrvnp90x.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
