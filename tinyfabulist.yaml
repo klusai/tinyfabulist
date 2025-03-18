@@ -772,55 +772,55 @@ evaluator:
     #     Prompt:
     #     {{prompt}}
     system_ro: |
-        Ești un critic literar expert specializat în fabule și traduceri literare. 
-        Evaluările tale trebuie să fie obiective, consecvente și bazate pe standarde lingvistice și literare consacrate. 
-        Oferă-ți evaluarea într-un JSON valid și formatat corect, fără a include text în afara obiectului JSON. 
-        Echilibrează analiza critică cu feedback constructiv, concentrându-te atât pe punctele forte, cât și pe punctele slabe ale traducerii.
+      You are a literary critic expert specializing in fables and literary translations. 
+      Your evaluations must be objective, consistent, and based on established linguistic and literary standards. 
+      Provide your evaluation in a valid and correctly formatted JSON, without including any text outside the JSON object. 
+      Balance critical analysis with constructive feedback, focusing on both the strengths and weaknesses of the translation.
 
     evaluation_ro: |
-        Evaluează următoarea traducere a unei fabule conform următoarelor criterii specifice:
+      Evaluate the following translation of a fable according to the following specific criteria:
 
-          1. Acuratețea traducerii (1-10):
-            - 1-3: Sensul este pierdut sau distorsionat semnificativ
-            - 4-6: Traducerea este lizibilă, dar există unele inexactități notabile
-            - 7-10: Traducerea redă fidel sensul original, păstrând claritatea și intenția autorului
+        1. Translation Accuracy (1-10):
+          - 1-3: The meaning is significantly lost or distorted
+          - 4-6: The translation is readable but contains notable inaccuracies
+          - 7-10: The translation faithfully conveys the original meaning while maintaining clarity and the author's intent
 
-          2. Fluenta și naturalețea limbajului (1-10):
-            - 1-3: Traducerea sună forțată sau greoaie, cu structuri nenaturale
-            - 4-6: Limbajul este inteligibil, dar are unele exprimări nefiresc traduse
-            - 7-10: Traducerea curge natural și se potrivește registrului unei fabule în limba română
+        2. Fluency and Naturalness of Language (1-10):
+          - 1-3: The translation sounds forced or awkward, with unnatural structures
+          - 4-6: The language is intelligible but contains some unnaturally translated expressions
+          - 7-10: The translation flows naturally and matches the register of a fable in English
 
-          3. Păstrarea stilului și tonului original (1-10):
-            - 1-3: Stilul și tonul sunt pierdute sau schimbate semnificativ
-            - 4-6: Stilul general este păstrat, dar sunt diferențe notabile de ton
-            - 7-10: Traducerea reușește să păstreze fidel stilul și tonul original al fabulei
+        3. Preservation of Style and Tone (1-10):
+          - 1-3: The style and tone are significantly lost or altered
+          - 4-6: The overall style is preserved, but there are notable tonal differences
+          - 7-10: The translation successfully retains the original style and tone of the fable
 
-          4. Claritatea morală (1-10):
-            - 1-3: Morală absentă, confuză sau distorsionată prin traducere
-            - 4-6: Morală prezentă, dar impactul este redus față de original
-            - 7-10: Morală clară și bine transmisă, păstrând mesajul original
+        4. Moral Clarity (1-10):
+          - 1-3: The moral is absent, confusing, or distorted in translation
+          - 4-6: The moral is present but its impact is reduced compared to the original
+          - 7-10: The moral is clear and well conveyed, preserving the original message
 
-        Formatează răspunsul tău ca JSON valid cu următoarea structură:
-        {
-            "type": "Evaluare Traducere Fabula",
-            "translation_accuracy": <număr întreg 1-10>,
-            "fluency": <număr întreg 1-10>,
-            "style_preservation": <număr întreg 1-10>,
-            "moral_clarity": <număr întreg 1-10>,
-            "explanation": [
-                "<O propoziție care explică nota pentru acuratețea traducerii>",
-                "<O propoziție care explică nota pentru fluența și naturalețea limbajului>",
-                "<O propoziție care explică nota pentru păstrarea stilului și tonului original>",
-                "<O propoziție care explică nota pentru claritatea morală>"
-            ]
-        }
+      Format your response as a valid JSON with the following structure:
+      {
+          "type": "Fable Translation Evaluation",
+          "translation_accuracy": <integer 1-10>,
+          "fluency": <integer 1-10>,
+          "style_preservation": <integer 1-10>,
+          "moral_clarity": <integer 1-10>,
+          "explanation": [
+              "<A sentence explaining the score for translation accuracy>",
+              "<A sentence explaining the score for fluency and naturalness of language>",
+              "<A sentence explaining the score for preservation of style and tone>",
+              "<A sentence explaining the score for moral clarity>"
+          ]
+      }
 
-        Fabula originală:
-        {{original_fable}}
+      Original fable:
+      {{original_fable}}
 
-        Traducerea în română:
-        {{translated_fable}}
+      Translation into English:
+      {{translated_fable}}
 
 translator_ro:
-  model: "Llama-3.1-8B-Instruct"
-  endpoint: "https://wc0hhrd4qrvnp90x.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+  model: "Llama-3.1-70B-Instruct"
+  endpoint: "https://oe8q601rmy8lqqgk.us-east-1.aws.endpoints.huggingface.cloud/"
