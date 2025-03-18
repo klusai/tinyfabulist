@@ -40,7 +40,8 @@ def translate_record(
     """
     for field in fields:
         if field in record and record[field]:
-            record[field] = translate_text(record[field], **kwargs)
+            field_name = "translated_" + field
+            record[field_name] = translate_text(record[field], **kwargs)
             time.sleep(0.1)
     record["language"] = "ro"  # Hardcoded to Romanian
 
@@ -183,7 +184,9 @@ def translate_main(
 ):
     parser = argparse.ArgumentParser(description=description)
 
-    subparsers = parser.translate_main()
+    subparsers = parser.add_subparsers(
+        title="translate", dest="translate"
+    )
     add_translate_subparser(subparsers, translate_fables, source_lang, target_lang)
     args = parser.parse_args()
 
