@@ -822,5 +822,5 @@ evaluator:
       {{translated_fable}}
 
 translator_ro:
-  model: "Llama-3.1-70B-Instruct"
-  endpoint: "https://oe8q601rmy8lqqgk.us-east-1.aws.endpoints.huggingface.cloud/"
+  model: "Llama-3.3-70B-Instruct "
+  endpoint: "https://oe8q601rmy8lqqgk.us-east-1.aws.endpoints.huggingface.cloud/v1/"

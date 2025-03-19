@@ -149,7 +149,7 @@ if __name__ == "__main__":
         # Processing a single file
         basename = os.path.basename(input_path)
         output_file = os.path.join(
-            output_base_dir, f"evaluations_{timestamp}_{basename}"
+            output_base_dir, f"evaluations_eval_e_gpt_{timestamp}_{basename}"
         )
         evaluate_file(input_path, output_file)
     elif os.path.isdir(input_path):
