@@ -1,5 +1,6 @@
 import json
 import time
+from openai import OpenAI
 import requests
 import concurrent.futures
 from dotenv import load_dotenv
@@ -44,40 +45,35 @@ def improve_translation(original_fable, translated_fable, ratings, explanations,
     Nu repeta instrucțiunile sau prompt-ul. Răspunde doar cu textul tradus îmbunătățit.
     """
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    
-    payload = {
-        "inputs": prompt,
-        "parameters": {"max_new_tokens": 500, "temperature": 0.7},
-    }
+    # Chat-based translation (LLM approach)
+    client = OpenAI(base_url=endpoint, api_key=api_key)
+
+    system_prompt = "Ești un asistent de traducere. Tradu textul următor din limba engleză în limba română. Returnează doar textul tradus."
+    fable_prompt = prompt
 
     for attempt in range(3):
         try:
-            response = requests.post(endpoint, headers=headers, json=payload)
-            response.raise_for_status()
-            
-            # Get the raw generated text
-            try:
-                improved_text = response.json()[0]["generated_text"]
-            except (KeyError, IndexError):
-                # Try alternative formats
-                improved_text = response.json().get("generated_text", "")
-                if not improved_text:
-                    # Last resort - try to get raw text
-                    improved_text = str(response.json())
-            
-            # Clean up the response to extract only the Romanian fable
-            improved_text = extract_romanian_fable(improved_text, translated_fable)
-            
-            return improved_text.strip()
+            chat_completion = client.chat.completions.create(
+                model="tgi",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": fable_prompt},
+                ],
+                max_tokens=1000,
+                temperature=0.7,
+                stream=True,
+            )
+
+            fable_translation = ""
+            for message in chat_completion:
+                if message.choices[0].delta.content is not None:
+                    fable_translation += message.choices[0].delta.content
+            return fable_translation
         except Exception as e:
             logger.error(f"Error on attempt {attempt+1}: {e}. Retrying...")
             time.sleep(5)
 
-    return translated_fable  # Return the original if improvement fails
+    return translated_fable # Return original translation if all attempts fail
 
 
 def extract_romanian_fable(text, original_translation):
@@ -222,7 +218,7 @@ def process_entry(entry_data):
         return i, entry, False
 
 
-def enhance_jsonl(input_file, output_file, max_workers=8):
+def enhance_jsonl(input_file, output_file, max_workers=34):
     """
     Reads a JSONL file, improves the translated fables using multithreading, and writes the enhanced data to a new JSONL file.
     
@@ -291,8 +287,16 @@ def enhance_jsonl(input_file, output_file, max_workers=8):
 
 # Run the script on a JSONL file
 if __name__ == "__main__":
+    from datetime import datetime
+    
+    # Generate timestamp for the output file
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
     input_file = "/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist/data/evaluations_ro/tf_fables_llama-3-1-8b-instruct-mpp_dt250310-094515_translation_ro_Llama-3.3-70B-Instruct_250318-093757_eval_e.jsonl_jsonl_eval_eo3-mini-2025-01-31_dt20250318_125017.jsonl"
-    output_file = "/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist/data/translations/tf_enhanced.jsonl"
+    output_file = f"/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist/data/translations/tf_enhanced_{timestamp}.jsonl"
+    
+    # Log the output filename
+    logger.info(f"Output will be saved to: {output_file}")
     
     # Set the number of parallel workers (adjust based on your CPU and API rate limits)
     max_workers = 34
