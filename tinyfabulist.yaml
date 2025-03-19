@@ -1,3 +1,8 @@
+metadata:
+  pipeline_version: "1.0"
+  host_dc_location: "eu-west-1"
+  host_dc_provider: "eu-west-1"
+  host_provider: "endpoints.huggingface"
 generator:
   features:
     characters:
@@ -631,7 +636,191 @@ llms:
   hf-models:
     llama-3-1-8b-instruct-mpp:
       base_url: "https://wc0hhrd4qrvnp90x.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
-      name: "Llama 3.1 8B Instruct"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
     deepseek-r1-distill-llama-8b-dmb:
       base_url: "https://i479m9m7jbp0w8i4.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
-      name: "DeepSeek R1 Distill Llama 8B"
+      name: "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
+    smollm2-1-7b-instruct-ins:
+      base_url: "https://q5szr3nb7ghwlezw.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "HuggingFaceTB/SmolLM2-1.7B-Instruct"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
+    llama-3-2-1b-instruct-sei:
+      base_url: "https://r09svj4wx82lsd5o.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "meta-llama/Llama-3.2-1B-Instruct"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
+    mistral-7b-instruct-v0-3-qqj:
+      base_url: "https://ysxrfghc926vtdpu.eu-west-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "mistralai/Mistral-7B-Instruct-v0.3"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
+    aya-23-8b-kzw:
+      base_url: "https://w8141pwygh3apkkp.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "CohereForAI/aya-23-8B"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
+
+
+evaluator:
+  model: "o3-mini-2025-01-31"
+  max_tokens: 350
+  temperature: 0.0
+  prompt:
+    system: "You are an expert literary critic specializing in fables and moral tales. Your evaluations should be objective, consistent, and based on established literary standards. Provide your assessment in valid, properly-formatted JSON only. Do not include any text outside the JSON object. Your response must be parseable by a JSON parser with no preprocessing. Balance critical analysis with constructive feedback, focusing on both strengths and weaknesses."
+    evaluation: |
+      Evaluate the following fable according to these specific criteria:
+      
+      1. **Grammar & Style (1-10)**:
+         • 1-3: Significant errors that impede understanding
+         • 4-6: Some errors but generally readable
+         • 7-10: Clean, polished writing with appropriate language and style for a fable
+      
+      2. **Creativity & Originality (1-10)**:
+         • 1-3: Derivative, predictable, or clichéd
+         • 4-6: Contains some original elements but follows familiar patterns
+         • 7-10: Fresh perspective, innovative approach while maintaining classic fable structure
+      
+      3. **Moral Clarity (1-10)**:
+         • 1-3: Moral absent, confused, or contradictory
+         • 4-6: Moral present but underdeveloped or lacking impact
+         • 7-10: Clear, meaningful moral that provides genuine insight
+      
+      4. **Adherence to Prompt (1-10)**:
+         • 1-3: Missing multiple required elements from the prompt
+         • 4-6: Incorporates main elements but overlooks some instructions
+         • 7-10: Thoroughly addresses all prompt requirements while maintaining narrative cohesion
+      
+      Format your response as valid JSON with this structure:
+      {
+          "type": "Fable Evaluation",
+          "grammar": <integer 1-10>,
+          "creativity": <integer 1-10>,
+          "moral_clarity": <integer 1-10>,
+          "adherence_to_prompt": <integer 1-10>,
+          "explanation": [
+              "<One sentence explaining grammar & style score>",
+              "<One sentence explaining creativity & originality score>",
+              "<One sentence explaining moral clarity score>",
+              "<One sentence explaining adherence to prompt score>"
+          ]
+      }
+      
+      Be critical but fair. Ensure your entire evaluation is concise yet informative.
+
+      Original Prompt:
+      {{prompt}}
+
+      Fable:
+      {{fable}}
+    # system_ro: |
+    #     Ești un critic literar expert specializat în fabule și povestiri morale. 
+    #     Evaluările tale trebuie să fie obiective, consecvente și bazate pe standarde literare consacrate. 
+    #     Oferă-ți evaluarea într-un JSON valid și formatat corect, fără a include text în afara obiectului JSON. 
+    #     Echilibrează analiza critică cu feedback constructiv, concentrându-te atât pe punctele forte, cât și pe punctele slabe.
+    # evaluation_ro: |
+    #     Evaluează următoarea fabulă conform următoarelor criterii specifice:
+
+    #       1. Gramatică și Stil (1-10):
+    #         - 1-3: Erori semnificative care împiedică înțelegerea
+    #         - 4-6: Unele erori, dar textul este, în general, lizibil
+    #         - 7-10: Scriere curată și rafinată, cu un limbaj și stil adecvat pentru o fabulă
+
+    #       2. Creativitate și Originalitate (1-10):
+    #         - 1-3: Derivat, previzibil sau clișeic
+    #         - 4-6: Conține unele elemente originale, dar urmează tipare familiare
+    #         - 7-10: O perspectivă proaspătă, o abordare inovatoare, menținând structura clasică a fabulei
+
+    #       3. Claritatea Morală (1-10):
+    #         - 1-3: Morală absentă, confuză sau contradictorie
+    #         - 4-6: Morală prezentă, dar subdezvoltată sau cu impact redus
+    #         - 7-10: Morală clară și semnificativă, care oferă o perspectivă autentică
+
+    #       4. Respectarea Instrucțiunilor (1-10):
+    #         - 1-3: Lipsesc multiple elemente cerute de instrucțiuni
+    #         - 4-6: Încorporează elementele principale, dar omite unele instrucțiuni
+    #         - 7-10: Abordează în mod complet toate cerințele instrucțiunilor, menținând coeziunea narativă
+
+    #     Formatează răspunsul tău ca JSON valid cu următoarea structură:
+    #     {
+    #         "type": "Evaluare Fabula",
+    #         "grammar": <număr întreg 1-10>,
+    #         "creativity": <număr întreg 1-10>,
+    #         "moral_clarity": <număr întreg 1-10>,
+    #         "adherence_to_prompt": <număr întreg 1-10>,
+    #         "explanation": [
+    #             "<O propoziție care explică nota pentru gramatică și stil>",
+    #             "<O propoziție care explică nota pentru creativitate și originalitate>",
+    #             "<O propoziție care explică nota pentru claritatea morală>",
+    #             "<O propoziție care explică nota pentru respectarea instrucțiunilor>"
+    #         ]
+    #     }
+
+    #     Fabulă:
+    #     {{fable}}
+
+    #     Prompt:
+    #     {{prompt}}
+    system_ro: |
+      You are a literary critic expert specializing in fables and literary translations. 
+      Your evaluations must be objective, consistent, and based on established linguistic and literary standards. 
+      Provide your evaluation in a valid and correctly formatted JSON, without including any text outside the JSON object. 
+      Balance critical analysis with constructive feedback, focusing on both the strengths and weaknesses of the translation.
+
+    evaluation_ro: |
+      Evaluate the following translation of a fable according to the following specific criteria:
+
+        1. Translation Accuracy (1-10):
+          - 1-3: The meaning is significantly lost or distorted
+          - 4-6: The translation is readable but contains notable inaccuracies
+          - 7-10: The translation faithfully conveys the original meaning while maintaining clarity and the author's intent
+
+        2. Fluency and Naturalness of Language (1-10):
+          - 1-3: The translation sounds forced or awkward, with unnatural structures
+          - 4-6: The language is intelligible but contains some unnaturally translated expressions
+          - 7-10: The translation flows naturally and matches the register of a fable in English
+
+        3. Preservation of Style and Tone (1-10):
+          - 1-3: The style and tone are significantly lost or altered
+          - 4-6: The overall style is preserved, but there are notable tonal differences
+          - 7-10: The translation successfully retains the original style and tone of the fable
+
+        4. Moral Clarity (1-10):
+          - 1-3: The moral is absent, confusing, or distorted in translation
+          - 4-6: The moral is present but its impact is reduced compared to the original
+          - 7-10: The moral is clear and well conveyed, preserving the original message
+
+      Format your response as a valid JSON with the following structure:
+      {
+          "type": "Fable Translation Evaluation",
+          "translation_accuracy": <integer 1-10>,
+          "fluency": <integer 1-10>,
+          "style_preservation": <integer 1-10>,
+          "moral_clarity": <integer 1-10>,
+          "explanation": [
+              "<A sentence explaining the score for translation accuracy>",
+              "<A sentence explaining the score for fluency and naturalness of language>",
+              "<A sentence explaining the score for preservation of style and tone>",
+              "<A sentence explaining the score for moral clarity>"
+          ]
+      }
+
+      Original fable:
+      {{original_fable}}
+
+      Translation into English:
+      {{translated_fable}}
+
+translator_ro:
+  model: "Llama-3.3-70B-Instruct "
+  endpoint: "https://oe8q601rmy8lqqgk.us-east-1.aws.endpoints.huggingface.cloud/v1/"
