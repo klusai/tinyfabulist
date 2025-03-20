@@ -17,38 +17,37 @@ def improve_translation(original_fable, translated_fable, ratings, explanations,
     Uses an open-source translation model to refine the translated fable based on ratings and feedback.
     """
     prompt = f"""
-    Ești un expert în traduceri literare specializat în fabule românești. Sarcina ta este să îmbunătățești fabula tradusă oferită
-    pe baza evaluărilor și feedback-ului specific.
+    As an expert Romanian literary translator, analyze the following translation:
 
-    Fabula originală în engleză:
+    Original English text:
     {original_fable}
 
-    Fabula tradusă în prezent în română:
+    Current Romanian translation:
     {translated_fable}
 
-    Evaluări (scală de la 1 la 10):
-    - Acuratețea traducerii: {ratings['translation_accuracy']}
-    - Fluență: {ratings['fluency']}
-    - Păstrarea stilului: {ratings['style_preservation']}
-    - Claritatea moralei: {ratings['moral_clarity']}
+    Ratings (1-10):
+    - Accuracy: {ratings['translation_accuracy']}
+    - Fluency: {ratings['fluency']} 
+    - Style: {ratings['style_preservation']}
+    - Moral clarity: {ratings['moral_clarity']}
 
     Feedback:
-    - {explanations[0]} (Acuratețea traducerii)
-    - {explanations[1]} (Fluență)
-    - {explanations[2]} (Păstrarea stilului)
-    - {explanations[3]} (Claritatea moralei)
+    - Accuracy: {explanations[0]}
+    - Fluency: {explanations[1]}
+    - Style: {explanations[2]}
+    - Moral clarity: {explanations[3]}
 
-    Îmbunătățește fabula tradusă abordând aceste probleme în timp ce menții naturalețea și coerența ei în limba română.
-    Oferă DOAR traducerea îmbunătățită, fără comentarii sau explicații suplimentare.
-    Asigură-te că traducerea este exclusiv în limba română!
-    
-    Nu repeta instrucțiunile sau prompt-ul. Răspunde doar cu textul tradus îmbunătățit.
+    Instructions:
+    1. First identify all grammatical errors, gender/pronoun issues, mistranslations, and stylistic problems.
+    2. Based on this analysis, provide ONLY the fully revised Romanian translation, preserving the style and moral of the original.
+
+    Do not include any explanations, analysis, or other text - return exclusively the final corrected translation, in Romanian.
     """
 
     # Chat-based translation (LLM approach)
     client = OpenAI(base_url=endpoint, api_key=api_key)
 
-    system_prompt = "Ești un asistent de traducere. Tradu textul următor din limba engleză în limba română. Returnează doar textul tradus."
+    system_prompt = "You are an expert in literary translation, specialized in Romanian fables, with meticulous attention to linguistic, cultural, and stylistic details. Your task is to revise and enhance the Romanian translation of the fable by integrating the ratings and feedback provided."
     fable_prompt = prompt
 
     for attempt in range(3):
@@ -74,92 +73,6 @@ def improve_translation(original_fable, translated_fable, ratings, explanations,
             time.sleep(5)
 
     return translated_fable # Return original translation if all attempts fail
-
-
-def extract_romanian_fable(text, original_translation):
-    """
-    Extract only the Romanian fable from the model's response, removing any instructions or meta-text.
-    
-    Parameters:0
-        text: Text output from the model
-        original_translation: Original translation to fall back on
-        
-    Returns:
-        str: Clean Romanian fable text
-    """
-    # List of instruction text that needs to be removed
-    instruction_texts = [
-        "abordând aceste probleme în timp ce menții naturalețea și coerența ei în limba română",
-        "Oferă DOAR traducerea îmbunătățită, fără comentarii sau explicații suplimentare",
-        "Asigură-te că traducerea este exclusiv în limba română",
-        "Nu repeta instrucțiunile sau prompt-ul",
-        "Răspunde doar cu textul tradus îmbunătățit",
-    ]
-    
-    # Remove instruction text blocks
-    for instruction in instruction_texts:
-        text = text.replace(instruction, "")
-    
-    # Remove the entire prompt if it got repeated in the response
-    prompt_markers = [
-        "Ești un expert în traduceri literare",
-        "Fabula originală în engleză:",
-        "Fabula tradusă în prezent în română:",
-        "Evaluări (scală de la 1 la 10):",
-        "Acuratețea traducerii:",
-        "Feedback:",
-        "Îmbunătățește fabula tradusă",
-    ]
-    
-    # Find the position after all prompt parts
-    last_marker_pos = -1
-    for marker in prompt_markers:
-        pos = text.find(marker)
-        if pos > -1:
-            marker_end = pos + len(marker)
-            last_marker_pos = max(last_marker_pos, marker_end)
-    
-    # If we found any prompt parts, start after them
-    if last_marker_pos > -1:
-        text = text[last_marker_pos:].strip()
-    
-    # Remove common prefixes
-    common_prefixes = [
-        "Iată traducerea îmbunătățită:",
-        "Traducerea îmbunătățită:",
-        "Fabula îmbunătățită:",
-        "Versiunea îmbunătățită:",
-        "Iată fabula tradusă îmbunătățită:",
-        "Textul îmbunătățit:",
-        "Traducere:", 
-        "Fabula:",
-        "```"
-    ]
-    
-    for prefix in common_prefixes:
-        if text.startswith(prefix):
-            text = text[len(prefix):].strip()
-    
-    # Remove common suffixes
-    common_suffixes = [
-        "```",
-        "Aceasta este traducerea îmbunătățită.",
-        "Aceasta este versiunea îmbunătățită."
-    ]
-    
-    for suffix in common_suffixes:
-        if text.endswith(suffix):
-            text = text[:-len(suffix)].strip()
-    
-    # Clean up any excessive whitespace or newlines
-    text = ' '.join(text.split())
-    
-    # If the text was butchered and nothing meaningful remains, return the original
-    if len(text) < 50 and original_translation and len(original_translation) > 100:
-        logger.warning("Extraction resulted in very short text, using original translation")
-        return original_translation
-    
-    return text.strip()
 
 
 def process_entry(entry_data):
@@ -210,7 +123,7 @@ def process_entry(entry_data):
         enhanced_entry = entry.copy()
         # Store the improved translation in the "translated_fable" field
         enhanced_entry["translated_fable"] = improved_translation
-        enhanced_entry["llm_name"] = "_Enhanced-Llama-3.3-70B"
+        enhanced_entry["llm_name"] = "_Enhanced-Llama-3.3-70B_Fine_Prompted"
         
         return i, enhanced_entry, True
     except Exception as e:
@@ -292,8 +205,8 @@ if __name__ == "__main__":
     # Generate timestamp for the output file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    input_file = "/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist/data/evaluations_ro/tf_fables_llama-3-1-8b-instruct-mpp_dt250310-094515_translation_ro_Llama-3.3-70B-Instruct_250318-093757_eval_e.jsonl_jsonl_eval_eo3-mini-2025-01-31_dt20250318_125017.jsonl"
-    output_file = f"/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist/data/translations/tf_enhanced_{timestamp}.jsonl"
+    input_file = "tinyfabulist/data/evaluations_ro/evaluations_eval_e_gpt_20250319_121834_tf_fables_llama-3-1-8b-instruct-mpp_dt250310-094515_translation_ro_Llama-3.3-70B-Instruct_250318-093757_eval_e.jsonl"
+    output_file = f"tinyfabulist/data/translations/tf_enhanced_{timestamp}.jsonl"
     
     # Log the output filename
     logger.info(f"Output will be saved to: {output_file}")

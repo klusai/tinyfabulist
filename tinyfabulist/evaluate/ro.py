@@ -99,7 +99,7 @@ def evaluate_file(input_path: str, output_path: str) -> None:
     output_lock = threading.Lock()
 
     # Use ThreadPoolExecutor for parallel evaluations.
-    with ThreadPoolExecutor(max_workers=50) as executor:
+    with ThreadPoolExecutor(max_workers=25) as executor:
         futures = []
         for line in lines:
             if line.strip():
