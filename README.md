@@ -50,89 +50,78 @@ python tinyfabulist.py <command> [options]
 
 ---
 
-## Subcommands and Their Arguments
+## Subcommands
 
-### 1. **generate**
+#### 1. Generate
 
-This subcommand is used to either generate fable prompts or generate complete fables based on a JSONL prompt file.
+Generate either prompts or complete fables from JSONL prompt files.
 
-#### Arguments for `generate`:
+Arguments:
 
-- `--generate-prompts`  
-  *Description:* Generate fable prompts only.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl > prompts.jsonl
-  ```
+--generate-promptsGenerate only fable prompts.
 
-- `--generate-fables <file>`  
-  *Type:* `str`  
-  *Description:* Generate complete fables from the provided JSONL prompt file.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-fables prompts.jsonl --output text
-  ```
+--generate-fables <file>Generate fables from the specified JSONL prompt file.
 
-- `--randomize`  
-  *Description:* Randomize the selection of story elements (characters, traits, settings, etc.).  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-prompts --randomize --count 20
-  ```
+--randomizeRandomize selection of story elements.
 
-- `--output <format>`  
-  *Choices:* `text`, `jsonl`, `csv`  
-  *Default:* `text`  
-  *Description:* Set the output format for generated prompts or fables.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-fables prompts.jsonl --output csv
-  ```
+--output <format>Output format: text (default), jsonl, or csv.
 
-- `--output-file <file>`  
-  *Type:* `str`  
-  *Default:* `results.jsonl`  
-  *Description:* This file is used to load existing hashes to avoid duplicate fable generation.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --output-file my_fables.jsonl
-  ```
+--input-file <file>Specify input file for deduplication or reference.
 
-- `--count <number>`  
-  *Type:* `int`  
-  *Default:* `100`  
-  *Description:* Number of fable prompts to generate (used only when `--generate-prompts` is specified).  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-prompts --count 50
-  ```
+--count <number>Number of prompts to generate (default: 100).
 
-- `--models <model_names>`  
-  *Type:* List of strings (`nargs='+'`)  
-  *Description:* Specify which LLM models (as defined in your configuration) to use for generating fables. If not provided, all available models in the configuration are used.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-fables prompts.jsonl --models model1 model2
-  ```
+--models <model_names>Specify which models to use (as defined in configuration).
 
----
+Examples:
 
-### 2. **evaluate**
+#### 2. Evaluate
 
-This subcommand is used to evaluate already generated fables from a JSONL file.
+Evaluate generated fables from JSONL files or directories.
 
-#### Arguments for `evaluate`:
+Arguments:
 
-- `--evaluate <file>`  
-  *Type:* `str`  
-  *Required:* Yes  
-  *Description:* Path to the JSONL file containing the fables to evaluate.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py evaluate --evaluate results.jsonl
-  ```
+--input <file_or_directory> (required)JSONL file or directory containing files starting with tf_fables.
 
----
+Examples:
+
+#### 3. Translate
+
+Translate JSONL content (fables/prompts) into Romanian.
+
+Arguments:
+
+--input (required)Path to the input JSONL file.
+
+--outputPath for output translated file (default: input_filename_ro.jsonl).
+
+--configYAML configuration file path (default: tinyfabulist.yaml).
+
+--translator-keyTranslator configuration key in YAML file (default: translator_ro).
+
+--source-langSource language code (default: eng_Latn).
+
+--target-langTarget language code (default: ron_Latn).
+
+--batch-sizeRecords processed per batch before saving (default: 100).
+
+--fieldsComma-separated list of fields to translate (default: fable,prompt).
+
+--max-workersMax number of threads for parallel processing (default: 200).
+
+Examples:
+
+#### 4. Stats
+
+Compute and display aggregated statistics from evaluation JSONL files.
+
+Arguments:
+
+--inputPath to JSONL file or directory (default: evaluate.jsonl).
+
+--output-modeOutput location: terminal, files, or both (default: both).
+
+--plot-modePlotting library: plotly or matplotlib (default: plotly).
+
 
 ## Full Examples
 
