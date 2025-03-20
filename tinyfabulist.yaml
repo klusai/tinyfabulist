@@ -3,6 +3,29 @@ metadata:
   host_dc_location: "eu-west-1"
   host_dc_provider: "eu-west-1"
   host_provider: "endpoints.huggingface"
+# Add this to your tinyfabulist.yaml file
+enhance_prompt: |
+  You are an expert literary translator specialized in translating fables from English into Romanian.
+
+  ### Original English Text:
+  {original_fable}
+
+  ### Current Romanian Translation:
+  {translated_fable}
+
+  ### Detailed Feedback:
+  - Accuracy: {accuracy_feedback}
+  - Fluency: {fluency_feedback}
+  - Style: {style_feedback}
+  - Moral Clarity: {clarity_feedback}
+
+  ---
+
+  ### Task:
+  1. Carefully identify and correct all grammatical errors, gender/pronoun inconsistencies, mistranslations, and stylistic issues present in the provided Romanian translation.
+  2. Maintain the original fable's literary style, nuances, and clearly expressed moral.
+  3. Provide **ONLY** the fully corrected and polished Romanian translation.
+  4. Do **NOT** include explanations, justifications, or any additional commentary.
 generator:
   features:
     characters:

@@ -127,7 +127,7 @@ def process_entry(entry_data):
         enhanced_entry = entry.copy()
         # Store the improved translation in the "translated_fable" field
         enhanced_entry["translated_fable"] = improved_translation
-        enhanced_entry["llm_name"] = "_Enhanced-Llama-3.3-70B_Fine_Prompted"
+        enhanced_entry["llm_name"] = "_Enhanced-Llama-3.3-70B_Fine_Prompted-4"
 
         if enhanced_entry["evaluation"]:
             del enhanced_entry["evaluation"]
