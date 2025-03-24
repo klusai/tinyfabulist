@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import time
 from openai import OpenAI
@@ -8,7 +9,7 @@ from tinyfabulist.translate.utils import read_api_key, load_translator_config
 
 logger = setup_logging()
 
-input_yaml = "/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist.yaml"
+input_yaml = "conf/enhance.yaml"
 
 
 def improve_translation(original_fable, translated_fable, ratings, explanations, api_key, endpoint, prompt_template=None):
@@ -79,12 +80,13 @@ def improve_translation(original_fable, translated_fable, ratings, explanations,
     return translated_fable # Return original translation if all attempts fail
 
 
-def process_entry(entry_data):
+def process_entry(entry_data, translator_name="llama"):
     """
     Process a single entry for multithreading.
     
     Parameters:
         entry_data: Tuple containing (index, entry, api_key, endpoint, prompt_template)
+        translator_name: Name of the translator model (default: "llama")
         
     Returns:
         Tuple of (index, enhanced_entry or original_entry, success_flag)
@@ -127,7 +129,7 @@ def process_entry(entry_data):
         enhanced_entry = entry.copy()
         # Store the improved translation in the "translated_fable" field
         enhanced_entry["translated_fable"] = improved_translation
-        enhanced_entry["llm_name"] = "_Enhanced-Llama-3.3-70B_Fine_Prompted-4"
+        enhanced_entry["llm_name"] = f"_{translator_name}"
 
         if enhanced_entry["evaluation"]:
             del enhanced_entry["evaluation"]
@@ -138,30 +140,21 @@ def process_entry(entry_data):
         return i, entry, False
 
 
-def enhance_jsonl(input_file, output_file, max_workers=34):
+def enhance_jsonl(input_file, output_file, api_key, endpoint, enhance_template, max_workers=34, translator_name="llama"):
     """
     Reads a JSONL file, improves the translated fables using multithreading, and writes the enhanced data to a new JSONL file.
     
     Parameters:
         input_file: Path to input JSONL file
         output_file: Path to output JSONL file
+        api_key: OpenAI API key
+        endpoint: API endpoint
+        enhance_template: Template for enhancing the translation
         max_workers: Maximum number of parallel workers (default: 8)
+        translator_name: Name of the translator model (default: "llama")
     """
     start_time = time.time()
-    load_dotenv()
 
-    api_key = read_api_key("HF_ACCESS_TOKEN")
-    # Fix: Use the correct path for the config file
-    config = load_translator_config(input_yaml, "translator_ro") 
-    endpoint = config.get("endpoint")
-
-    if not endpoint:
-        logger.critical("No endpoint found for translation model.")
-        raise ValueError("Translation model endpoint not found.")
-    
-    # Load enhancement prompt template from YAML
-    enhance_template = load_enhancement_prompt(input_yaml)
-    
     # Read JSONL file entries
     entries = []
     with open(input_file, "r", encoding="utf-8") as infile:
@@ -183,7 +176,7 @@ def enhance_jsonl(input_file, output_file, max_workers=34):
     success_count = 0
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(process_entry, data): data[0] for data in entry_data}
+        futures = {executor.submit(process_entry, data, translator_name): data[0] for data in entry_data}
         
         for i, future in enumerate(concurrent.futures.as_completed(futures)):
             original_index, result_entry, success = future.result()
@@ -235,15 +228,24 @@ def load_enhancement_prompt(yaml_path, prompt_key="enhance_prompt"):
         logger.error(f"Error loading prompt from {yaml_path}: {e}")
         return None
 
+def enhnace_entry_point(input: str, input_yaml: str):
+    load_dotenv()
 
-# Run the script on a JSONL file
-if __name__ == "__main__":
-    from datetime import datetime
+    api_key = read_api_key("HF_ACCESS_TOKEN")
+    config = load_translator_config(input_yaml, "translator_ro") 
+    endpoint = config.get("endpoint")
+    engine = config.get("model", "")
+
+    if not endpoint:
+        logger.critical("No endpoint found for translation model.")
+        raise ValueError("Translation model endpoint not found.")
+    
+    enhance_template = load_enhancement_prompt(input_yaml)
     
     # Generate timestamp for the output file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    input_file = "tinyfabulist/data/evaluations_ro/evaluations_eval_e_gpt_20250319_121834_tf_fables_llama-3-1-8b-instruct-mpp_dt250310-094515_translation_ro_Llama-3.3-70B-Instruct_250318-093757_eval_e.jsonl"
+    input_file = input
     output_file = f"tinyfabulist/data/translations/tf_enhanced_{timestamp}.jsonl"
     
     # Log the output filename
@@ -252,4 +254,4 @@ if __name__ == "__main__":
     # Set the number of parallel workers (adjust based on your CPU and API rate limits)
     max_workers = 34
     
-    enhance_jsonl(input_file, output_file, max_workers)
+    enhance_jsonl(input_file, output_file, api_key, endpoint, enhance_template, max_workers, engine)

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 from tinyfabulist.logger import setup_logging
 from tinyfabulist.translate.utils import load_translator_config
-from translate.utils import (
+from tinyfabulist.translate.utils import (
     build_output_path,
     read_api_key,
     translate_jsonl,

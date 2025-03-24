@@ -19,8 +19,8 @@ def add_translate_subparser(
 
     translate_parser.add_argument(
         "--config",
-        default="tinyfabulist.yaml",
-        help="Path to YAML configuration file (default: tinyfabulist.yaml)",
+        default="conf/*.yaml",
+        help="Path to YAML configuration file (default: conf/*.yaml)",
     )
 
     translate_parser.add_argument(
