@@ -16,9 +16,10 @@ from pybars import Compiler
 from transformers import AutoTokenizer
 
 from tinyfabulist.logger import *
+from tinyfabulist.utils import load_settings as load_settings_utils
 
 # Constants
-CONFIG_FILE = "tinyfabulist.yaml"
+CONFIG_FILE = "conf/generator.yaml"
 PROMPTS_FOLDER = "tinyfabulist/data/prompts/"
 FABLES_FOLDER = "tinyfabulist/data/fables/"
 
@@ -27,10 +28,8 @@ logger = setup_logging()
 
 def load_settings() -> dict:
     try:
-        with open(CONFIG_FILE, "r") as file:
-            settings = yaml.safe_load(file)
-            logger.info("Settings loaded successfully")
-            return settings
+        logger.info("Settings loaded successfully")
+        return load_settings_utils()
     except FileNotFoundError:
         logger.error(f"Settings file '{CONFIG_FILE}' not found")
         raise ConfigError(f"Settings file '{CONFIG_FILE}' not found")
