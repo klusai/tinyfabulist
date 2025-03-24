@@ -107,7 +107,7 @@ Evaluate generated fables from JSONL files or directories.
 **Example:**
 
 ```bash
-python ./tinyfabulist.py evaluate --jsonl data/fables/
+python ./tinyfabulist.py evaluate --input data/fables/
 ```
 
 ---
@@ -125,7 +125,7 @@ Translate JSONL content (fables/prompts) into Romanian.
   Output translated file (default: input_filename_ro.jsonl).
 
 - `--configYAML`  
-  Configuration file path (default: tinyfabulist.yaml).
+  Configuration file path (default: translator.yaml).
 
 - `--translator-key`  
   Translator configuration key in YAML file (default: translator_ro).
@@ -171,7 +171,7 @@ Compute and display aggregated statistics from evaluation JSONL files.
 **Example:**
 
 ```bash
-python ./tinyfabulist.py stats --jsonl data/evaluations
+python ./tinyfabulist.py stats --input data/evaluations
 ```
 
 ---
@@ -181,7 +181,7 @@ python ./tinyfabulist.py stats --jsonl data/evaluations
 1. **Generating Fable Prompts in JSONL Format:**
 
    ```bash
-   python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl > prompts.jsonl
+   python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl
    ```
 
 2. **Generating Fables from a Prompt File with Deduplication (Using Specific Models):**
@@ -193,13 +193,13 @@ python ./tinyfabulist.py stats --jsonl data/evaluations
 3. **Evaluating Generated Fables:**
 
    ```bash
-   python ./tinyfabulist.py evaluate --jsonl data/fables/
+   python ./tinyfabulist.py evaluate --input data/fables/
    ```
 
 4. **Presenting Stats:**
 
    ```bash
-   python ./tinyfabulist.py stats --jsonl data/evaluations
+   python ./tinyfabulist.py stats --input data/evaluations
    ```
 
 5. **Translate Module:**
