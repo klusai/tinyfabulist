@@ -107,7 +107,11 @@ python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl -
 
 ### 2. Evaluate
 
-Evaluate generated fables from JSONL files or directories.
+TinyFabulist provides evaluation capabilities for both original English fables and their Romanian translations.
+
+#### English Evaluation
+
+Evaluate generated English fables for quality, creativity, moral clarity, and adherence to prompt.
 
 **Arguments:**
 
@@ -117,8 +121,29 @@ Evaluate generated fables from JSONL files or directories.
 **Example:**
 
 ```bash
-python ./tinyfabulist.py evaluate --input data/fables/
+python tinyfabulist.py evaluate --input tinyfabulist/data/fables/
 ```
+
+#### Romanian Evaluation
+
+Evaluate translated Romanian fables for translation accuracy, fluency, style preservation, and moral clarity.
+
+**Arguments:**
+
+- `--input <file_or_directory>` (required)  
+  JSONL file or directory containing translated fables.
+
+**Example:**
+
+```bash
+python tinyfabulist.py evaluate_ro --input tinyfabulist/data/translations/
+```
+
+The evaluation results are stored in JSONL format with these key metrics:
+- For English: grammar, creativity, moral_clarity, adherence_to_prompt
+- For Romanian: translation_accuracy, fluency, style_preservation, moral_clarity
+
+Each metric is scored on a scale of 1-10 with detailed explanations provided.
 
 ---
 
@@ -224,7 +249,7 @@ Compute and display aggregated statistics from evaluation JSONL files.
 **Example:**
 
 ```bash
-python ./tinyfabulist.py stats --input data/evaluations
+python tinyfabulist.py stats --input data/evaluations
 ```
 
 ---
@@ -262,11 +287,11 @@ python ./tinyfabulist.py stats --input data/evaluations
 5. **Evaluate Generated Fables:**
 
    ```bash
-   python tinyfabulist.py evaluate --input ./tinyfabulist/data/fables/
+   python tinyfabulist.py evaluate --input tinyfabulist/data/fables/
    ```
 
 6. **Generate Statistics from Evaluations:**
 
    ```bash
-   python tinyfabulist.py stats --input ./tinyfabulist/data/evaluations
+   python tinyfabulist.py stats --input tinyfabulist/data/evaluations
    ```
