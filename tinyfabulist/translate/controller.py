@@ -1,6 +1,6 @@
 from tinyfabulist.logger import setup_logging
 from tinyfabulist.translate.deepl import deepl_subparser
-from tinyfabulist.translate.enhance import enhnace_entry_point
+from tinyfabulist.translate.enhance import enhance_subparser #, enhnace_entry_point
 from tinyfabulist.translate.gpt import gpt_subparser
 from tinyfabulist.translate.open_source import open_source_translate_subparser
 from tinyfabulist.translate.mbart import mbart_translate_subparser
@@ -33,9 +33,9 @@ def get_translate_subparser(engine):
     else:
         return get_open_source_subparser()
 
-def enhance_translation(args):
-    logger.info("Enhancing translation")
-    return enhnace_entry_point(args.input, args.input_yaml)
+# def enhance_translation(args):
+#     logger.info("Enhancing translation")
+#     return enhnace_entry_point(args.input, args.input_yaml)
 
 
 def add_translate_subparser(subparsers):
@@ -144,3 +144,7 @@ def handle_translate(args):
     
     # Call the engine function with the arguments
     engine_func(args)
+
+def add_enhance_subparser():
+    logger.info("Running Translation Enhancement")
+    return enhance_subparser

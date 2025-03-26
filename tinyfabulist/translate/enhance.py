@@ -255,3 +255,63 @@ def enhnace_entry_point(input: str, input_yaml: str):
     max_workers = 34
     
     enhance_jsonl(input_file, output_file, api_key, endpoint, enhance_template, max_workers, engine)
+
+def enhance_subparser(subparsers):
+    """
+    Add enhance subparser to main parser
+    
+    Args:
+        subparsers: The subparsers object to add this parser to
+    
+    Returns:
+        The created subparser
+    """
+    enhance_parser = subparsers.add_parser(
+        "enhance", 
+        help="Enhance existing translations with refinements"
+    )
+    
+    # Required arguments
+    enhance_parser.add_argument(
+        "--input",
+        type=str,
+        required=True,
+        help="Path to the input JSONL file containing translations to enhance"
+    )
+    
+    # Optional arguments
+    enhance_parser.add_argument(
+        "--input-yaml",
+        type=str,
+        default="conf/enhance.yaml",
+        help="Path to enhancement configuration YAML file (default: conf/enhance.yaml)"
+    )
+    
+    enhance_parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=34,
+        help="Maximum number of worker threads for parallel processing (default: 34)"
+    )
+    
+    enhance_parser.add_argument(
+        "--output",
+        type=str,
+        help="Path to save enhanced output (default: auto-generated with timestamp)"
+    )
+    
+    # Set the function that will handle the enhance command
+    enhance_parser.set_defaults(func=handle_enhance)
+    
+    return enhance_parser
+
+def handle_enhance(args):
+    """Handle the enhance command"""
+    output = args.output
+    
+    if not output:
+        # Generate timestamp for the output file only if not provided
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output = f"tinyfabulist/data/translations/tf_enhanced_{timestamp}.jsonl"
+    
+    return enhnace_entry_point(args.input, args.input_yaml)
