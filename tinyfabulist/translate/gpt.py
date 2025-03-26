@@ -117,8 +117,8 @@ def translate_fables(args):
     )
 
 
-def gpt_subparser(subparsers):
-    return add_translate_subparser(subparsers, translate_fables, "en", "ro")
+def gpt_subparser(args):
+    return translate_fables(args)
 
 
 if __name__ == "__main__":

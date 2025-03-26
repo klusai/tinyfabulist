@@ -11,6 +11,7 @@ from tinyfabulist.translate.utils import (
     translate_jsonl,
     translate_main,
 )
+from tinyfabulist.translate.subparser import add_translate_subparser
 
 logger = setup_logging()
 
@@ -145,6 +146,8 @@ def translate_fables(args):
         },
     )
 
+def mbart_translate_subparser(args):
+    return translate_fables(args)
 
 if __name__ == "__main__":
     translate_main(
