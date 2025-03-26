@@ -40,17 +40,27 @@ TinyFabulist is a Python-based fable generation system that:
   - Creative writing assistance
   - Moral education resources
 
+- **Provides comprehensive translation capabilities:**
+  - Support for multiple translation engines (GPT, DeepL, open-source models)
+  - Enhanced translations with quality improvements
+  - Parallel processing for efficient batch translation
+
 ---
 
 ## Usage Examples
 
-The `tinyfabulist.py` file serves as the main entry point for both generating and evaluating fables. Use the provided subcommands to separate functionality.
-
-Run the script with one of the two subcommands: **generate** or **evaluate**.
+The `tinyfabulist.py` file serves as the main entry point for generating, evaluating, translating, and enhancing fables. Use the provided subcommands to separate functionality.
 
 ```bash
 python tinyfabulist.py <command> [options]
 ```
+
+Available commands:
+- `generate`: Generate fable prompts or fables
+- `evaluate`: Evaluate generated fables
+- `stats`: Compute statistics from evaluation files
+- `translate`: Translate fables to other languages
+- `enhance`: Enhance existing translations with refinements
 
 ---
 
@@ -114,46 +124,89 @@ python ./tinyfabulist.py evaluate --input data/fables/
 
 ### 3. Translate
 
-Translate JSONL content (fables/prompts) into Romanian.
+Translate fables to other languages with support for multiple translation engines.
 
 **Arguments:**
 
-- `--input` (required)  
-  Path to the input JSONL file.
+- `--input <file>` (required)  
+  Path to the input JSONL file containing fables to translate.
 
-- `--outputPath`  
-  Output translated file (default: input_filename_ro.jsonl).
+- `--engine {gpt,deepl,open_source,mbart}`  
+  Select translation engine to use (default: gpt).
 
-- `--configYAML`  
-  Configuration file path (default: translator.yaml).
+- `--output <file>`  
+  Path to save the translated output (default: auto-generated with timestamp).
 
-- `--translator-key`  
-  Translator configuration key in YAML file (default: translator_ro).
+- `--config <file>`  
+  Path to translation configuration file (default: conf/translator.yaml).
 
-- `--source-lang`  
-  Source language code (default: eng_Latn).
+- `--translator-key <key>`  
+  Key in the config file for the translator settings (default: translator_ro).
 
-- `--target-lang`  
-  Target language code (default: ron_Latn).
+- `--batch-size <number>`  
+  Number of items to process in a batch (default: 10).
 
-- `--batch-size`  
-  Records processed per batch before saving (default: 100).
+- `--max-workers <number>`  
+  Maximum number of worker threads (default: 5).
 
-- `--fields`  
+- `--fields <comma-separated-list>`  
   Comma-separated list of fields to translate (default: fable,prompt).
 
-- `--max-workers`  
-  Maximum number of threads for parallel processing (default: 200).
+- `--source-lang <code>`  
+  Source language code (overrides default).
 
-**Example:**
+- `--target-lang <code>`  
+  Target language code (overrides default).
+
+**Examples:**
 
 ```bash
-python tinyfabulist.py translate --input <file.jsonl> --target-lang RO
+# Translate using GPT (default)
+python tinyfabulist.py translate --input path/to/fables.jsonl
+
+# Translate using DeepL
+python tinyfabulist.py translate --engine deepl --input path/to/fables.jsonl
+
+# Translate using open-source model
+python tinyfabulist.py translate --engine open_source --input path/to/fables.jsonl
+
+# Translate using mBART
+python tinyfabulist.py translate --engine mbart --input path/to/fables.jsonl
 ```
 
 ---
 
-### 4. Stats
+### 4. Enhance
+
+Enhance existing translations with refinements based on evaluation feedback.
+
+**Arguments:**
+
+- `--input <file>` (required)  
+  Path to the input JSONL file containing translations to enhance.
+
+- `--input-yaml <file>`  
+  Path to enhancement configuration YAML file (default: conf/enhance.yaml).
+
+- `--max-workers <number>`  
+  Maximum number of worker threads for parallel processing (default: 34).
+
+- `--output <file>`  
+  Path to save enhanced output (default: auto-generated with timestamp).
+
+**Example:**
+
+```bash
+# Enhance translations with default settings
+python tinyfabulist.py enhance --input path/to/translations.jsonl
+
+# Enhance with custom configuration and output path
+python tinyfabulist.py enhance --input path/to/translations.jsonl --input-yaml path/to/config.yaml --output enhanced_output.jsonl
+```
+
+---
+
+### 5. Stats
 
 Compute and display aggregated statistics from evaluation JSONL files.
 
@@ -178,32 +231,42 @@ python ./tinyfabulist.py stats --input data/evaluations
 
 ## Full Examples
 
-1. **Generating Fable Prompts in JSONL Format:**
+1. **Generate Fable Prompts in JSONL Format:**
 
    ```bash
    python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl
    ```
 
-2. **Generating Fables from a Prompt File with Deduplication (Using Specific Models):**
+2. **Generate Fables from Prompts Using Specific Models:**
 
    ```bash
    python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --models model1 model2
    ```
 
-3. **Evaluating Generated Fables:**
+3. **Translate Fables Using Different Engines:**
 
    ```bash
-   python ./tinyfabulist.py evaluate --input data/fables/
+   # Using GPT
+   python tinyfabulist.py translate --input fables.jsonl --engine gpt
+   
+   # Using DeepL with custom output
+   python tinyfabulist.py translate --input fables.jsonl --engine deepl --output translated_deepl.jsonl
    ```
 
-4. **Presenting Stats:**
+4. **Enhance Existing Translations:**
 
    ```bash
-   python ./tinyfabulist.py stats --input data/evaluations
+   python tinyfabulist.py enhance --input translated_fables.jsonl
    ```
 
-5. **Translate Module:**
+5. **Evaluate Generated Fables:**
 
    ```bash
-   python tinyfabulist.py translate --input <file.jsonl> --target-lang RO
+   python tinyfabulist.py evaluate --input ./tinyfabulist/data/fables/
+   ```
+
+6. **Generate Statistics from Evaluations:**
+
+   ```bash
+   python tinyfabulist.py stats --input ./tinyfabulist/data/evaluations
    ```
