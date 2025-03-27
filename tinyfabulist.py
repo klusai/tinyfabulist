@@ -6,6 +6,7 @@ from tinyfabulist.generate import add_generate_subparser
 from tinyfabulist.stats import add_stats_subparser
 from tinyfabulist.translate.controller import add_enhance_subparser, get_translate_subparser
 from tinyfabulist.translate.controller import add_translate_subparser
+from tinyfabulist.visualizer.jsonl_visualizer import add_visualize_subparser
 
 
 def main():
@@ -33,6 +34,9 @@ def main():
     
     # Improves existing translations based on evaluation feedback
     add_enhance_subparser()(subparsers)
+
+    # Add visualization dashboard functionality
+    add_visualize_subparser(subparsers)
 
     args = parser.parse_args()
     

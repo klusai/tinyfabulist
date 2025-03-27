@@ -254,6 +254,42 @@ python tinyfabulist.py stats --input data/evaluations
 
 ---
 
+### 6. Visualize
+
+Launch an interactive web dashboard for exploring and visualizing JSONL files.
+
+**Arguments:**
+
+- `--input <file>` (required)  
+  Path to the JSONL file to visualize.
+
+- `--port <number>`  
+  Port to run the visualization server on (default: 8050).
+
+- `--host <address>`  
+  Host address to bind the server to (default: 127.0.0.1).
+
+- `--debug`  
+  Run the visualization server in debug mode, enabling auto-reload on code changes.
+
+- `--no-browser`  
+  Don't automatically open the browser when starting the server.
+
+**Example:**
+
+```bash
+# Launch visualization with default settings
+python tinyfabulist.py visualize --input path/to/fables.jsonl
+
+# Launch visualization on a specific port
+python tinyfabulist.py visualize --input path/to/evaluations.jsonl --port 8888
+
+# Run on a public IP to allow remote access
+python tinyfabulist.py visualize --input path/to/translations.jsonl --host 0.0.0.0
+```
+
+---
+
 ## Full Examples
 
 1. **Generate Fable Prompts in JSONL Format:**
