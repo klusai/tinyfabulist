@@ -84,7 +84,7 @@ def evaluate_file(input_path: str, output_path: str = None) -> None:
 def run_evaluate(args) -> None:
     """Main entry point for Romanian evaluation"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_base_dir = os.path.join("tinyfabulist", "data", "evaluations_ro")
+    output_base_dir = os.path.join("data", "evaluations_ro")
     os.makedirs(output_base_dir, exist_ok=True)
     
     process_file_or_directory(

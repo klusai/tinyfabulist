@@ -20,8 +20,8 @@ from tinyfabulist.utils import load_settings as load_settings_utils
 
 # Constants
 CONFIG_FILE = "conf/generator.yaml"
-PROMPTS_FOLDER = "tinyfabulist/data/prompts/"
-FABLES_FOLDER = "tinyfabulist/data/fables/"
+PROMPTS_FOLDER = "data/prompts/"
+FABLES_FOLDER = "data/fables/"
 
 logger = setup_logging()
 

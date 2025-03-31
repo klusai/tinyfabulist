@@ -6,7 +6,7 @@ from collections import defaultdict
 from tinyfabulist.logger import *
 
 # Constants
-CONFIG_DIR = "conf"
+CONFIG_DIR = "tinyfabulist/conf"
 
 logger = setup_logging()
 

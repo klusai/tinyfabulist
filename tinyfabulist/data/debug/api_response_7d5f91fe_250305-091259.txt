@@ -1,4 +1,0 @@
-ERROR: Error code: 404 - {'error': {'message': 'The model `gpt-o3-mini-high` does not exist or you do not have access to it.', 'type': 'invalid_request_error', 'param': None, 'code': 'model_not_found'}}
-
-API RESPONSE:
-Error evaluating fable: Error code: 404 - {'error': {'message': 'The model `gpt-o3-mini-high` does not exist or you do not have access to it.', 'type': 'invalid_request_error', 'param': None, 'code': 'model_not_found'}}

@@ -88,7 +88,7 @@ def run_evaluate(args) -> None:
     """
     Process the input path, evaluating fables in files/directories.
     """
-    output_dir = os.path.join("tinyfabulist", "data", "evaluations")
+    output_dir = os.path.join("data", "evaluations")
     os.makedirs(output_dir, exist_ok=True)
     
     # Process files or directories

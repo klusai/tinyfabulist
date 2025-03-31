@@ -9,7 +9,7 @@ from tinyfabulist.translate.utils import read_api_key, load_translator_config
 
 logger = setup_logging()
 
-input_yaml = "conf/enhance.yaml"
+input_yaml = "tinyfabulist/conf/enhance.yaml"
 
 
 def improve_translation(original_fable, translated_fable, ratings, explanations, api_key, endpoint, prompt_template=None):
@@ -246,7 +246,7 @@ def enhnace_entry_point(input: str, input_yaml: str):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     input_file = input
-    output_file = f"tinyfabulist/data/translations/tf_enhanced_{timestamp}.jsonl"
+    output_file = f"data/translations/tf_enhanced_{timestamp}.jsonl"
     
     # Log the output filename
     logger.info(f"Output will be saved to: {output_file}")
@@ -283,8 +283,8 @@ def enhance_subparser(subparsers):
     enhance_parser.add_argument(
         "--input-yaml",
         type=str,
-        default="conf/enhance.yaml",
-        help="Path to enhancement configuration YAML file (default: conf/enhance.yaml)"
+        default="tinyfabulist/conf/enhance.yaml",
+        help="Path to enhancement configuration YAML file (default: tinyfabulist/conf/enhance.yaml)"
     )
     
     enhance_parser.add_argument(
@@ -312,6 +312,6 @@ def handle_enhance(args):
     if not output:
         # Generate timestamp for the output file only if not provided
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = f"tinyfabulist/data/translations/tf_enhanced_{timestamp}.jsonl"
+        output = f"data/translations/tf_enhanced_{timestamp}.jsonl"
     
     return enhnace_entry_point(args.input, args.input_yaml)

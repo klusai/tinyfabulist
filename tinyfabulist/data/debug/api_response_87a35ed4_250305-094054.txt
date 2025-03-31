@@ -1,4 +1,0 @@
-ERROR: block_1() missing 3 required positional arguments: 'helpers', 'partials', and 'root'
-
-API RESPONSE:
-Error evaluating fable: block_1() missing 3 required positional arguments: 'helpers', 'partials', and 'root'

@@ -1,9 +1,8 @@
 import os
 import dash
-import dash_table
 import pandas as pd
 import json
-from dash import html, dcc, Input, Output, no_update
+from dash import html, dcc, Input, Output, no_update, dash_table
 
 # -----------------------------------------------------------------------------
 # Data Loading

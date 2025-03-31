@@ -90,7 +90,7 @@ def read_api_key(key):
 def build_output_path(args, model):
     base_name = os.path.basename(args.input)
     name_parts = os.path.splitext(base_name)
-    output_dir = os.path.join("tinyfabulist", "data", "translations")
+    output_dir = os.path.join("data", "translations")
     timestamp = time.strftime("%y%m%d-%H%M%S")
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(

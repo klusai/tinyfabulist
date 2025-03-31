@@ -118,7 +118,7 @@ class EvaluationUtils:
             text: The API response text
             error: The error message
         """
-        debug_dir = os.path.join("tinyfabulist", "data", "debug")
+        debug_dir = os.path.join("data", "debug")
         os.makedirs(debug_dir, exist_ok=True)
         
         # Create a unique filename
@@ -189,7 +189,7 @@ class EvaluationUtils:
             Path to the output file
         """
         if base_dir is None:
-            base_dir = os.path.join("tinyfabulist", "data", f"evaluations{'_' + self.language if self.language != 'en' else ''}")
+            base_dir = os.path.join("data", f"evaluations{'_' + self.language if self.language != 'en' else ''}")
         
         os.makedirs(base_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
