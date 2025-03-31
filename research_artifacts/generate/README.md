@@ -1,6 +1,8 @@
 ## Model Evaluation on English and Romanian Fables
 
-We conducted an evaluation of 5 language models using a dataset of fables. The results are shown in **Picture 1**, summarized in the markdown table below:
+We conducted an evaluation of 5 language models using a dataset of fables. The results are shown in **Picture 1**, summarized in the markdown table below.
+
+Clean Deepseek = Parsed deepseek, without thinking tags.
 
 > 🧠 Notably, **Mistral 7B** and **LLaMA 8B** performed very closely in terms of quality and accuracy.
 
