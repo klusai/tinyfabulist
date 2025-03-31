@@ -668,7 +668,7 @@ def plot_model_averages(args):
     Main orchestrator to process evaluation and tf_fables files.
     """
     standard_eval_files, translation_eval_files, tf_files = FileProcessor.identify_files(args.input)
-    stats_folder = "tinyfabulist/data/stats/"
+    stats_folder = "data/stats/"
     if args.output_mode in ["files", "both"]:
         os.makedirs(stats_folder, exist_ok=True)
     timestamp = time.strftime("%y%m%d-%H%M%S")
