@@ -342,7 +342,6 @@ class Visualizer:
     def create_plotly_figure(averages: dict, tf_model_stats: dict, metrics_list: list, models_list: list) -> go.Figure:
         fig = make_subplots(
             rows=2, cols=1,
-            subplot_titles=("Average Evaluation Scores by Model", "Performance Metrics by Model"),
             vertical_spacing=0.2,
             specs=[[{"type": "bar"}], [{"type": "bar"}]]
         )
@@ -364,7 +363,7 @@ class Visualizer:
                     text=[f"{val:.2f}" for val in values],
                     textposition="auto",
                     marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
-                    hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                    hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',  
                 ),
                 row=1, col=1
             )
@@ -402,17 +401,47 @@ class Visualizer:
     def configure_plotly_layout(fig: go.Figure):
         fig.update_layout(
             title_text="Model Evaluation and Performance Analytics",
+            title_x=0.5,  # Center the title
+            title_font=dict(size=24),  # Increase title font size
             barmode="group",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(size=12),  # Increase legend font size
+            ),
             template="plotly_white",
-            height=900,
-            width=1000,
-            hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial"),
+            height=1080,  # Full height
+            width=1920,   # Full width
+            margin=dict(l=80, r=80, t=120, b=80),  # Padding around the plot
+            hoverlabel=dict(
+                bgcolor="white",
+                font_size=14,  # Increase hover label font size
+                font_family="Arial",
+            ),
         )
-        fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
-        fig.update_yaxes(title_text="Value", row=2, col=1)
-        fig.update_xaxes(title_text="Models", row=1, col=1)
-        fig.update_xaxes(title_text="Models", row=2, col=1)
+        # For the evaluation scores subplot (row 1) with fixed range [0,10]
+        fig.update_yaxes(
+            row=1, col=1,
+            title_text="Score",
+            range=[0, 10],
+            title_font=dict(size=16),
+            tickfont=dict(size=14),
+            automargin=True,
+            title_standoff=40,  # Increase space between y-axis title and tick labels
+        )
+        # For the performance metrics subplot (row 2), let Plotly auto-scale
+        fig.update_yaxes(
+            row=2, col=1,
+            title_text="Value",
+            title_font=dict(size=16),
+            tickfont=dict(size=14),
+            automargin=True,
+            title_standoff=40,  # Increase space between y-axis title and tick labels
+        )
+
 
     @staticmethod
     def generate_translation_plotly_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str):
@@ -422,7 +451,6 @@ class Visualizer:
 
         fig = make_subplots(
             rows=2, cols=1,
-            subplot_titles=("Average Translation Evaluation Scores by Model", "Performance Metrics by Model"),
             vertical_spacing=0.2,
             specs=[[{"type": "bar"}], [{"type": "bar"}]]
         )
@@ -485,8 +513,6 @@ class Visualizer:
         )
         fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
         fig.update_yaxes(title_text="Value", row=2, col=1)
-        fig.update_xaxes(title_text="Models", row=1, col=1)
-        fig.update_xaxes(title_text="Models", row=2, col=1)
 
         if output_mode in ["files", "both"]:
             plot_filename = os.path.join(stats_folder, f"tf_stats_translation_plot_{timestamp}.png")
@@ -502,7 +528,7 @@ class Visualizer:
     def generate_matplotlib_visualizations(averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str):
         models_list = list(averages.keys())
         metrics_list = ["grammar", "creativity", "moral_clarity", "adherence_to_prompt", "average_score_(mean)"]
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 12))
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 15))  # Increase figure size
         Visualizer.plot_evaluation_scores(ax1, averages, models_list, metrics_list)
         Visualizer.plot_performance_metrics(ax2, averages, tf_model_stats, models_list)
         plt.tight_layout()
@@ -527,7 +553,6 @@ class Visualizer:
                 ax.annotate(f"{height:.2f}", xy=(bar.get_x() + bar.get_width() / 2, height),
                             xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
                             fontsize=9, fontweight="bold")
-        ax.set_title("Average Evaluation Scores by Model", fontsize=14, fontweight="bold")
         ax.set_xticks(x)
         ax.set_xticklabels(models_list, fontsize=12)
         ax.set_ylim(0, 10)
@@ -565,7 +590,7 @@ class Visualizer:
         models_list = list(translation_averages.keys())
         models_list_names = [model.split("_")[-1] for model in models_list]
         metrics_list = ["translation_accuracy", "fluency", "style_preservation", "moral_clarity", "average_score_(mean)"]
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 12))
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 15))  # Increase figure size
         x = np.arange(len(models_list))
         width = 0.17
         colors = ["#1DB954", "#191414", "#535353", "#B3B3B3", "#E60012"]
