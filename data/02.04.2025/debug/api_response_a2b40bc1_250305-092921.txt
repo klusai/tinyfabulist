@@ -1,0 +1,4 @@
+ERROR: 'list' object has no attribute 'grow'
+
+API RESPONSE:
+Error evaluating fable: 'list' object has no attribute 'grow'

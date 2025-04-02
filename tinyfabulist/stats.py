@@ -318,15 +318,82 @@ class Evaluator:
             rows.append(row)
         return "\n".join(header + [""] + rows)
 
+    @staticmethod
+    def count_age_groups(evaluation_files):
+        """Count the frequency of each age group from evaluation files."""
+        age_group_counts = {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0}
+        total_evals = 0
+        
+        for eval_file in evaluation_files:
+            try:
+                with open(eval_file, "r") as f:
+                    for line in f:
+                        try:
+                            eval_data = json.loads(line.strip())
+                            if "best_age_group" in eval_data["evaluation"]:
+                                age_group = eval_data["evaluation"]["best_age_group"]
+                                if age_group in age_group_counts:
+                                    age_group_counts[age_group] += 1
+                                total_evals += 1
+                        except json.JSONDecodeError:
+                            logger.warning(f"Skipping invalid JSON line in {eval_file}")
+            except Exception as e:
+                logger.error(f"Error processing {eval_file}: {e}")
+        
+        # Convert to percentages
+        age_group_percentages = {
+            group: (count / total_evals * 100 if total_evals > 0 else 0) 
+            for group, count in age_group_counts.items()
+        }
+        
+        return age_group_counts, age_group_percentages, total_evals
+
+    @staticmethod
+    def count_age_groups_by_file(evaluation_files):
+        """Count the frequency of each age group for each evaluation file."""
+        results = {}
+        model_name = ""
+        
+        for eval_file in evaluation_files:
+            file_name = os.path.basename(eval_file)
+            age_group_counts = {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0}
+            total_evals = 0
+            
+            try:
+                with open(eval_file, "r") as f:
+                    for line in f:
+                        try:
+                            eval_data = json.loads(line.strip())
+                            model_name = eval_data["llm_name"]
+                            if "evaluation" in eval_data and "best_age_group" in eval_data["evaluation"]:
+                                age_group = eval_data["evaluation"]["best_age_group"]
+                                if age_group in age_group_counts:
+                                    age_group_counts[age_group] += 1
+                                    total_evals += 1
+                        except json.JSONDecodeError:
+                            logger.warning(f"Skipping invalid JSON line in {file_name}")
+            except Exception as e:
+                logger.error(f"Error processing {file_name}: {e}")
+            
+            if total_evals > 0:
+                # Store results for this file
+                results[model_name] = {
+                    "counts": age_group_counts,
+                    "total": total_evals,
+                    "file": file_name
+                }
+        
+        return results
+
 
 # --- Visualization Module ---
 class Visualizer:
     # ----- Plotly Visualizations -----
     @staticmethod
-    def generate_plotly_visualizations(averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str):
+    def generate_plotly_visualizations(averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str, orientation: str = "vertical"):
         models_list = list(averages.keys())
         metrics_list = ["grammar", "creativity", "moral_clarity", "adherence_to_prompt", "average_score_(mean)"]
-        fig = Visualizer.create_plotly_figure(averages, tf_model_stats, metrics_list, models_list)
+        fig = Visualizer.create_plotly_figure(averages, tf_model_stats, metrics_list, models_list, orientation)
 
         # Save outputs if required
         if output_mode in ["files", "both"]:
@@ -339,12 +406,21 @@ class Visualizer:
             fig.show()
 
     @staticmethod
-    def create_plotly_figure(averages: dict, tf_model_stats: dict, metrics_list: list, models_list: list) -> go.Figure:
-        fig = make_subplots(
-            rows=2, cols=1,
-            vertical_spacing=0.2,
-            specs=[[{"type": "bar"}], [{"type": "bar"}]]
-        )
+    def create_plotly_figure(averages: dict, tf_model_stats: dict, metrics_list: list, models_list: list, orientation: str = "vertical") -> go.Figure:
+        # Create subplot with customized row heights for horizontal orientation
+        if orientation == "horizontal":
+            fig = make_subplots(
+                rows=2, cols=1,
+                vertical_spacing=0.1,
+                specs=[[{"type": "bar"}], [{"type": "bar"}]],
+                row_heights=[0.75, 0.25]  # First plot takes 75% of height
+            )
+        else:
+            fig = make_subplots(
+                rows=2, cols=1,
+                vertical_spacing=0.2,
+                specs=[[{"type": "bar"}], [{"type": "bar"}]]
+            )
         # Define colors for evaluation metrics
         eval_colors = {
             "grammar": "#1DB954",
@@ -353,20 +429,40 @@ class Visualizer:
             "adherence_to_prompt": "#B3B3B3",
             "average_score_(mean)": "#E60012",
         }
+        
+        # Sort models for better visualization
+        models_list = sorted(models_list)
+        
         for i, metric in enumerate(metrics_list):
             values = [averages[model][metric] for model in models_list]
-            fig.add_trace(
-                go.Bar(
-                    x=models_list,
-                    y=values,
-                    name=metric.replace("_", " ").title(),
-                    text=[f"{val:.2f}" for val in values],
-                    textposition="auto",
-                    marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
-                    hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',  
-                ),
-                row=1, col=1
-            )
+            
+            if orientation == "horizontal":
+                fig.add_trace(
+                    go.Bar(
+                        y=models_list,
+                        x=values,
+                        name=metric.replace("_", " ").title(),
+                        text=[f"{val:.2f}" for val in values],
+                        textposition="auto",
+                        marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{y}}<br>{metric.replace("_", " ").title()}: %{{x:.2f}}<extra></extra>',
+                        orientation='h',
+                    ),
+                    row=1, col=1
+                )
+            else:
+                fig.add_trace(
+                    go.Bar(
+                        x=models_list,
+                        y=values,
+                        name=metric.replace("_", " ").title(),
+                        text=[f"{val:.2f}" for val in values],
+                        textposition="auto",
+                        marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                    ),
+                    row=1, col=1
+                )
         # Performance metrics: prefer tf_model_stats if available
         if tf_model_stats:
             performance_metrics = ["avg_input_tokens", "avg_output_tokens", "avg_inference_time"]
@@ -413,7 +509,7 @@ class Visualizer:
                 font=dict(size=12),  # Increase legend font size
             ),
             template="plotly_white",
-            height=1080,  # Full height
+            height=2000,  # Full height
             width=1920,   # Full width
             margin=dict(l=80, r=80, t=120, b=80),  # Padding around the plot
             hoverlabel=dict(
@@ -444,16 +540,19 @@ class Visualizer:
 
 
     @staticmethod
-    def generate_translation_plotly_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str):
+    def generate_translation_plotly_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str, orientation: str = "vertical"):
         models_list = list(translation_averages.keys())
         models_list_names = [model.split("_")[-1] for model in models_list]
         metrics_list = ["translation_accuracy", "fluency", "style_preservation", "moral_clarity", "average_score_(mean)"]
 
+        # Create subplot with customized row heights for better proportions
         fig = make_subplots(
             rows=2, cols=1,
-            vertical_spacing=0.2,
-            specs=[[{"type": "bar"}], [{"type": "bar"}]]
+            vertical_spacing=0.1,
+            specs=[[{"type": "bar"}], [{"type": "bar"}]],
+            row_heights=[0.75, 0.25]  # First plot takes 75% of height
         )
+        
         trans_colors = {
             "translation_accuracy": "#1DB954",
             "fluency": "#191414",
@@ -461,20 +560,41 @@ class Visualizer:
             "moral_clarity": "#B3B3B3",
             "average_score_(mean)": "#E60012",
         }
+        
+        # Sort models for better visualization
+        models_list = sorted(models_list)
+        
         for i, metric in enumerate(metrics_list):
             values = [translation_averages[model][metric] for model in models_list]
-            fig.add_trace(
-                go.Bar(
-                    x=models_list_names,
-                    y=values,
-                    name=metric.replace("_", " ").title(),
-                    text=[f"{val:.2f}" for val in values],
-                    textposition="auto",
-                    marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
-                    hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
-                ),
-                row=1, col=1
-            )
+            
+            if orientation == "horizontal":
+                fig.add_trace(
+                    go.Bar(
+                        y=models_list,
+                        x=values,
+                        name=metric.replace("_", " ").title(),
+                        text=[f"{val:.2f}" for val in values],
+                        textposition="auto",
+                        marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{y}}<br>{metric.replace("_", " ").title()}: %{{x:.2f}}<extra></extra>',
+                        orientation='h',
+                    ),
+                    row=1, col=1
+                )
+            else:
+                fig.add_trace(
+                    go.Bar(
+                        x=models_list_names,
+                        y=values,
+                        name=metric.replace("_", " ").title(),
+                        text=[f"{val:.2f}" for val in values],
+                        textposition="auto",
+                        marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                    ),
+                    row=1, col=1
+                )
+        
         # Performance metrics
         if tf_model_stats:
             performance_metrics = ["avg_input_tokens", "avg_output_tokens", "avg_inference_time"]
@@ -487,32 +607,78 @@ class Visualizer:
             "output_tokens": "#2196F3",
             "inference_time": "#FFC107",
         }
+        
         for i, metric in enumerate(performance_metrics):
             values = [source.get(model, {}).get(metric, 0) for model in models_list]
             display_name = metric.replace("avg_", "").replace("_", " ").title()
-            fig.add_trace(
-                go.Bar(
-                    x=models_list,
-                    y=values,
-                    name=display_name,
-                    text=[f"{val:.1f}" for val in values],
-                    textposition="auto",
-                    marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
-                    hovertemplate=f"%{{x}}<br>{display_name}: %{{y:.1f}}<extra></extra>",
-                ),
-                row=2, col=1
-            )
+            
+            if orientation == "horizontal":
+                fig.add_trace(
+                    go.Bar(
+                        y=models_list,
+                        x=values,
+                        name=display_name,
+                        text=[f"{val:.1f}" for val in values],
+                        textposition="auto",
+                        marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{y}}<br>{display_name}: %{{x:.1f}}<extra></extra>',
+                        orientation='h',
+                    ),
+                    row=2, col=1
+                )
+            else:
+                fig.add_trace(
+                    go.Bar(
+                        x=models_list,
+                        y=values,
+                        name=display_name,
+                        text=[f"{val:.1f}" for val in values],
+                        textposition="auto",
+                        marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f"%{{x}}<br>{display_name}: %{{y:.1f}}<extra></extra>",
+                    ),
+                    row=2, col=1
+                )
+        
+        # Dynamic layout based on orientation
+        height = 3000 if orientation == "horizontal" else 900
+        left_margin = 250 if orientation == "horizontal" else 80
+        
         fig.update_layout(
             title_text="Translation Evaluation and Performance Analytics",
+            title_x=0.5,
+            title_font=dict(size=24),
             barmode="group",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom", 
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(size=12)
+            ),
             template="plotly_white",
-            height=900,
-            width=1000,
-            hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial"),
+            height=height,
+            width=1920,
+            margin=dict(l=left_margin, r=80, t=120, b=80),
+            hoverlabel=dict(bgcolor="white", font_size=14, font_family="Arial"),
         )
-        fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
-        fig.update_yaxes(title_text="Value", row=2, col=1)
+        
+        if orientation == "horizontal":
+            # For horizontal bars
+            fig.update_xaxes(row=1, col=1, title_text="Score", range=[0, 10], 
+                           title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            fig.update_xaxes(row=2, col=1, title_text="Value", 
+                           title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            # Ensure y-axis labels (model names) have enough space
+            fig.update_yaxes(row=1, col=1, tickfont=dict(size=14), automargin=True)
+            fig.update_yaxes(row=2, col=1, tickfont=dict(size=14), automargin=True)
+        else:
+            # For vertical bars (original code)
+            fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1, 
+                           title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            fig.update_yaxes(title_text="Value", row=2, col=1, 
+                           title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
 
         if output_mode in ["files", "both"]:
             plot_filename = os.path.join(stats_folder, f"tf_stats_translation_plot_{timestamp}.png")
@@ -639,6 +805,187 @@ class Visualizer:
         if output_mode in ["terminal", "both"]:
             plt.show()
 
+    @staticmethod
+    def generate_age_group_plot(age_group_data, stats_folder, timestamp, output_mode):
+        """Generate a plot showing age group distribution."""
+        counts, percentages, total = age_group_data
+        
+        # Create figure with secondary y-axis
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        # Age group descriptions
+        age_descriptions = {
+            "A": "3 years or under",
+            "B": "4-7 years",
+            "C": "8-11 years",
+            "D": "12-15 years",
+            "E": "16 years or above"
+        }
+        
+        # Create x-axis labels with descriptions
+        x_labels = [f"{group} ({age_descriptions[group]})" for group in counts.keys()]
+        
+        # Add count bars
+        fig.add_trace(
+            go.Bar(
+                x=x_labels,
+                y=list(counts.values()),
+                name="Count",
+                text=[f"{count}" for count in counts.values()],
+                textposition="auto",
+                marker_color="#1DB954",
+                hovertemplate="Age Group: %{x}<br>Count: %{y}<extra></extra>",
+            ),
+            secondary_y=False,
+        )
+        
+        # Add percentage line
+        fig.add_trace(
+            go.Scatter(
+                x=x_labels,
+                y=list(percentages.values()),
+                name="Percentage",
+                mode="lines+markers+text",
+                text=[f"{p:.1f}%" for p in percentages.values()],
+                textposition="top center",
+                marker=dict(size=10, color="#E60012"),
+                line=dict(width=3, color="#E60012"),
+                hovertemplate="Age Group: %{x}<br>Percentage: %{y:.1f}%<extra></extra>",
+            ),
+            secondary_y=True,
+        )
+        
+        # Update layout
+        fig.update_layout(
+            title_text=f"Age Group Distribution (Total: {total} Evaluations)",
+            title_x=0.5,
+            title_font=dict(size=24),
+            barmode="group",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(size=12),
+            ),
+            template="plotly_white",
+            height=800,
+            width=1200,
+            margin=dict(l=80, r=80, t=120, b=80),
+            hoverlabel=dict(bgcolor="white", font_size=14, font_family="Arial"),
+        )
+        
+        # Update yaxes
+        fig.update_yaxes(title_text="Count", secondary_y=False)
+        fig.update_yaxes(title_text="Percentage (%)", secondary_y=True)
+        
+        # Save outputs if required
+        if output_mode in ["files", "both"]:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_age_group_plot_{timestamp}.png")
+            html_filename = os.path.join(stats_folder, f"tf_stats_age_group_plot_{timestamp}.html")
+            fig.write_image(plot_filename)
+            fig.write_html(html_filename)
+            logger.info(f"Age group distribution plot saved to {plot_filename} and {html_filename}")
+        if output_mode in ["terminal", "both"]:
+            fig.show()
+
+        return fig
+
+    @staticmethod
+    def generate_age_groups_by_file_plot(age_groups_by_file, stats_folder, timestamp, output_mode):
+        """Generate a stacked bar chart showing age group distribution by file/model."""
+        if not age_groups_by_file:
+            logger.info("No age group data by file available")
+            return
+        
+        # Age group descriptions for hover info
+        age_descriptions = {
+            "A": "3 years or under",
+            "B": "4-7 years",
+            "C": "8-11 years",
+            "D": "12-15 years",
+            "E": "16 years or above"
+        }
+        
+        # Create figure
+        fig = go.Figure()
+        
+        # Sort files by name for consistent display
+        models = sorted(age_groups_by_file.keys())
+        
+        # Define colors for age groups
+        colors = {
+            "A": "#FF9999",  # Light red
+            "B": "#66B2FF",  # Light blue
+            "C": "#99FF99",  # Light green
+            "D": "#FFCC99",  # Light orange
+            "E": "#CC99FF"   # Light purple
+        }
+        
+        # Add traces for each age group
+        for age_group in ["A", "B", "C", "D", "E"]:
+            percentages = []
+            hover_texts = []
+            
+            for model in models:
+                data = age_groups_by_file[model]
+                count = data["counts"][age_group]
+                total = data["total"]
+                percentage = (count / total * 100) if total > 0 else 0
+                
+                percentages.append(percentage)
+                hover_texts.append(
+                    f"Model: {model}<br>"
+                    f"Age Group: {age_group} ({age_descriptions[age_group]})<br>"
+                    f"Count: {count}<br>"
+                    f"Percentage: {percentage:.1f}%<br>"
+                    f"Total evals: {total}"
+                )
+            
+            fig.add_trace(go.Bar(
+                x=models,
+                y=percentages,
+                name=f"Age {age_group} - {age_descriptions[age_group]}",
+                text=[f"{p:.1f}%" for p in percentages],
+                textposition="inside",
+                marker_color=colors[age_group],
+                hoverinfo="text",
+                hovertext=hover_texts
+            ))
+        
+        # Update layout to stacked bars
+        fig.update_layout(
+            title="Age Group Distribution by Model",
+            title_x=0.5,
+            title_font=dict(size=24),
+            barmode='stack',
+            xaxis=dict(title="Model", tickangle=45),
+            yaxis=dict(title="Percentage (%)", range=[0, 100]),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            template="plotly_white",
+            height=800,
+            width=1200
+        )
+        
+        # Save outputs if required
+        if output_mode in ["files", "both"]:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_age_groups_by_model_{timestamp}.png")
+            html_filename = os.path.join(stats_folder, f"tf_stats_age_groups_by_model_{timestamp}.html")
+            fig.write_image(plot_filename)
+            fig.write_html(html_filename)
+            logger.info(f"Age group distribution by model saved to {plot_filename} and {html_filename}")
+        if output_mode in ["terminal", "both"]:
+            fig.show()
+            
+        return fig
+
 
 # --- Orchestrator Functions ---
 def process_tf_files(tf_files, stats_folder, timestamp, output_mode) -> dict:
@@ -654,24 +1001,45 @@ def process_tf_files(tf_files, stats_folder, timestamp, output_mode) -> dict:
     return tf_model_stats
 
 
-def process_eval_files(eval_files, tf_model_stats, stats_folder, timestamp, output_mode, plot_mode="plotly"):
+def process_eval_files(eval_files, tf_model_stats, stats_folder, timestamp, output_mode, plot_mode="plotly", orientation="vertical"):
     score_totals = Evaluator.parse_evaluation_data(eval_files)
-    averages = Evaluator.compute_averages(score_totals) 
+    averages = Evaluator.compute_averages(score_totals)
+    
+    # Generate standard model comparison visualizations
     md_table = Evaluator.create_evaluation_markdown_table(averages)
     if output_mode in ["files", "both"]:
-        md_eval_filename = os.path.join(stats_folder, f"tf_stats_eval_table_{timestamp}.md")
-        with open(md_eval_filename, "w") as f:
+        md_filename = os.path.join(stats_folder, f"tf_stats_eval_table_{timestamp}.md")
+        with open(md_filename, "w") as f:
             f.write(md_table)
-        logger.info(f"Evaluation Markdown table saved to {md_eval_filename}")
+        logger.info(f"Evaluation table saved to {md_filename}")
     if output_mode in ["terminal", "both"]:
         print("\n" + md_table + "\n")
+        
     if plot_mode.lower() == "plotly":
-        Visualizer.generate_plotly_visualizations(averages, tf_model_stats, stats_folder, timestamp, output_mode)
+        Visualizer.generate_plotly_visualizations(averages, tf_model_stats, stats_folder, timestamp, output_mode, orientation)
     else:
         Visualizer.generate_matplotlib_visualizations(averages, tf_model_stats, stats_folder, timestamp, output_mode)
+        
+    # # Generate age group distribution plot for all files combined
+    # age_group_data = Evaluator.count_age_groups(eval_files)
+    # if any(age_group_data[0].values()):  # Check if we found any age group data
+    #     Visualizer.generate_age_group_plot(age_group_data, stats_folder, timestamp, output_mode)
+        
+    #     # Generate age group distribution plot by file/model
+    #     age_groups_by_file = Evaluator.count_age_groups_by_file(eval_files)
+    #     Visualizer.generate_age_groups_by_file_plot(age_groups_by_file, stats_folder, timestamp, output_mode)
+    # else:
+    #     logger.info("No age group data found in the evaluation files")
+    
+    # Generate age group distribution by file/model plot
+    age_groups_by_file = Evaluator.count_age_groups_by_file(eval_files)
+    if age_groups_by_file:
+        Visualizer.generate_age_groups_by_file_plot(age_groups_by_file, stats_folder, timestamp, output_mode)
+    else:
+        logger.info("No age group data by file found in the evaluation files")
 
 
-def process_translation_eval_files(translation_eval_files, tf_model_stats, stats_folder, timestamp, output_mode, plot_mode="plotly"):
+def process_translation_eval_files(translation_eval_files, tf_model_stats, stats_folder, timestamp, output_mode, plot_mode="plotly", orientation="vertical"):
     translation_score_totals = Evaluator.parse_translation_evaluation_data(translation_eval_files)
     translation_averages = Evaluator.compute_translation_averages(translation_score_totals)
     md_table = Evaluator.create_translation_evaluation_markdown_table(translation_averages)
@@ -683,7 +1051,7 @@ def process_translation_eval_files(translation_eval_files, tf_model_stats, stats
     if output_mode in ["terminal", "both"]:
         print("\n" + md_table + "\n")
     if plot_mode.lower() == "plotly":
-        Visualizer.generate_translation_plotly_visualizations(translation_averages, tf_model_stats, stats_folder, timestamp, output_mode)
+        Visualizer.generate_translation_plotly_visualizations(translation_averages, tf_model_stats, stats_folder, timestamp, output_mode, orientation)
     else:
         Visualizer.generate_translation_matplotlib_visualizations(translation_averages, tf_model_stats, stats_folder, timestamp, output_mode)
 
@@ -702,11 +1070,11 @@ def plot_model_averages(args):
     if tf_files:
         tf_model_stats = process_tf_files(tf_files, stats_folder, timestamp, args.output_mode)
     if standard_eval_files:
-        process_eval_files(standard_eval_files, tf_model_stats, stats_folder, timestamp, args.output_mode, args.plot_mode)
+        process_eval_files(standard_eval_files, tf_model_stats, stats_folder, timestamp, args.output_mode, args.plot_mode, args.orientation)
     else:
         logger.info("No standard evaluation files found.")
     if translation_eval_files:
-        process_translation_eval_files(translation_eval_files, tf_model_stats, stats_folder, timestamp, args.output_mode, args.plot_mode)
+        process_translation_eval_files(translation_eval_files, tf_model_stats, stats_folder, timestamp, args.output_mode, args.plot_mode, args.orientation)
     else:
         logger.info("No translation evaluation files found.")
     if not (standard_eval_files or translation_eval_files or tf_files):
@@ -734,6 +1102,12 @@ def add_stats_subparser(subparsers) -> None:
         choices=["plotly", "matplotlib"],
         default="plotly",
         help="Plotting library to use for visualizations (default: plotly)"
+    )
+    generate_parser.add_argument(
+        "--orientation",
+        choices=["vertical", "horizontal"],
+        default="vertical",
+        help="Orientation of bar charts: vertical (default) or horizontal"
     )
     generate_parser.set_defaults(func=plot_model_averages)
 

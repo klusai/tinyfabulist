@@ -19,7 +19,6 @@ from tinyfabulist.logger import *
 from tinyfabulist.utils import load_settings as load_settings_utils
 
 # Constants
-CONFIG_FILE = "conf/generator.yaml"
 PROMPTS_FOLDER = "data/prompts/"
 FABLES_FOLDER = "data/fables/"
 
@@ -30,9 +29,6 @@ def load_settings() -> dict:
     try:
         logger.info("Settings loaded successfully")
         return load_settings_utils()
-    except FileNotFoundError:
-        logger.error(f"Settings file '{CONFIG_FILE}' not found")
-        raise ConfigError(f"Settings file '{CONFIG_FILE}' not found")
     except yaml.YAMLError as e:
         logger.error(f"Error parsing YAML file: {e}")
         raise ConfigError(f"Invalid YAML format: {e}")

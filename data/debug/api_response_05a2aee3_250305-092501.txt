@@ -1,4 +1,0 @@
-ERROR: pop from empty list
-
-API RESPONSE:
-Error evaluating fable: pop from empty list
