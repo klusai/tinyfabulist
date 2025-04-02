@@ -4,6 +4,46 @@
 
 ---
 
+## Docker Usage
+
+TinyFabulist can be run in a Docker container, providing a consistent environment across different systems.
+
+### Building the Docker Image
+
+From the project root directory, build the Docker image:
+
+```bash
+# Build the image with tag 'tiny_fabulist'
+docker build -t tiny_fabulist .
+```
+
+### Running the Docker Image
+
+#### Basic usage (shows help)
+```bash
+docker run tiny_fabulist
+```
+
+#### Interactive shell access (recommended)
+```bash
+docker run -it --entrypoint /bin/bash tiny_fabulist
+```
+
+#### Running with specific commands
+```bash
+docker run tiny_fabulist generate --generate-prompts --count 10
+```
+
+#### Mounting data directory for persistence
+```bash
+docker run -v $(pwd)/data:/app/data tiny_fabulist [COMMAND]
+```
+
+# Example: Generate fables and save to mounted volume
+```bash
+docker run -v $(pwd)/data:/app/data tiny_fabulist generate --generate-fables data/prompts.jsonl --output jsonl
+```
+
 ## Overview
 
 TinyFabulist is a Python-based fable generation system that:
