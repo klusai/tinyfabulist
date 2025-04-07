@@ -407,36 +407,56 @@ class Visualizer:
 
     @staticmethod
     def create_plotly_figure(averages: dict, tf_model_stats: dict, metrics_list: list, models_list: list, orientation: str = "vertical") -> go.Figure:
-        # Create subplot with customized row heights for horizontal orientation
+        # Sort models for better visualization
+        models_list = sorted(models_list, key=lambda x: -averages[x]['average_score_(mean)'])
+        
         if orientation == "horizontal":
+            # Use existing horizontal layout with custom row heights
             fig = make_subplots(
                 rows=2, cols=1,
                 vertical_spacing=0.1,
-                specs=[[{"type": "bar"}], [{"type": "bar"}]],
+                specs=[
+                    [{"type": "bar"}, {"type": "bar"}],  # Top row: evaluation metrics split in two
+                    [{"type": "bar", "colspan": 2}, None],  # Bottom row: performance metrics spanning both columns
+                ],
                 row_heights=[0.75, 0.25]  # First plot takes 75% of height
             )
         else:
+            # For vertical orientation, split models into two columns for better readability
             fig = make_subplots(
-                rows=2, cols=1,
+                rows=3, cols=1,
                 vertical_spacing=0.2,
-                specs=[[{"type": "bar"}], [{"type": "bar"}]]
+                horizontal_spacing=0.1,
+                specs=[
+                    [{"type": "bar"}], 
+                    [{"type": "bar"}],
+                    [{"type": "bar"}],  # Bottom row: performance metrics spanning both columns
+                ],
             )
+        
         # Define colors for evaluation metrics
         eval_colors = {
             "grammar": "#1DB954",
-            "creativity": "#191414",
+            "creativity": "#191414", 
             "moral_clarity": "#535353",
             "adherence_to_prompt": "#B3B3B3",
             "average_score_(mean)": "#E60012",
         }
         
-        # Sort models for better visualization
-        models_list = sorted(models_list)
+        # Split models into two groups if in vertical orientation
+        if orientation == "vertical" and len(models_list) > 5:
+            mid_point = len(models_list) // 2
+            models_left = models_list[:mid_point]
+            models_right = models_list[mid_point:]
+        else:
+            models_left = models_list
+            models_right = []
         
+        # Add evaluation metric traces
         for i, metric in enumerate(metrics_list):
-            values = [averages[model][metric] for model in models_list]
-            
             if orientation == "horizontal":
+                # Horizontal layout (single column)
+                values = [averages[model][metric] for model in models_list]
                 fig.add_trace(
                     go.Bar(
                         y=models_list,
@@ -451,107 +471,193 @@ class Visualizer:
                     row=1, col=1
                 )
             else:
+                # Vertical layout (split into two columns)
+                # Left column
+                values_left = [averages[model][metric] for model in models_left]
                 fig.add_trace(
                     go.Bar(
-                        x=models_list,
-                        y=values,
+                        x=models_left,
+                        y=values_left,
                         name=metric.replace("_", " ").title(),
-                        text=[f"{val:.2f}" for val in values],
+                        text=[f"{val:.2f}" for val in values_left],
                         textposition="auto",
                         marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
                         hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                        showlegend=True,
                     ),
                     row=1, col=1
                 )
-        # Performance metrics: prefer tf_model_stats if available
+                
+                # Right column (if models are split)
+                if models_right:
+                    values_right = [averages[model][metric] for model in models_right]
+                    fig.add_trace(
+                        go.Bar(
+                            x=models_right,
+                            y=values_right,
+                            name=metric.replace("_", " ").title(),
+                            text=[f"{val:.2f}" for val in values_right],
+                            textposition="auto",
+                            marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                            hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                            showlegend=False  # Don't duplicate legends
+                        ),
+                        row=2, col=1
+                    )
+        
+        # Performance metrics (bottom row)
         if tf_model_stats:
             performance_metrics = ["avg_input_tokens", "avg_output_tokens", "avg_inference_time"]
             source = tf_model_stats
         else:
             performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
             source = averages
+            
         perf_colors = {
             "input_tokens": "#4CAF50",
             "output_tokens": "#2196F3",
             "inference_time": "#FFC107",
         }
+        
         for i, metric in enumerate(performance_metrics):
-            values = [source.get(model, {}).get(metric, 0) for model in models_list]
-            display_name = metric.replace("avg_", "").replace("_", " ").title()
-            fig.add_trace(
-                go.Bar(
-                    x=models_list,
-                    y=values,
-                    name=display_name,
-                    text=[f"{val:.1f}" for val in values],
-                    textposition="auto",
-                    marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
-                    hovertemplate=f"%{{x}}<br>{display_name}: %{{y:.1f}}<extra></extra>",
-                ),
-                row=2, col=1
-            )
-        Visualizer.configure_plotly_layout(fig)
+            if orientation == "horizontal":
+                values = [source.get(model, {}).get(metric, 0) for model in models_list]
+                fig.add_trace(
+                    go.Bar(
+                        y=models_list,
+                        x=values,
+                        name=metric.replace("avg_", "").replace("_", " ").title(),
+                        text=[f"{val:.1f}" for val in values],
+                        textposition="auto",
+                        marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{y}}<br>{metric.replace("avg_", "").replace("_", " ").title()}: %{{x:.1f}}<extra></extra>',
+                        orientation='h',
+                    ),
+                    row=2, col=1
+                )
+            else:
+                values = [source.get(model, {}).get(metric, 0) for model in models_list]
+                fig.add_trace(
+                    go.Bar(
+                        x=models_list,
+                        y=values,
+                        name=metric.replace("avg_", "").replace("_", " ").title(),
+                        text=[f"{val:.1f}" for val in values],
+                        textposition="auto",
+                        marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f"%{{x}}<br>{metric.replace('avg_', '').replace('_', ' ').title()}: %{{y:.1f}}<extra></extra>",
+                    ),
+                    row=3, col=1
+                )
+        
+        # Configure the layout based on orientation
+        if orientation == "horizontal":
+            fig.update_layout(height=3000, margin=dict(l=250, r=80, t=120, b=80))
+        else:
+            # For vertical layout, adjust height based on number of models
+            height = 1200 if len(models_list) <= 10 else 1800
+            fig.update_layout(height=height)
+            
+            # Set consistent y-axis range for evaluation metrics
+            fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
+            if models_right:
+                fig.update_yaxes(title_text="", range=[0, 10], row=1, col=2)
+ 
+        Visualizer.configure_plotly_layout(fig, orientation)
         return fig
 
     @staticmethod
-    def configure_plotly_layout(fig: go.Figure):
+    def configure_plotly_layout(fig: go.Figure, orientation: str = "vertical"):
+        # Determine if we have a split layout by checking column count in row 1
+        split_layout = len(fig._grid_ref) > 2 and orientation == "vertical"
+        
         fig.update_layout(
             title_text="Model Evaluation and Performance Analytics",
-            title_x=0.5,  # Center the title
-            title_font=dict(size=24),  # Increase title font size
+            title_x=0.5,
+            title_font=dict(size=24),
             barmode="group",
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                font=dict(size=12),  # Increase legend font size
+                y=1.00,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12),
+                traceorder="normal"
             ),
             template="plotly_white",
-            height=2000,  # Full height
-            width=1920,   # Full width
-            margin=dict(l=80, r=80, t=120, b=80),  # Padding around the plot
-            hoverlabel=dict(
-                bgcolor="white",
-                font_size=14,  # Increase hover label font size
-                font_family="Arial",
+            width=1920,
+            margin=dict(
+                l=80,
+                r=80,
+                t=140 if split_layout else 120,
+                b=100 if split_layout else 80
             ),
+            hoverlabel=dict(bgcolor="white", font_size=14, font_family="Arial"),
         )
-        # For the evaluation scores subplot (row 1) with fixed range [0,10]
-        fig.update_yaxes(
-            row=1, col=1,
-            title_text="Score",
-            range=[0, 10],
-            title_font=dict(size=16),
-            tickfont=dict(size=14),
-            automargin=True,
-            title_standoff=40,  # Increase space between y-axis title and tick labels
-        )
-        # For the performance metrics subplot (row 2), let Plotly auto-scale
-        fig.update_yaxes(
-            row=2, col=1,
-            title_text="Value",
-            title_font=dict(size=16),
-            tickfont=dict(size=14),
-            automargin=True,
-            title_standoff=40,  # Increase space between y-axis title and tick labels
-        )
-
+        
+        if orientation == "horizontal":
+            # Horizontal layout axis configuration
+            fig.update_xaxes(row=1, col=1, title_text="Score", range=[0, 10], 
+                        title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            fig.update_xaxes(row=2, col=1, title_text="Value", 
+                        title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            # Ensure y-axis labels (model names) have enough space
+            fig.update_yaxes(row=1, col=1, tickfont=dict(size=14), automargin=True)
+            fig.update_yaxes(row=2, col=1, tickfont=dict(size=14), automargin=True)
+        else:
+            # Vertical layout - already configured in main function
+            # Just ensure consistent tick formatting and rotation
+            if split_layout:
+                # Ensure x-axis labels are rotated for better readability in split layout
+                fig.update_xaxes(tickangle=45, row=1, col=1, automargin=True)
+                fig.update_xaxes(tickangle=45, row=1, col=2, automargin=True)
+                fig.update_xaxes(tickangle=45, row=2, col=1, automargin=True)
+            else:
+                fig.update_xaxes(tickangle=45, automargin=True)
 
     @staticmethod
     def generate_translation_plotly_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str, orientation: str = "vertical"):
         models_list = list(translation_averages.keys())
-        models_list_names = [model.split("_")[-1] for model in models_list]
         metrics_list = ["translation_accuracy", "fluency", "style_preservation", "moral_clarity", "average_score_(mean)"]
 
-        # Create subplot with customized row heights for better proportions
-        fig = make_subplots(
-            rows=2, cols=1,
-            vertical_spacing=0.1,
-            specs=[[{"type": "bar"}], [{"type": "bar"}]],
-            row_heights=[0.75, 0.25]  # First plot takes 75% of height
-        )
+        # Sort models for better visualization
+        models_list = sorted(models_list, key=lambda x: -translation_averages[x]['average_score_(mean)'])
+        
+        if orientation == "horizontal":
+            # Use horizontal layout with custom row heights
+            fig = make_subplots(
+                rows=2, cols=1,
+                vertical_spacing=0.1,
+                specs=[[{"type": "bar"}], [{"type": "bar"}]],
+                row_heights=[0.75, 0.25]  # First plot takes 75% of height
+            )
+        else:
+            # For vertical orientation, split models into TWO ROWS (one under the other)
+            # for better readability instead of side-by-side columns
+            if len(models_list) > 5:
+                # Create a 3-row layout: first half of models, second half of models, performance metrics
+                fig = make_subplots(
+                    rows=3, cols=1,
+                    vertical_spacing=0.12,
+                    specs=[
+                        [{"type": "bar"}],  # First row: first half of models
+                        [{"type": "bar"}],  # Second row: second half of models
+                        [{"type": "bar"}],  # Third row: performance metrics
+                    ],
+                    row_heights=[0.4, 0.4, 0.2]  # Split evaluation metrics equally
+                )
+            else:
+                # If few models, just use two rows
+                fig = make_subplots(
+                    rows=2, cols=1,
+                    vertical_spacing=0.15,
+                    specs=[
+                        [{"type": "bar"}],  # First row: evaluation metrics
+                        [{"type": "bar"}],  # Second row: performance metrics
+                    ],
+                    row_heights=[0.7, 0.3]
+                )
         
         trans_colors = {
             "translation_accuracy": "#1DB954",
@@ -561,13 +667,23 @@ class Visualizer:
             "average_score_(mean)": "#E60012",
         }
         
-        # Sort models for better visualization
-        models_list = sorted(models_list)
+        # Split models into two groups if in vertical orientation with many models
+        if orientation == "vertical" and len(models_list) > 5:
+            mid_point = len(models_list) // 2
+            models_top = models_list[:mid_point]
+            models_bottom = models_list[mid_point:]
+            models_top_names = [model.split("_")[-1] for model in models_top]
+            models_bottom_names = [model.split("_")[-1] for model in models_bottom]
+        else:
+            models_top = models_list
+            models_top_names = [model.split("_")[-1] for model in models_top]
+            models_bottom = []
+            models_bottom_names = []
         
+        # Add evaluation metric traces
         for i, metric in enumerate(metrics_list):
-            values = [translation_averages[model][metric] for model in models_list]
-            
             if orientation == "horizontal":
+                values = [translation_averages[model][metric] for model in models_list]
                 fig.add_trace(
                     go.Bar(
                         y=models_list,
@@ -582,68 +698,119 @@ class Visualizer:
                     row=1, col=1
                 )
             else:
+                # Top group of models (row 1)
+                values_top = [translation_averages[model][metric] for model in models_top]
                 fig.add_trace(
                     go.Bar(
-                        x=models_list_names,
-                        y=values,
+                        x=models_top_names,
+                        y=values_top,
                         name=metric.replace("_", " ").title(),
-                        text=[f"{val:.2f}" for val in values],
+                        text=[f"{val:.2f}" for val in values_top],
                         textposition="auto",
                         marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
                         hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                        showlegend=True  # Show legend for the first group
                     ),
                     row=1, col=1
                 )
+                
+                # Bottom group of models (row 2 if split)
+                if models_bottom:
+                    values_bottom = [translation_averages[model][metric] for model in models_bottom]
+                    fig.add_trace(
+                        go.Bar(
+                            x=models_bottom_names,
+                            y=values_bottom,
+                            name=metric.replace("_", " ").title(),
+                            text=[f"{val:.2f}" for val in values_bottom],
+                            textposition="auto",
+                            marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                            hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                            showlegend=False  # Don't duplicate legends for second group
+                        ),
+                        row=2, col=1
+                    )
         
-        # Performance metrics
+        # Performance metrics for bottom row
         if tf_model_stats:
             performance_metrics = ["avg_input_tokens", "avg_output_tokens", "avg_inference_time"]
             source = tf_model_stats
         else:
             performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
             source = translation_averages
+            
         perf_colors = {
             "input_tokens": "#4CAF50",
             "output_tokens": "#2196F3",
             "inference_time": "#FFC107",
         }
+    
+        performance_row = 2 if len(models_bottom) == 0 else 3
         
         for i, metric in enumerate(performance_metrics):
-            values = [source.get(model, {}).get(metric, 0) for model in models_list]
-            display_name = metric.replace("avg_", "").replace("_", " ").title()
-            
             if orientation == "horizontal":
+                values = [source.get(model, {}).get(metric, 0) for model in models_list]
                 fig.add_trace(
                     go.Bar(
                         y=models_list,
                         x=values,
-                        name=display_name,
+                        name=metric.replace("avg_", "").replace("_", " ").title(),
                         text=[f"{val:.1f}" for val in values],
                         textposition="auto",
                         marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
-                        hovertemplate=f'%{{y}}<br>{display_name}: %{{x:.1f}}<extra></extra>',
+                        hovertemplate=f'%{{y}}<br>{metric.replace("avg_", "").replace("_", " ").title()}: %{{x:.1f}}<extra></extra>',
                         orientation='h',
                     ),
                     row=2, col=1
                 )
             else:
+                values = [source.get(model, {}).get(metric, 0) for model in models_list]
+                model_names = [model.split("_")[-1] for model in models_list]
                 fig.add_trace(
                     go.Bar(
-                        x=models_list,
+                        x=model_names,
                         y=values,
-                        name=display_name,
+                        name=metric.replace("avg_", "").replace("_", " ").title(),
                         text=[f"{val:.1f}" for val in values],
                         textposition="auto",
                         marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
-                        hovertemplate=f"%{{x}}<br>{display_name}: %{{y:.1f}}<extra></extra>",
+                        hovertemplate=f"%{{x}}<br>{metric.replace('avg_', '').replace('_', ' ').title()}: %{{y:.1f}}<extra></extra>",
                     ),
-                    row=2, col=1
+                    row=performance_row, col=1
                 )
         
-        # Dynamic layout based on orientation
-        height = 3000 if orientation == "horizontal" else 900
-        left_margin = 250 if orientation == "horizontal" else 80
-        
+        # Configure the layout based on orientation
+        if orientation == "horizontal":
+            height = 3000
+            left_margin = 250
+        else:
+            # For vertical layout with models in two rows
+            height = 2000 if len(models_list) > 10 else 1600
+            left_margin = 80
+            
+            # Set consistent y-axis range for translation evaluation metrics
+            fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
+            if models_bottom:
+                fig.update_yaxes(title_text="Score", range=[0, 10], row=2, col=1)
+                
+            # Add annotations to clarify which models are in each row
+            if models_bottom:
+                fig.add_annotation(
+                    x=0.5, y=0.99,
+                    xref="paper", yref="paper",
+                    text=f"First Group (Models 1-{len(models_top)})",
+                    showarrow=False,
+                    font=dict(size=14)
+                )
+                fig.add_annotation(
+                    x=0.5, y=0.59,
+                    xref="paper", yref="paper",
+                    text=f"Second Group (Models {len(models_top)+1}-{len(models_list)})",
+                    showarrow=False,
+                    font=dict(size=14)
+                )
+
+        # Apply common layout settings
         fig.update_layout(
             title_text="Translation Evaluation and Performance Analytics",
             title_x=0.5,
@@ -653,9 +820,10 @@ class Visualizer:
                 orientation="h",
                 yanchor="bottom", 
                 y=1.02,
-                xanchor="right",
-                x=1,
-                font=dict(size=12)
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12),
+                traceorder="normal"
             ),
             template="plotly_white",
             height=height,
@@ -664,22 +832,27 @@ class Visualizer:
             hoverlabel=dict(bgcolor="white", font_size=14, font_family="Arial"),
         )
         
+        # Configure axes
         if orientation == "horizontal":
             # For horizontal bars
             fig.update_xaxes(row=1, col=1, title_text="Score", range=[0, 10], 
-                           title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+                        title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
             fig.update_xaxes(row=2, col=1, title_text="Value", 
-                           title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
-            # Ensure y-axis labels (model names) have enough space
+                        title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
             fig.update_yaxes(row=1, col=1, tickfont=dict(size=14), automargin=True)
             fig.update_yaxes(row=2, col=1, tickfont=dict(size=14), automargin=True)
         else:
-            # For vertical bars (original code)
-            fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1, 
-                           title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
-            fig.update_yaxes(title_text="Value", row=2, col=1, 
-                           title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            # For vertical layout with rows instead of columns
+            fig.update_xaxes(tickangle=45, row=1, col=1, automargin=True)
+            if models_bottom:
+                fig.update_xaxes(tickangle=45, row=2, col=1, automargin=True)
+                fig.update_xaxes(tickangle=45, row=3, col=1, automargin=True)
+                fig.update_yaxes(title_text="Performance", row=3, col=1)
+            else:
+                fig.update_xaxes(tickangle=45, row=2, col=1, automargin=True)
+                fig.update_yaxes(title_text="Performance", row=2, col=1)
 
+        # Save outputs
         if output_mode in ["files", "both"]:
             plot_filename = os.path.join(stats_folder, f"tf_stats_translation_plot_{timestamp}.png")
             html_filename = os.path.join(stats_folder, f"tf_stats_translation_plot_{timestamp}.html")
@@ -860,6 +1033,7 @@ class Visualizer:
             title_text=f"Age Group Distribution (Total: {total} Evaluations)",
             title_x=0.5,
             title_font=dict(size=24),
+            title_font_color="#333333",
             barmode="group",
             legend=dict(
                 orientation="h",

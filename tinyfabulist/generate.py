@@ -400,7 +400,7 @@ def run_generate(args) -> None:
         metadata = settings.get("metadata", {})
 
         futures = []
-        with ThreadPoolExecutor(max_workers=100) as executor:
+        with ThreadPoolExecutor(max_workers=500) as executor:
             for model_name in models_to_use:
                 model_config = available_models[model_name]
                 logger.info(f"Generating fables using model: {model_config['name']}")
