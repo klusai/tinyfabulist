@@ -64,7 +64,7 @@ If you need to install Docker Compose, follow the [official installation instruc
 
 #### Standard Usage
 
-Running TinyFabulist with Docker Compose (might need to use sudo/elevated priv.):
+Running TinyFabulist with Docker Compose:
 
 ```bash
 # Show help information
