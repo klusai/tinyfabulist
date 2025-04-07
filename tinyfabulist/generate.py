@@ -344,6 +344,21 @@ def run_generate(args) -> None:
         if not system_prompt:
             raise ConfigError("No system prompt found in prompt file.")
 
+        # NEW: Check for worker-specific environment variables to split work across machines.
+        worker_id = int(os.environ.get("WORKER_ID", 0))
+        total_workers = int(os.environ.get("TOTAL_WORKERS", 1))
+        original_count = len(fable_prompts)
+        fable_prompts = [p for idx, p in enumerate(fable_prompts) if idx % total_workers == worker_id]
+        logger.info(f"Worker {worker_id}/{total_workers}: Processing {len(fable_prompts)} prompts out of {original_count}")
+
+        if total_workers > 1:
+            original_count = len(fable_prompts)
+            # Each worker processes only the prompts where index % total_workers == worker_id
+            fable_prompts = [p for idx, p in enumerate(fable_prompts) if idx % total_workers == worker_id]
+            logger.info(
+                f"Worker {worker_id}/{total_workers}: Processing {len(fable_prompts)} prompts out of {original_count}"
+            )
+
         existing_hashes = load_existing_hashes(args.input_file, args.output)
         logger.info(
             f"Found {len(existing_hashes)} existing hashes in {args.input_file}"
@@ -431,6 +446,7 @@ def run_generate(args) -> None:
 
         elapsed_time = time.time() - start_time
         logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")
+
 
 
 def add_generate_subparser(subparsers) -> None:

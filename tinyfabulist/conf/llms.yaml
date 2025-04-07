@@ -60,4 +60,10 @@ llms:
       host_cost_per_hour: 1.0
       host_gpu_vram: 24
       host_gpu: "Nvidia A10G"
+    llama-3-1-8b-instruct-scr:
+      base_url: "https://oj5kxahvdgx8b8xh.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 32
+      host_gpu: "INF2"
 
