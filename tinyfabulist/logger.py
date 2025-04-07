@@ -1,7 +1,9 @@
 import logging
+import sys
 
 LOG_FILE = "tinyfabulist.log"
-LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_FORMAT = "%(asctime)s - %(module)s - %(levelname)s - %(message)s"
+LOG_LEVEL = logging.INFO
 
 
 class TinyFabulistError(Exception):
@@ -14,8 +16,11 @@ class ConfigError(TinyFabulistError):
 
 def setup_logging() -> logging.Logger:
     logging.basicConfig(
-        level=logging.INFO,
+        level=LOG_LEVEL,
         format=LOG_FORMAT,
-        handlers=[logging.StreamHandler(), logging.FileHandler(LOG_FILE)],
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(LOG_FILE, encoding='utf-8')
+        ],
     )
     return logging.getLogger(__name__)

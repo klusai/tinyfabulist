@@ -160,8 +160,8 @@ def translate_fables(args):
     )
 
 
-def open_source_translate_subparser(subparsers):
-    return add_translate_subparser(subparsers, translate_fables, "EN", "RO")
+def open_source_translate_subparser(args):
+    return translate_fables(args)
 
 
 if __name__ == "__main__":

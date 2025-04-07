@@ -4,8 +4,8 @@ import requests
 from dotenv import load_dotenv
 
 from tinyfabulist.logger import setup_logging
-from translate.subparser import add_translate_subparser
-from translate.utils import (
+from tinyfabulist.translate.subparser import add_translate_subparser
+from tinyfabulist.translate.utils import (
     build_output_path,
     read_api_key,
     translate_jsonl,
@@ -117,8 +117,8 @@ def translate_fables(args):
     )
 
 
-def gpt_subparser(subparsers):
-    return add_translate_subparser(subparsers, translate_fables, "en", "ro")
+def gpt_subparser(args):
+    return translate_fables(args)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,117 @@
+evaluator:
+  model: "o3-mini-2025-01-31"
+  max_tokens: 350
+  temperature: 0.0
+  prompt:
+    system: "You are an expert literary critic specializing in fables and moral tales. Your evaluations should be objective, consistent, and based on established literary standards. Age-appropriateness is a key consideration in your assessment. Provide your assessment in valid, properly-formatted JSON only. Do not include any text outside the JSON object. Your response must be parseable by a JSON parser with no preprocessing. Balance critical analysis with constructive feedback, focusing on both strengths and weaknesses."
+    evaluation: |
+      Evaluate the following fable according to these specific criteria:
+      
+      1. **Grammar & Style (1-10)**:
+         • 1-3: Significant errors that impede understanding
+         • 4-6: Some errors but generally readable
+         • 7-10: Clean, polished writing with appropriate language and style for a fable
+      
+      2. **Creativity & Originality (1-10)**:
+         • 1-3: Derivative, predictable, or clichéd
+         • 4-6: Contains some original elements but follows familiar patterns
+         • 7-10: Fresh perspective, innovative approach while maintaining classic fable structure
+      
+      3. **Moral Clarity (1-10)**:
+         • 1-3: Moral absent, confused, or contradictory
+         • 4-6: Moral present but underdeveloped or lacking impact
+         • 7-10: Clear, meaningful moral that provides genuine insight
+      
+      4. **Adherence to Prompt (1-10)**:
+         • 1-3: Missing multiple required elements from the prompt
+         • 4-6: Incorporates main elements but overlooks some instructions
+         • 7-10: Thoroughly addresses all prompt requirements while maintaining narrative cohesion
+      
+      5. **Age Group Fit**:
+         Determine which age group this fable is most appropriate for based on:
+         • Vocabulary complexity and sentence structure
+         • Conceptual difficulty of the moral lesson
+         • Story length and complexity
+         • Content appropriateness
+      
+      Age groups are defined as:
+        - A: 3 years or under
+        - B: 4-7 years
+        - C: 8-11 years
+        - D: 12-15 years
+        - E: 16 years or above
+
+      Format your response as valid JSON with this structure:
+      {
+          "type": "Fable Evaluation",
+          "grammar": <integer 1-10>,
+          "creativity": <integer 1-10>,
+          "moral_clarity": <integer 1-10>,
+          "adherence_to_prompt": <integer 1-10>,
+          "best_age_group": "<letter: A, B, C, D, or E>",
+          "explanation": [
+              "<One sentence explaining grammar & style score>",
+              "<One sentence explaining creativity & originality score>",
+              "<One sentence explaining moral clarity score>",
+              "<One sentence explaining adherence to prompt score>",
+              "<One sentence explaining why this fable best fits the chosen age group>"
+          ]
+      }
+      
+      Be critical but fair. Ensure your entire evaluation is concise yet informative.
+
+      Original Prompt:
+      {{prompt}}
+
+      Fable:
+      {{fable}}
+
+    system_ro: |
+      You are a literary critic expert specializing in fables and literary translations. 
+      Your evaluations must be objective, consistent, and based on established linguistic and literary standards. 
+      Provide your evaluation in a valid and correctly formatted JSON, without including any text outside the JSON object. 
+      Balance critical analysis with constructive feedback, focusing on both the strengths and weaknesses of the translation.
+
+    evaluation_ro: |
+      Evaluate the following translation of a fable according to the following specific criteria:
+
+        1. Translation Accuracy (1-10):
+          - 1-3: The meaning is significantly lost or distorted
+          - 4-6: The translation is readable but contains notable inaccuracies
+          - 7-10: The translation faithfully conveys the original meaning while maintaining clarity and the author's intent
+
+        2. Fluency and Naturalness of Language (1-10):
+          - 1-3: The translation sounds forced or awkward, with unnatural structures
+          - 4-6: The language is intelligible but contains some unnaturally translated expressions
+          - 7-10: The translation flows naturally and matches the register of a fable in English
+
+        3. Preservation of Style and Tone (1-10):
+          - 1-3: The style and tone are significantly lost or altered
+          - 4-6: The overall style is preserved, but there are notable tonal differences
+          - 7-10: The translation successfully retains the original style and tone of the fable
+
+        4. Moral Clarity (1-10):
+          - 1-3: The moral is absent, confusing, or distorted in translation
+          - 4-6: The moral is present but its impact is reduced compared to the original
+          - 7-10: The moral is clear and well conveyed, preserving the original message
+
+      Format your response as a valid JSON with the following structure:
+      {
+          "type": "Fable Translation Evaluation",
+          "translation_accuracy": <integer 1-10>,
+          "fluency": <integer 1-10>,
+          "style_preservation": <integer 1-10>,
+          "moral_clarity": <integer 1-10>,
+          "explanation": [
+              "<A sentence explaining the score for translation accuracy>",
+              "<A sentence explaining the score for fluency and naturalness of language>",
+              "<A sentence explaining the score for preservation of style and tone>",
+              "<A sentence explaining the score for moral clarity>"
+          ]
+      }
+
+      Original fable:
+      {{original_fable}}
+
+      Translation (to Romanian):
+      {{translated_fable}}

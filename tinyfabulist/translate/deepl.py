@@ -77,8 +77,8 @@ def translate_fables(args):
     )
 
 
-def deepl_subparser(subparsers):
-    return add_translate_subparser(subparsers, translate_fables, "EN", "RO")
+def deepl_subparser(args):
+    return translate_fables(args)
 
 
 if __name__ == "__main__":

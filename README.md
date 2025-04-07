@@ -1,167 +1,374 @@
 # TinyFabulist
-Set of LLM-based tools for generating millions of unique fables by combining storytelling patterns, linguistic creativity, and moral lessons. Designed for language modeling, NLP research, and educational applications.
+
+**Set of LLM-based tools for generating millions of unique fables by combining storytelling patterns, linguistic creativity, and moral lessons.** Designed for language modeling, NLP research, and educational applications.
+
+---
+
+## Docker Usage
+
+TinyFabulist can be run in a Docker container, providing a consistent environment across different systems.
+
+### Building the Docker Image
+
+From the project root directory, build the Docker image:
+
+```bash
+# Build the image with tag 'tiny_fabulist'
+docker build -t tiny_fabulist .
+```
+
+### Running the Docker Image
+
+#### Basic usage (shows help)
+```bash
+docker run tiny_fabulist
+```
+
+#### Interactive shell access (recommended)
+```bash
+docker run -it --entrypoint /bin/bash tiny_fabulist
+```
+
+#### Running with specific commands
+```bash
+docker run tiny_fabulist generate --generate-prompts --count 10
+```
+
+#### Mounting data directory for persistence
+```bash
+docker run -v $(pwd)/data:/app/data tiny_fabulist [COMMAND]
+```
+
+# Example: Generate fables and save to mounted volume
+```bash
+docker run -v $(pwd)/data:/app/data tiny_fabulist generate --generate-fables data/prompts.jsonl --output jsonl
+```
 
 ## Overview
 
 TinyFabulist is a Python-based fable generation system that:
 
-1. Uses a rich YAML configuration to define story elements:
-   - Over 100 animal characters from diverse habitats
-   - 50+ personality traits and characteristics 
-   - 50+ unique settings and locations
-   - Extensive lists of conflicts, resolutions and morals
-   - Customizable prompt templates
+- **Uses a rich YAML configuration to define story elements:**
+  - Over 100 animal characters from diverse habitats
+  - 50+ personality traits and characteristics
+  - 50+ unique settings and locations
+  - Extensive lists of conflicts, resolutions, and morals
+  - Customizable prompt templates
 
-2. Provides flexible generation options:
-   - Random or sequential story element selection
-   - Configurable output formats (text, CSV, JSONL)
-   - Support for multiple LLM models via HuggingFace endpoints
-   - Batch generation capabilities
+- **Provides flexible generation options:**
+  - Random or sequential story element selection
+  - Configurable output formats (text, CSV, JSONL)
+  - Support for multiple LLM models via HuggingFace endpoints
+  - Batch generation capabilities
 
-3. Generates structured fables with:
-   - Vivid scene-setting and descriptions
-   - Natural character development
-   - Meaningful dialogue
-   - Clear moral lessons
-   - Appropriate length (~250 words)
+- **Generates structured fables with:**
+  - Vivid scene-setting and descriptions
+  - Natural character development
+  - Meaningful dialogue
+  - Clear moral lessons
+  - Appropriate length (~250 words)
 
-4. Features robust error handling:
-   - Configuration validation
-   - Logging system
-   - Graceful error recovery
-   - Detailed error messages
+- **Features robust error handling:**
+  - Configuration validation
+  - Logging system
+  - Graceful error recovery
+  - Detailed error messages
 
-5. Supports educational and research use cases:
-   - Language modeling experiments
-   - NLP dataset generation
-   - Creative writing assistance
-   - Moral education resources
+- **Supports educational and research use cases:**
+  - Language modeling experiments
+  - NLP dataset generation
+  - Creative writing assistance
+  - Moral education resources
+
+- **Provides comprehensive translation capabilities:**
+  - Support for multiple translation engines (GPT, DeepL, open-source models)
+  - Enhanced translations with quality improvements
+  - Parallel processing for efficient batch translation
+
+---
 
 ## Usage Examples
 Below is a usage guide for the `tinyfabulist.py` file, which serves as the main entry point for both generating and evaluating fables. This file uses subcommands to separate functionality.
 
----
-
-Run the script with one of the two subcommands: **generate** or **evaluate**.
+The `tinyfabulist.py` file serves as the main entry point for generating, evaluating, translating, and enhancing fables. Use the provided subcommands to separate functionality.
 
 ```bash
 python tinyfabulist.py <command> [options]
 ```
 
+Available commands:
+- `generate`: Generate fable prompts or fables
+- `evaluate`: Evaluate generated fables
+- `stats`: Compute statistics from evaluation files
+- `translate`: Translate fables to other languages
+- `enhance`: Enhance existing translations with refinements
+
 ---
 
-## Subcommands and Their Arguments
+## Subcommands
 
-### 1. **generate**
+### 1. Generate
 
-This subcommand is used to either generate fable prompts or generate complete fables based on a JSONL prompt file.
+Generate either prompts or complete fables from JSONL prompt files.
 
-#### Arguments for `generate`:
+**Arguments:**
 
 - `--generate-prompts`  
-  *Description:* Generate fable prompts only.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl > prompts.jsonl
-  ```
+  Generate only fable prompts.
 
 - `--generate-fables <file>`  
-  *Type:* `str`  
-  *Description:* Generate complete fables from the provided JSONL prompt file.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-fables prompts.jsonl --output text
-  ```
+  Generate fables from the specified JSONL prompt file.
 
 - `--randomize`  
-  *Description:* Randomize the selection of story elements (characters, traits, settings, etc.).  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-prompts --randomize --count 20
-  ```
+  Randomize selection of story elements.
 
 - `--output <format>`  
-  *Choices:* `text`, `jsonl`, `csv`  
-  *Default:* `text`  
-  *Description:* Set the output format for generated prompts or fables.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-fables prompts.jsonl --output csv
-  ```
+  Output format: text (default), jsonl, or csv.
 
-- `--output-file <file>`  
-  *Type:* `str`  
-  *Default:* `results.jsonl`  
-  *Description:* This file is used to load existing hashes to avoid duplicate fable generation.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --output-file my_fables.jsonl
-  ```
+- `--input-file <file>`  
+  Specify input file for deduplication or reference.
 
 - `--count <number>`  
-  *Type:* `int`  
-  *Default:* `100`  
-  *Description:* Number of fable prompts to generate (used only when `--generate-prompts` is specified).  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-prompts --count 50
-  ```
+  Number of prompts to generate (default: 100).
 
 - `--models <model_names>`  
-  *Type:* List of strings (`nargs='+'`)  
-  *Description:* Specify which LLM models (as defined in your configuration) to use for generating fables. If not provided, all available models in the configuration are used.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py generate --generate-fables prompts.jsonl --models model1 model2
-  ```
+  Specify which models to use (as defined in configuration).
+
+**Examples:**
+
+```bash
+python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl > prompts.jsonl
+```
+
+```bash
+python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --models model1 model2
+```
 
 ---
 
-### 2. **evaluate**
+### 2. Evaluate
 
-This subcommand is used to evaluate already generated fables from a JSONL file.
+TinyFabulist provides evaluation capabilities for both original English fables and their Romanian translations.
 
-#### Arguments for `evaluate`:
+#### English Evaluation
 
-- `--evaluate <file>`  
-  *Type:* `str`  
-  *Required:* Yes  
-  *Description:* Path to the JSONL file containing the fables to evaluate.  
-  *Example:*  
-  ```bash
-  python tinyfabulist.py evaluate --evaluate results.jsonl
-  ```
+Evaluate generated English fables for quality, creativity, moral clarity, and adherence to prompt.
+
+**Arguments:**
+
+- `--input <file_or_directory>` (required)  
+  JSONL file or directory containing files starting with `tf_fables`.
+
+**Example:**
+
+```bash
+python tinyfabulist.py evaluate --input tinyfabulist/data/fables/
+```
+
+#### Romanian Evaluation
+
+Evaluate translated Romanian fables for translation accuracy, fluency, style preservation, and moral clarity.
+
+**Arguments:**
+
+- `--input <file_or_directory>` (required)  
+  JSONL file or directory containing translated fables.
+
+**Example:**
+
+```bash
+python tinyfabulist.py evaluate_ro --input tinyfabulist/data/translations/
+```
+
+The evaluation results are stored in JSONL format with these key metrics:
+- For English: grammar, creativity, moral_clarity, adherence_to_prompt
+- For Romanian: translation_accuracy, fluency, style_preservation, moral_clarity
+
+Each metric is scored on a scale of 1-10 with detailed explanations provided.
+
+---
+
+### 3. Translate
+
+Translate fables to other languages with support for multiple translation engines.
+
+**Arguments:**
+
+- `--input <file>` (required)  
+  Path to the input JSONL file containing fables to translate.
+
+- `--engine {gpt,deepl,open_source,mbart}`  
+  Select translation engine to use (default: gpt).
+
+- `--output <file>`  
+  Path to save the translated output (default: auto-generated with timestamp).
+
+- `--config <file>`  
+  Path to translation configuration file (default: conf/translator.yaml).
+
+- `--translator-key <key>`  
+  Key in the config file for the translator settings (default: translator_ro).
+
+- `--batch-size <number>`  
+  Number of items to process in a batch (default: 10).
+
+- `--max-workers <number>`  
+  Maximum number of worker threads (default: 5).
+
+- `--fields <comma-separated-list>`  
+  Comma-separated list of fields to translate (default: fable,prompt).
+
+- `--source-lang <code>`  
+  Source language code (overrides default).
+
+- `--target-lang <code>`  
+  Target language code (overrides default).
+
+**Examples:**
+
+```bash
+# Translate using GPT (default)
+python tinyfabulist.py translate --input path/to/fables.jsonl
+
+# Translate using DeepL
+python tinyfabulist.py translate --engine deepl --input path/to/fables.jsonl
+
+# Translate using open-source model
+python tinyfabulist.py translate --engine open_source --input path/to/fables.jsonl
+
+# Translate using mBART
+python tinyfabulist.py translate --engine mbart --input path/to/fables.jsonl
+```
+
+---
+
+### 4. Enhance
+
+Enhance existing translations with refinements based on evaluation feedback.
+
+**Arguments:**
+
+- `--input <file>` (required)  
+  Path to the input JSONL file containing translations to enhance.
+
+- `--input-yaml <file>`  
+  Path to enhancement configuration YAML file (default: conf/enhance.yaml).
+
+- `--max-workers <number>`  
+  Maximum number of worker threads for parallel processing (default: 34).
+
+- `--output <file>`  
+  Path to save enhanced output (default: auto-generated with timestamp).
+
+**Example:**
+
+```bash
+# Enhance translations with default settings
+python tinyfabulist.py enhance --input path/to/translations.jsonl
+
+# Enhance with custom configuration and output path
+python tinyfabulist.py enhance --input path/to/translations.jsonl --input-yaml path/to/config.yaml --output enhanced_output.jsonl
+```
+
+---
+
+### 5. Stats
+
+Compute and display aggregated statistics from evaluation JSONL files.
+
+**Arguments:**
+
+- `--inputPath`  
+  Path to JSONL file or directory (default: evaluate.jsonl).
+
+- `--output-mode`  
+  Output location: terminal, files, or both (default: both).
+
+- `--plot-mode`  
+  Plotting library: plotly or matplotlib (default: plotly).
+
+**Example:**
+
+```bash
+python tinyfabulist.py stats --input data/evaluations
+```
+
+---
+
+### 6. Visualize
+
+Launch an interactive web dashboard for exploring and visualizing JSONL files.
+
+**Arguments:**
+
+- `--input <file>` (required)  
+  Path to the JSONL file to visualize.
+
+- `--port <number>`  
+  Port to run the visualization server on (default: 8050).
+
+- `--host <address>`  
+  Host address to bind the server to (default: 127.0.0.1).
+
+- `--debug`  
+  Run the visualization server in debug mode, enabling auto-reload on code changes.
+
+- `--no-browser`  
+  Don't automatically open the browser when starting the server.
+
+**Example:**
+
+```bash
+# Launch visualization with default settings
+python tinyfabulist.py visualize --input path/to/fables.jsonl
+
+# Launch visualization on a specific port
+python tinyfabulist.py visualize --input path/to/evaluations.jsonl --port 8888
+
+# Run on a public IP to allow remote access
+python tinyfabulist.py visualize --input path/to/translations.jsonl --host 0.0.0.0
+```
 
 ---
 
 ## Full Examples
 
-1. **Generating Fable Prompts in JSONL Format:**
+1. **Generate Fable Prompts in JSONL Format:**
 
    ```bash
-   python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl > prompts.jsonl
+   python tinyfabulist.py generate --generate-prompts --count 10 --output jsonl
    ```
 
-2. **Generating Fables from a Prompt File with Deduplication (Using Specific Models):**
+2. **Generate Fables from Prompts Using Specific Models:**
 
    ```bash
    python tinyfabulist.py generate --generate-fables prompts.jsonl --output jsonl --models model1 model2
    ```
 
-3. **Evaluating Generated Fables:**
+3. **Translate Fables Using Different Engines:**
 
    ```bash
-   python ./tinyfabulist.py evaluate --jsonl data/fables/
+   # Using GPT
+   python tinyfabulist.py translate --input fables.jsonl --engine gpt
+   
+   # Using DeepL with custom output
+   python tinyfabulist.py translate --input fables.jsonl --engine deepl --output translated_deepl.jsonl
    ```
 
-4. **Presenting Stats:**
+4. **Enhance Existing Translations:**
 
    ```bash
-   python ./tinyfabulist.py stats --jsonl data/evaluations
+   python tinyfabulist.py enhance --input translated_fables.jsonl
    ```
 
-5. **Translate module Stats:**
+5. **Evaluate Generated Fables:**
 
    ```bash
-   python tinyfabulist.py translate --input <file.jsonl> --target-lang RO
+   python tinyfabulist.py evaluate --input tinyfabulist/data/fables/
+   ```
+
+6. **Generate Statistics from Evaluations:**
+
+   ```bash
+   python tinyfabulist.py stats --input tinyfabulist/data/evaluations
    ```

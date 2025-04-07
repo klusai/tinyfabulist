@@ -1,7 +1,7 @@
+from datetime import datetime
 import json
 import time
 from openai import OpenAI
-import requests
 import concurrent.futures
 from dotenv import load_dotenv
 from tinyfabulist.logger import setup_logging
@@ -9,46 +9,50 @@ from tinyfabulist.translate.utils import read_api_key, load_translator_config
 
 logger = setup_logging()
 
-input_yaml = "/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist.yaml"
+input_yaml = "tinyfabulist/conf/enhance.yaml"
 
 
-def improve_translation(original_fable, translated_fable, ratings, explanations, api_key, endpoint):
+def improve_translation(original_fable, translated_fable, ratings, explanations, api_key, endpoint, prompt_template=None):
     """
     Uses an open-source translation model to refine the translated fable based on ratings and feedback.
     """
-    prompt = f"""
-    Ești un expert în traduceri literare specializat în fabule românești. Sarcina ta este să îmbunătățești fabula tradusă oferită
-    pe baza evaluărilor și feedback-ului specific.
+    # Use template from YAML if provided, otherwise fall back to default
+    if prompt_template:
+        # The template should have placeholders for: {original_fable}, {translated_fable}, etc.
+        prompt = prompt_template.format(
+            original_fable=original_fable,
+            translated_fable=translated_fable,
+            translation_accuracy=ratings['translation_accuracy'],
+            fluency=ratings['fluency'],
+            style_preservation=ratings['style_preservation'],
+            moral_clarity=ratings['moral_clarity'],
+            accuracy_feedback=explanations[0],
+            fluency_feedback=explanations[1],
+            style_feedback=explanations[2],
+            clarity_feedback=explanations[3]
+        )
+    else:
+        prompt = f"""
+        You are an expert literary translator specializing in English-to-Romanian translations of fables.
 
-    Fabula originală în engleză:
-    {original_fable}
+        ### Original English Text:
+        {original_fable}
 
-    Fabula tradusă în prezent în română:
-    {translated_fable}
+        ### Current Romanian Translation:
+        {translated_fable}
 
-    Evaluări (scală de la 1 la 10):
-    - Acuratețea traducerii: {ratings['translation_accuracy']}
-    - Fluență: {ratings['fluency']}
-    - Păstrarea stilului: {ratings['style_preservation']}
-    - Claritatea moralei: {ratings['moral_clarity']}
+        ### Task:
+        Provide a fully revised, polished Romanian translation by carefully correcting grammatical errors, mistranslations, stylistic inconsistencies, and gender/pronoun issues.  
+        Preserve the original literary style, nuance, and moral clarity.
 
-    Feedback:
-    - {explanations[0]} (Acuratețea traducerii)
-    - {explanations[1]} (Fluență)
-    - {explanations[2]} (Păstrarea stilului)
-    - {explanations[3]} (Claritatea moralei)
+        Return **ONLY** the corrected Romanian translation, without explanations or commentary.
+        """
 
-    Îmbunătățește fabula tradusă abordând aceste probleme în timp ce menții naturalețea și coerența ei în limba română.
-    Oferă DOAR traducerea îmbunătățită, fără comentarii sau explicații suplimentare.
-    Asigură-te că traducerea este exclusiv în limba română!
-    
-    Nu repeta instrucțiunile sau prompt-ul. Răspunde doar cu textul tradus îmbunătățit.
-    """
 
     # Chat-based translation (LLM approach)
     client = OpenAI(base_url=endpoint, api_key=api_key)
 
-    system_prompt = "Ești un asistent de traducere. Tradu textul următor din limba engleză în limba română. Returnează doar textul tradus."
+    system_prompt = "You are an expert in literary translation, specialized in Romanian fables, with meticulous attention to linguistic, cultural, and stylistic details. Your task is to revise and enhance the Romanian translation of the fable by integrating the ratings and feedback provided."
     fable_prompt = prompt
 
     for attempt in range(3):
@@ -76,103 +80,18 @@ def improve_translation(original_fable, translated_fable, ratings, explanations,
     return translated_fable # Return original translation if all attempts fail
 
 
-def extract_romanian_fable(text, original_translation):
-    """
-    Extract only the Romanian fable from the model's response, removing any instructions or meta-text.
-    
-    Parameters:0
-        text: Text output from the model
-        original_translation: Original translation to fall back on
-        
-    Returns:
-        str: Clean Romanian fable text
-    """
-    # List of instruction text that needs to be removed
-    instruction_texts = [
-        "abordând aceste probleme în timp ce menții naturalețea și coerența ei în limba română",
-        "Oferă DOAR traducerea îmbunătățită, fără comentarii sau explicații suplimentare",
-        "Asigură-te că traducerea este exclusiv în limba română",
-        "Nu repeta instrucțiunile sau prompt-ul",
-        "Răspunde doar cu textul tradus îmbunătățit",
-    ]
-    
-    # Remove instruction text blocks
-    for instruction in instruction_texts:
-        text = text.replace(instruction, "")
-    
-    # Remove the entire prompt if it got repeated in the response
-    prompt_markers = [
-        "Ești un expert în traduceri literare",
-        "Fabula originală în engleză:",
-        "Fabula tradusă în prezent în română:",
-        "Evaluări (scală de la 1 la 10):",
-        "Acuratețea traducerii:",
-        "Feedback:",
-        "Îmbunătățește fabula tradusă",
-    ]
-    
-    # Find the position after all prompt parts
-    last_marker_pos = -1
-    for marker in prompt_markers:
-        pos = text.find(marker)
-        if pos > -1:
-            marker_end = pos + len(marker)
-            last_marker_pos = max(last_marker_pos, marker_end)
-    
-    # If we found any prompt parts, start after them
-    if last_marker_pos > -1:
-        text = text[last_marker_pos:].strip()
-    
-    # Remove common prefixes
-    common_prefixes = [
-        "Iată traducerea îmbunătățită:",
-        "Traducerea îmbunătățită:",
-        "Fabula îmbunătățită:",
-        "Versiunea îmbunătățită:",
-        "Iată fabula tradusă îmbunătățită:",
-        "Textul îmbunătățit:",
-        "Traducere:", 
-        "Fabula:",
-        "```"
-    ]
-    
-    for prefix in common_prefixes:
-        if text.startswith(prefix):
-            text = text[len(prefix):].strip()
-    
-    # Remove common suffixes
-    common_suffixes = [
-        "```",
-        "Aceasta este traducerea îmbunătățită.",
-        "Aceasta este versiunea îmbunătățită."
-    ]
-    
-    for suffix in common_suffixes:
-        if text.endswith(suffix):
-            text = text[:-len(suffix)].strip()
-    
-    # Clean up any excessive whitespace or newlines
-    text = ' '.join(text.split())
-    
-    # If the text was butchered and nothing meaningful remains, return the original
-    if len(text) < 50 and original_translation and len(original_translation) > 100:
-        logger.warning("Extraction resulted in very short text, using original translation")
-        return original_translation
-    
-    return text.strip()
-
-
-def process_entry(entry_data):
+def process_entry(entry_data, translator_name="llama"):
     """
     Process a single entry for multithreading.
     
     Parameters:
-        entry_data: Tuple containing (index, entry, api_key, endpoint)
+        entry_data: Tuple containing (index, entry, api_key, endpoint, prompt_template)
+        translator_name: Name of the translator model (default: "llama")
         
     Returns:
         Tuple of (index, enhanced_entry or original_entry, success_flag)
     """
-    i, entry, api_key, endpoint = entry_data
+    i, entry, api_key, endpoint, prompt_template = entry_data
     
     try:
         # Extract fields based on the actual JSON structure
@@ -201,43 +120,40 @@ def process_entry(entry_data):
         while len(explanations) < 4:
             explanations.append("")
         
-        # Improve translation
+        # Improve translation with the prompt template
         improved_translation = improve_translation(
-            original_fable, translated_fable, ratings, explanations, api_key, endpoint
+            original_fable, translated_fable, ratings, explanations, api_key, endpoint, prompt_template
         )
         
         # Create a new entry with the improved translation
         enhanced_entry = entry.copy()
         # Store the improved translation in the "translated_fable" field
         enhanced_entry["translated_fable"] = improved_translation
-        enhanced_entry["llm_name"] = "_Enhanced-Llama-3.3-70B"
-        
+        enhanced_entry["llm_name"] = f"_{translator_name}"
+
+        if enhanced_entry["evaluation"]:
+            del enhanced_entry["evaluation"]
+
         return i, enhanced_entry, True
     except Exception as e:
         logger.error(f"Error enhancing entry {i+1}: {e}")
         return i, entry, False
 
 
-def enhance_jsonl(input_file, output_file, max_workers=34):
+def enhance_jsonl(input_file, output_file, api_key, endpoint, enhance_template, max_workers=34, translator_name="llama"):
     """
     Reads a JSONL file, improves the translated fables using multithreading, and writes the enhanced data to a new JSONL file.
     
     Parameters:
         input_file: Path to input JSONL file
         output_file: Path to output JSONL file
+        api_key: OpenAI API key
+        endpoint: API endpoint
+        enhance_template: Template for enhancing the translation
         max_workers: Maximum number of parallel workers (default: 8)
+        translator_name: Name of the translator model (default: "llama")
     """
     start_time = time.time()
-    load_dotenv()
-
-    api_key = read_api_key("HF_ACCESS_TOKEN")
-    # Fix: Use the correct path for the config file
-    config = load_translator_config(input_yaml, "translator_ro") 
-    endpoint = config.get("endpoint")
-
-    if not endpoint:
-        logger.critical("No endpoint found for translation model.")
-        raise ValueError("Translation model endpoint not found.")
 
     # Read JSONL file entries
     entries = []
@@ -252,15 +168,15 @@ def enhance_jsonl(input_file, output_file, max_workers=34):
     
     logger.info(f"Found {len(entries)} entries to process")
     
-    # Prepare data for multithreading
-    entry_data = [(i, entry, api_key, endpoint) for i, entry in enumerate(entries)]
+    # Prepare data for multithreading - include the template
+    entry_data = [(i, entry, api_key, endpoint, enhance_template) for i, entry in enumerate(entries)]
     
     # Process entries in parallel
     enhanced_entries = [None] * len(entries)  # Pre-allocate list to maintain order
     success_count = 0
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(process_entry, data): data[0] for data in entry_data}
+        futures = {executor.submit(process_entry, data, translator_name): data[0] for data in entry_data}
         
         for i, future in enumerate(concurrent.futures.as_completed(futures)):
             original_index, result_entry, success = future.result()
@@ -285,15 +201,52 @@ def enhance_jsonl(input_file, output_file, max_workers=34):
     logger.info(f"Results saved to {output_file}")
 
 
-# Run the script on a JSONL file
-if __name__ == "__main__":
-    from datetime import datetime
+def load_enhancement_prompt(yaml_path, prompt_key="enhance_prompt"):
+    """
+    Load the enhancement prompt from a YAML configuration file.
+    
+    Parameters:
+        yaml_path: Path to the YAML file
+        prompt_key: Key for the prompt template in the YAML file
+        
+    Returns:
+        str: The prompt template
+    """
+    try:
+        import yaml
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        
+        prompt = config.get(prompt_key)
+        if not prompt:
+            logger.warning(f"Prompt key '{prompt_key}' not found in {yaml_path}, using default")
+            # Fall back to default prompt if not found
+            return None
+        
+        return prompt
+    except Exception as e:
+        logger.error(f"Error loading prompt from {yaml_path}: {e}")
+        return None
+
+def enhnace_entry_point(input: str, input_yaml: str):
+    load_dotenv()
+
+    api_key = read_api_key("HF_ACCESS_TOKEN")
+    config = load_translator_config(input_yaml, "translator_ro") 
+    endpoint = config.get("endpoint")
+    engine = config.get("model", "")
+
+    if not endpoint:
+        logger.critical("No endpoint found for translation model.")
+        raise ValueError("Translation model endpoint not found.")
+    
+    enhance_template = load_enhancement_prompt(input_yaml)
     
     # Generate timestamp for the output file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    input_file = "/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist/data/evaluations_ro/tf_fables_llama-3-1-8b-instruct-mpp_dt250310-094515_translation_ro_Llama-3.3-70B-Instruct_250318-093757_eval_e.jsonl_jsonl_eval_eo3-mini-2025-01-31_dt20250318_125017.jsonl"
-    output_file = f"/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist/data/translations/tf_enhanced_{timestamp}.jsonl"
+    input_file = input
+    output_file = f"data/translations/tf_enhanced_{timestamp}.jsonl"
     
     # Log the output filename
     logger.info(f"Output will be saved to: {output_file}")
@@ -301,4 +254,64 @@ if __name__ == "__main__":
     # Set the number of parallel workers (adjust based on your CPU and API rate limits)
     max_workers = 34
     
-    enhance_jsonl(input_file, output_file, max_workers)
+    enhance_jsonl(input_file, output_file, api_key, endpoint, enhance_template, max_workers, engine)
+
+def enhance_subparser(subparsers):
+    """
+    Add enhance subparser to main parser
+    
+    Args:
+        subparsers: The subparsers object to add this parser to
+    
+    Returns:
+        The created subparser
+    """
+    enhance_parser = subparsers.add_parser(
+        "enhance", 
+        help="Enhance existing translations with refinements"
+    )
+    
+    # Required arguments
+    enhance_parser.add_argument(
+        "--input",
+        type=str,
+        required=True,
+        help="Path to the input JSONL file containing translations to enhance"
+    )
+    
+    # Optional arguments
+    enhance_parser.add_argument(
+        "--input-yaml",
+        type=str,
+        default="tinyfabulist/conf/enhance.yaml",
+        help="Path to enhancement configuration YAML file (default: tinyfabulist/conf/enhance.yaml)"
+    )
+    
+    enhance_parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=34,
+        help="Maximum number of worker threads for parallel processing (default: 34)"
+    )
+    
+    enhance_parser.add_argument(
+        "--output",
+        type=str,
+        help="Path to save enhanced output (default: auto-generated with timestamp)"
+    )
+    
+    # Set the function that will handle the enhance command
+    enhance_parser.set_defaults(func=handle_enhance)
+    
+    return enhance_parser
+
+def handle_enhance(args):
+    """Handle the enhance command"""
+    output = args.output
+    
+    if not output:
+        # Generate timestamp for the output file only if not provided
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output = f"data/translations/tf_enhanced_{timestamp}.jsonl"
+    
+    return enhnace_entry_point(args.input, args.input_yaml)

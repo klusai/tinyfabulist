@@ -16,24 +16,19 @@ from pybars import Compiler
 from transformers import AutoTokenizer
 
 from tinyfabulist.logger import *
+from tinyfabulist.utils import load_settings as load_settings_utils
 
 # Constants
-CONFIG_FILE = "tinyfabulist.yaml"
-PROMPTS_FOLDER = "tinyfabulist/data/prompts/"
-FABLES_FOLDER = "tinyfabulist/data/fables/"
+PROMPTS_FOLDER = "data/prompts/"
+FABLES_FOLDER = "data/fables/"
 
 logger = setup_logging()
 
 
 def load_settings() -> dict:
     try:
-        with open(CONFIG_FILE, "r") as file:
-            settings = yaml.safe_load(file)
-            logger.info("Settings loaded successfully")
-            return settings
-    except FileNotFoundError:
-        logger.error(f"Settings file '{CONFIG_FILE}' not found")
-        raise ConfigError(f"Settings file '{CONFIG_FILE}' not found")
+        logger.info("Settings loaded successfully")
+        return load_settings_utils()
     except yaml.YAMLError as e:
         logger.error(f"Error parsing YAML file: {e}")
         raise ConfigError(f"Invalid YAML format: {e}")
@@ -405,7 +400,7 @@ def run_generate(args) -> None:
         metadata = settings.get("metadata", {})
 
         futures = []
-        with ThreadPoolExecutor(max_workers=100) as executor:
+        with ThreadPoolExecutor(max_workers=500) as executor:
             for model_name in models_to_use:
                 model_config = available_models[model_name]
                 logger.info(f"Generating fables using model: {model_config['name']}")

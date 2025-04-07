@@ -5,168 +5,105 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
-from decouple import config
-from dotenv import load_dotenv
-from openai import OpenAI
-from pybars import Compiler
-
+from tinyfabulist.evaluate.utils import EvaluationUtils, load_jsonl_entries, process_file_or_directory
 from tinyfabulist.logger import setup_logging
-from tinyfabulist.utils import load_settings
 
 logger = setup_logging()
+utils = EvaluationUtils(language="ro")
 
 
-def evaluate_fable_save(fable_data: dict, lock: threading.Lock) -> dict:
+def evaluate_fable_save(fable_data: dict, idx: int = 0, lock: threading.Lock = None) -> dict:
     """
-    Takes a JSON object representing a generated fable (which may contain additional stats),
-    evaluates the fable using the OpenAI API based on predefined criteria, and returns the evaluation result
-    along with the original data and a timestamp.
-
-    The evaluation is based on the following criteria:
-      1. Grammar and Style (1-10)
-      2. Creativity and Originality (1-10)
-      3. Moral Clarity (1-10)
-      4. Adherence to Instructions (1-10)
-
-    The API is instructed to respond in a valid JSON format containing these scores and brief explanations.
+    Evaluates a translated fable and returns the evaluation result
+    along with the original data.
     """
-
     if not fable_data:
-        return
-
-    load_dotenv()
-    # Load settings and get evaluator configuration
-    settings = load_settings()
-    evaluator_config = settings.get("evaluator", {})
-    model = evaluator_config.get("model", "gpt-4o")
-
-    # Get prompts from config
-    prompts = evaluator_config.get("prompt", {})
-    system_prompt = prompts.get("system_ro", None)
-    evaluation_prompt_template = prompts.get("evaluation_ro", "")
-
+        return None
+    
     fable_text = fable_data.get("fable", "")
     translated_fable_text = fable_data.get("translated_fable", "")
-    #prompt = fable_data.get("prompt", "")
-
-    with lock:
-        compiler = Compiler()
-        template = compiler.compile(evaluation_prompt_template)
-        # Render the template with the provided fable and prompt
-        evaluation_prompt = template({"original_fable": fable_text, "translated_fable": translated_fable_text})
-
-    client = OpenAI(api_key=config("OPENAI_API_KEY"))
-    try:
-        chat_completion = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": evaluation_prompt},
-            ],
-            response_format={"type": "json_object"},
-            reasoning_effort="medium",
-        )
-        evaluation_text = chat_completion.choices[0].message.content.strip()
-        try:
-            evaluation_json = json.loads(evaluation_text)
-        except json.JSONDecodeError as json_err:
-            evaluation_json = {
-                "error": f"JSON decoding error: {str(json_err)}. Raw response: {evaluation_text[:200]}"
-            }
-    except Exception as e:
-        evaluation_json = {"error": f"OpenAI API error: {str(e)}"}
-
-    # Merge the original fable data (including any additional stats) with the evaluation results.
+    
+    # Skip entries without both original and translated fables
+    if not fable_text or not translated_fable_text:
+        logger.warning(f"Skipping entry {idx+1}: Missing fable or translation")
+        return None
+    
+    # Get prompts with thread safety if lock provided
+    context = {"original_fable": fable_text, "translated_fable": translated_fable_text}
+    if lock:
+        with lock:
+            system_prompt, evaluation_template = utils.get_prompts()
+            evaluation_prompt = utils.render_template(evaluation_template, context)
+    else:
+        system_prompt, evaluation_template = utils.get_prompts() 
+        evaluation_prompt = utils.render_template(evaluation_template, context)
+    
+    # Call the evaluation API
+    evaluation_json = utils.call_evaluation_api(system_prompt, evaluation_prompt)
+    
+    # Merge the original fable data with the evaluation results
     result = dict(fable_data)
-    result.update(
-        {
-            "evaluation": evaluation_json,
-            "evaluation_timestamp": datetime.now().isoformat(),
-        }
-    )
+    result.update({
+        "evaluation": evaluation_json,
+        "evaluation_timestamp": datetime.now().isoformat(),
+    })
+    
     return result
 
 
-def evaluate_file(input_path: str, output_path: str) -> None:
+def evaluate_file(input_path: str, output_path: str = None) -> None:
     """
-    Reads each line from the input JSONL file (including all stats), evaluates the fable using evaluate_fable_save,
-    and writes the combined evaluation results to the output JSONL file.
+    Reads entries from an input file, evaluates them, and saves results.
     """
-    results = []
-    with open(input_path, "r", encoding="utf-8") as infile:
-        lines = infile.readlines()
-
+    logger.info(f"Evaluating file: {input_path}")
+    entries = load_jsonl_entries(input_path)
+    
+    # Create a lock for thread-safe template compilation
     output_lock = threading.Lock()
-
-    # Use ThreadPoolExecutor for parallel evaluations.
-    with ThreadPoolExecutor(max_workers=50) as executor:
-        futures = []
-        for line in lines:
-            if line.strip():
-                try:
-                    fable_data = json.loads(line)
-                    futures.append(
-                        executor.submit(evaluate_fable_save, fable_data, output_lock)
-                    )
-                except json.JSONDecodeError:
-                    print("Skipping invalid JSON line.")
-        for future in as_completed(futures):
-            result = future.result()
-            results.append(result)
-
-    # Write the combined evaluation results to the output JSONL file.
-    with open(output_path, "w", encoding="utf-8") as outfile:
-        for res in results:
-            outfile.write(json.dumps(res, ensure_ascii=False) + "\n")
-    print(f"Evaluations have been completed and saved in {output_path}")
-
-
-if __name__ == "__main__":
-    import argparse
-
-    settings = load_settings()
-    evaluator_config = settings.get("evaluator", {})
-    model = evaluator_config.get("model", "gpt-4o")
-
-    parser = argparse.ArgumentParser(
-        description="Evaluate the fables from the specified file or directory (including all existing stats) and automatically save the results with a timestamp in data/evaluations_ro."
+    
+    # Process entries in parallel
+    results = utils.process_entries(
+        entries,
+        evaluate_fable_save, 
+        max_workers=25,
+        lock=output_lock
     )
-    parser.add_argument(
+    
+    # Filter out None results
+    results = [r for r in results if r is not None]
+    
+    # Create output path if not provided
+    if output_path is None:
+        output_path = utils.create_output_path(input_path)
+    
+    # Save results
+    utils.save_results(results, output_path)
+    logger.info(f"Evaluations have been completed and saved in {output_path}")
+
+
+def run_evaluate(args) -> None:
+    """Main entry point for Romanian evaluation"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_base_dir = os.path.join("data", "evaluations_ro")
+    os.makedirs(output_base_dir, exist_ok=True)
+    
+    process_file_or_directory(
+        args.input,
+        evaluate_file,
+        file_pattern=".jsonl"  # Process all JSONL files
+    )
+
+
+def add_evaluate_ro_subparser(subparsers) -> None:
+    """Add the Romanian evaluate subparser to the main parser"""
+    eval_parser = subparsers.add_parser(
+        "evaluat_ro",
+        help="Evaluate translations of fables from Romanian to English",
+    )
+    eval_parser.add_argument(
         "--input",
         type=str,
+        help="Path to a JSONL file or directory containing translated fables",
         required=True,
-        help="Path to the input JSONL file or directory containing JSONL files",
     )
-    args = parser.parse_args()
-
-    input_path = args.input
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_base_dir = os.path.join("tinyfabulist", "data", "evaluations_ro")
-    if not os.path.exists(output_base_dir):
-        os.makedirs(output_base_dir)
-
-    if os.path.isfile(input_path):
-        # Processing a single file
-        basename = os.path.basename(input_path)
-        output_file = os.path.join(
-            output_base_dir, f"evaluations_eval_e_gpt_{timestamp}_{basename}"
-        )
-        evaluate_file(input_path, output_file)
-    elif os.path.isdir(input_path):
-        # Recursively processing all JSONL files in the directory
-        for root, dirs, files in os.walk(input_path):
-            for file in files:
-                if file.endswith(".jsonl"):
-                    input_file = os.path.join(root, file)
-                    # Preserve the relative directory structure
-                    rel_path = os.path.relpath(root, input_path)
-                    output_dir = os.path.join(output_base_dir, rel_path)
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-                    output_file = os.path.join(
-                        output_dir, f"{file}_jsonl_eval_e{model}_dt{timestamp}.jsonl"
-                    )
-                    evaluate_file(input_file, output_file)
-    else:
-        print("The provided input path is not a valid file or directory.")
-        sys.exit(1)
+    eval_parser.set_defaults(func=run_evaluate)

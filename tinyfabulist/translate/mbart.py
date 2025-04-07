@@ -5,12 +5,13 @@ from dotenv import load_dotenv
 
 from tinyfabulist.logger import setup_logging
 from tinyfabulist.translate.utils import load_translator_config
-from translate.utils import (
+from tinyfabulist.translate.utils import (
     build_output_path,
     read_api_key,
     translate_jsonl,
     translate_main,
 )
+from tinyfabulist.translate.subparser import add_translate_subparser
 
 logger = setup_logging()
 
@@ -145,6 +146,8 @@ def translate_fables(args):
         },
     )
 
+def mbart_translate_subparser(args):
+    return translate_fables(args)
 
 if __name__ == "__main__":
     translate_main(

@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import time
+import logging
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -9,96 +10,71 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# --- FILE PROCESSING FUNCTIONS ---
+# --- Logger Setup ---
+logger = logging.getLogger("TinyFabulist")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s - %(module)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 
-def identify_files(input_path):
-    """
-    Identify standard evaluation, translation evaluation, and fable files from the provided path.
+# --- File Processing Module ---
+class FileProcessor:
+    @staticmethod
+    def identify_files(input_path: str):
+        """
+        Identify evaluation and fable files in a given file or directory.
+        Returns: tuple (standard_eval_files, translation_eval_files, tf_files)
+        """
+        standard_eval_files = []
+        translation_eval_files = []
+        tf_files = []
 
-    Parameters:
-        input_path: Path to a file or directory
-
-    Returns:
-        tuple: (eval_files, translation_eval_files, tf_files) - Lists of different types of files
-    """
-    standard_eval_files = []
-    translation_eval_files = []
-    tf_files = []
-
-    if os.path.isfile(input_path):
-        base_name = os.path.basename(input_path)
-        if "eval_e" in base_name:
-            # Check if this is a translation evaluation file
-            is_translation = False
-            with open(input_path, "r") as f:
-                for i, line in enumerate(f):
-                    if i > 10:  # Check first few lines only
-                        break
-                    try:
-                        data = json.loads(line)
-                        if ("evaluation" in data and 
-                            "translation_accuracy" in data["evaluation"]):
-                            is_translation = True
-                            break
-                    except json.JSONDecodeError:
-                        continue
-                        
-            if is_translation:
-                translation_eval_files.append(input_path)
-            else:
-                standard_eval_files.append(input_path)
-        elif base_name.startswith("tf_fables"):
-            tf_files.append(input_path)
-    
-    elif os.path.isdir(input_path):
-        for root, _, files in os.walk(input_path):
-            for file in files:
-                if file.endswith(".jsonl"):
-                    file_path = os.path.join(root, file)
-                    base_name = os.path.basename(file_path)
-                    
-                    if "eval_e" in base_name:
-                        # Check if this is a translation evaluation file
-                        is_translation = False
-                        with open(file_path, "r") as f:
-                            for i, line in enumerate(f):
-                                if i > 10:  # Check first few lines only
+        def process_file(file_path: str):
+            base_name = os.path.basename(file_path)
+            if "eval_e" in base_name:
+                is_translation = False
+                try:
+                    with open(file_path, "r") as f:
+                        for i, line in enumerate(f):
+                            if i > 10:
+                                break
+                            try:
+                                data = json.loads(line)
+                                if "evaluation" in data and "translation_accuracy" in data["evaluation"]:
+                                    is_translation = True
                                     break
-                                try:
-                                    data = json.loads(line)
-                                    if ("evaluation" in data and 
-                                        "translation_accuracy" in data["evaluation"]):
-                                        is_translation = True
-                                        break
-                                except json.JSONDecodeError:
-                                    continue
-                                    
-                        if is_translation:
-                            translation_eval_files.append(file_path)
-                        else:
-                            standard_eval_files.append(file_path)
-                    elif base_name.startswith("tf_fables"):
-                        tf_files.append(file_path)
+                            except json.JSONDecodeError:
+                                continue
+                except Exception as e:
+                    logger.error(f"Error processing file {file_path}: {e}")
+                if is_translation:
+                    translation_eval_files.append(file_path)
+                else:
+                    standard_eval_files.append(file_path)
+            elif base_name.startswith("tf_fables"):
+                tf_files.append(file_path)
 
-    return standard_eval_files, translation_eval_files, tf_files
+        if os.path.isfile(input_path):
+            process_file(input_path)
+        elif os.path.isdir(input_path):
+            for root, _, files in os.walk(input_path):
+                for file in files:
+                    if file.endswith(".jsonl"):
+                        process_file(os.path.join(root, file))
+        else:
+            logger.warning("Provided input path does not exist.")
 
+        return standard_eval_files, translation_eval_files, tf_files
 
-# --- FABLES DATA PROCESSING ---
-
-
-def parse_fables_data(tf_files):
-    """
-    Parse data from tf_fables files.
-
-    Parameters:
-        tf_files: List of tf_fables files
-
-    Returns:
-        dict: Statistics for each model
-    """
-    tf_model_stats = defaultdict(
-        lambda: {
+    @staticmethod
+    def parse_fables_data(tf_files: list) -> dict:
+        """
+        Parse data from tf_fables files and return aggregated model stats.
+        """
+        tf_model_stats = defaultdict(lambda: {
             "count": 0,
             "avg_input_tokens": 0,
             "avg_output_tokens": 0,
@@ -109,141 +85,50 @@ def parse_fables_data(tf_files):
             "host_dc_providers": defaultdict(int),
             "host_dc_locations": defaultdict(int),
             "host_cost_per_hour": 0.0,
-        }
-    )
+        })
 
-    for file_path in tf_files:
-        with open(file_path, "r") as f:
-            for line in f:
-                data = json.loads(line)
-                model = data.get("llm_name", "unknown").split("/")[-1]
-                stats = tf_model_stats[model]
+        for file_path in tf_files:
+            try:
+                with open(file_path, "r") as f:
+                    for line in f:
+                        data = json.loads(line)
+                        model = data.get("llm_name", "unknown").split("/")[-1]
+                        stats = tf_model_stats[model]
 
-                # Count and performance metrics
-                stats["count"] += 1
-                stats["avg_input_tokens"] += data.get("llm_input_tokens", 0)
-                stats["avg_output_tokens"] += data.get("llm_output_tokens", 0)
-                stats["avg_inference_time"] += data.get("llm_inference_time", 0)
+                        stats["count"] += 1
+                        stats["avg_input_tokens"] += data.get("llm_input_tokens", 0)
+                        stats["avg_output_tokens"] += data.get("llm_output_tokens", 0)
+                        stats["avg_inference_time"] += data.get("llm_inference_time", 0)
 
-                # Host information
-                stats["host_providers"][data.get("host_provider", "unknown")] += 1
-                stats["host_gpus"][data.get("host_gpu", "unknown")] += 1
-                stats["host_dc_providers"][data.get("host_dc_provider", "unknown")] += 1
-                stats["host_dc_locations"][data.get("host_dc_location", "unknown")] += 1
-                stats["host_cost_per_hour"] += data.get("host_cost_per_hour", 0.0)
-                stats["host_gpu_vram"][data.get("host_gpu_vram", 0)] += 1
+                        stats["host_providers"][data.get("host_provider", "unknown")] += 1
+                        stats["host_gpus"][data.get("host_gpu", "unknown")] += 1
+                        stats["host_dc_providers"][data.get("host_dc_provider", "unknown")] += 1
+                        stats["host_dc_locations"][data.get("host_dc_location", "unknown")] += 1
+                        stats["host_cost_per_hour"] += data.get("host_cost_per_hour", 0.0)
+                        stats["host_gpu_vram"][data.get("host_gpu_vram", 0)] += 1
+            except Exception as e:
+                logger.error(f"Error parsing tf file {file_path}: {e}")
 
-    # Calculate averages
-    for model, stats in tf_model_stats.items():
-        count = stats["count"]
-        if count > 0:
-            stats["avg_input_tokens"] /= count
-            stats["avg_output_tokens"] /= count
-            stats["avg_inference_time"] /= count
-            stats["host_cost_per_hour"] /= count
+        # Calculate averages
+        for model, stats in tf_model_stats.items():
+            count = stats["count"]
+            if count:
+                stats["avg_input_tokens"] /= count
+                stats["avg_output_tokens"] /= count
+                stats["avg_inference_time"] /= count
+                stats["host_cost_per_hour"] /= count
 
-    return tf_model_stats
-
-
-def create_fables_markdown_table(tf_model_stats):
-    """
-    Create a markdown table from tf_fables data.
-
-    Parameters:
-        tf_model_stats: Dictionary of model statistics
-
-    Returns:
-        str: Formatted markdown table
-    """
-    md_table_tf = "# Consolidated Fable Statistics\n\n"
-    md_table_tf += "## Summary (All Files)\n"
-    md_table_tf += (
-        "| Model | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) | "
-        "Primary Host Provider | Primary GPU | GPU VRAM (GB) | DC Provider | DC Location | "
-        "Avg Cost per Hour ($) |\n"
-    )
-    md_table_tf += (
-        "|-------|-------|-----------------|------------------|---------------------|"
-        "-------------------|-------------|---------------|-------------|-------------|------------------------|\n"
-    )
-
-    for model, stats in sorted(tf_model_stats.items()):
-        # Find most common values for each host attribute
-        primary_provider = get_max_key(stats["host_providers"])
-        primary_gpu = get_max_key(stats["host_gpus"])
-        primary_gpu_vram = get_max_key(stats["host_gpu_vram"])
-        primary_dc_provider = get_max_key(stats["host_dc_providers"])
-        primary_dc_location = get_max_key(stats["host_dc_locations"])
-        avg_cost_per_hour = stats["host_cost_per_hour"]
-
-        # Add row to table
-        md_table_tf += (
-            f"| {model} | {stats['count']} | {stats['avg_input_tokens']:.1f} | "
-            f"{stats['avg_output_tokens']:.1f} | {stats['avg_inference_time']:.2f} | "
-            f"{primary_provider} | {primary_gpu} | {primary_gpu_vram} | "
-            f"{primary_dc_provider} | {primary_dc_location} | {avg_cost_per_hour:.2f} |\n"
-        )
-
-    return md_table_tf
+        return tf_model_stats
 
 
-def get_max_key(counter_dict):
-    """Helper function to get the most common item from a counter dictionary (For Categorical/NonNumerical Data)"""
-    return (
-        max(counter_dict.items(), key=lambda x: x[1])[0] if counter_dict else "unknown"
-    )
-
-
-def process_tf_files(tf_files, stats_folder, timestamp, output_mode):
-    """
-    Process tf_fables files to generate a consolidated report.
-
-    Parameters:
-        tf_files: List of files whose names start with 'tf_fables'
-        stats_folder: Folder where to save output files
-        timestamp: Timestamp string for filenames
-        output_mode: Controls where output is displayed
-
-    Returns:
-        dict: Processed model statistics
-    """
-    should_output_files = output_mode in ["files", "both"]
-    should_output_terminal = output_mode in ["terminal", "both"]
-
-    # Parse data from files
-    tf_model_stats = parse_fables_data(tf_files)
-
-    # Create markdown table
-    md_table_tf = create_fables_markdown_table(tf_model_stats)
-
-    # Output according to mode
-    if should_output_files:
-        md_tf_filename = os.path.join(stats_folder, f"tf_stats_fables_{timestamp}.md")
-        with open(md_tf_filename, "w") as f:
-            f.write(md_table_tf)
-        print(f"Consolidated tf_fable report saved to {md_tf_filename}")
-
-    if should_output_terminal:
-        print("\n" + md_table_tf + "\n")
-
-    return tf_model_stats
-
-
-# --- EVALUATION DATA PROCESSING ---
-
-
-def parse_evaluation_data(eval_files):
-    """
-    Parse data from evaluation files.
-
-    Parameters:
-        eval_files: List of evaluation files
-
-    Returns:
-        dict: Aggregated scores and performance metrics for each model
-    """
-    score_totals = defaultdict(
-        lambda: {
+# --- Evaluation Module ---
+class Evaluator:
+    @staticmethod
+    def parse_evaluation_data(eval_files: list) -> dict:
+        """
+        Parse standard evaluation file(s) into aggregated scores.
+        """
+        score_totals = defaultdict(lambda: {
             "grammar": 0,
             "creativity": 0,
             "moral_clarity": 0,
@@ -252,49 +137,35 @@ def parse_evaluation_data(eval_files):
             "output_tokens": 0,
             "inference_time": 0,
             "count": 0,
-        }
-    )
+        })
 
-    for file_path in eval_files:
-        with open(file_path, "r") as f:
-            for line in f:
-                data = json.loads(line)
-                model = data.get("llm_name", "unknown").split("/")[-1]
+        for file_path in eval_files:
+            try:
+                with open(file_path, "r") as f:
+                    for line in f:
+                        data = json.loads(line)
+                        model = data.get("llm_name", "unknown").split("/")[-1]
+                        if "evaluation" in data:
+                            eval_data = data["evaluation"]
+                            score_totals[model]["grammar"] += eval_data.get("grammar", 0)
+                            score_totals[model]["creativity"] += eval_data.get("creativity", 0)
+                            score_totals[model]["moral_clarity"] += eval_data.get("moral_clarity", 0)
+                            score_totals[model]["adherence_to_prompt"] += eval_data.get("adherence_to_prompt", 0)
 
-                # Process evaluation scores
-                if "evaluation" in data:
-                    evaluation = data["evaluation"]
-                    score_totals[model]["grammar"] += evaluation.get("grammar", 0)
-                    score_totals[model]["creativity"] += evaluation.get("creativity", 0)
-                    score_totals[model]["moral_clarity"] += evaluation.get(
-                        "moral_clarity", 0
-                    )
-                    score_totals[model]["adherence_to_prompt"] += evaluation.get(
-                        "adherence_to_prompt", 0
-                    )
+                        score_totals[model]["input_tokens"] += data.get("llm_input_tokens", 0)
+                        score_totals[model]["output_tokens"] += data.get("llm_output_tokens", 0)
+                        score_totals[model]["inference_time"] += data.get("llm_inference_time", 0)
+                        score_totals[model]["count"] += 1
+            except Exception as e:
+                logger.error(f"Error parsing evaluation file {file_path}: {e}")
+        return score_totals
 
-                # Process performance metrics
-                score_totals[model]["input_tokens"] += data.get("llm_input_tokens", 0)
-                score_totals[model]["output_tokens"] += data.get("llm_output_tokens", 0)
-                score_totals[model]["inference_time"] += data.get(
-                    "llm_inference_time", 0
-                )
-                score_totals[model]["count"] += 1
-
-    return score_totals
-
-def parse_translation_evaluation_data(translation_eval_files):
-    """
-    Parse data from translation evaluation files.
-
-    Parameters:
-        translation_eval_files: List of translation evaluation files
-
-    Returns:
-        dict: Aggregated scores and performance metrics for each model's translation evaluations
-    """
-    translation_score_totals = defaultdict(
-        lambda: {
+    @staticmethod
+    def parse_translation_evaluation_data(translation_eval_files: list) -> dict:
+        """
+        Parse translation evaluation file(s) into aggregated scores.
+        """
+        translation_score_totals = defaultdict(lambda: {
             "translation_accuracy": 0,
             "fluency": 0,
             "style_preservation": 0,
@@ -303,990 +174,1125 @@ def parse_translation_evaluation_data(translation_eval_files):
             "output_tokens": 0,
             "inference_time": 0,
             "count": 0,
+        })
+
+        for file_path in translation_eval_files:
+            try:
+                with open(file_path, "r") as f:
+                    for line in f:
+                        data = json.loads(line)
+                        model = data.get("llm_name", "unknown").split("/")[-1]
+                        if "evaluation" in data:
+                            eval_data = data["evaluation"]
+                            if "translation_accuracy" in eval_data:
+                                translation_score_totals[model]["translation_accuracy"] += eval_data.get("translation_accuracy", 0)
+                                translation_score_totals[model]["fluency"] += eval_data.get("fluency", 0)
+                                translation_score_totals[model]["style_preservation"] += eval_data.get("style_preservation", 0)
+                                translation_score_totals[model]["moral_clarity"] += eval_data.get("moral_clarity", 0)
+                                translation_score_totals[model]["input_tokens"] += data.get("llm_input_tokens", 0)
+                                translation_score_totals[model]["output_tokens"] += data.get("llm_output_tokens", 0)
+                                translation_score_totals[model]["inference_time"] += data.get("llm_inference_time", 0)
+                                translation_score_totals[model]["count"] += 1
+            except Exception as e:
+                logger.error(f"Error parsing translation evaluation file {file_path}: {e}")
+        return translation_score_totals
+
+    @staticmethod
+    def compute_averages(score_totals: dict) -> dict:
+        """
+        Compute average scores from aggregated evaluation totals.
+        """
+        averages = {}
+        for model, scores in score_totals.items():
+            count = scores["count"]
+            if count:
+                averages[model] = {
+                    "grammar": scores["grammar"] / count,
+                    "creativity": scores["creativity"] / count,
+                    "moral_clarity": scores["moral_clarity"] / count,
+                    "adherence_to_prompt": scores["adherence_to_prompt"] / count,
+                    "average_score_(mean)": (scores["grammar"] + scores["creativity"] +
+                                             scores["moral_clarity"] + scores["adherence_to_prompt"]) / (4 * count),
+                    "input_tokens": scores["input_tokens"] / count,
+                    "output_tokens": scores["output_tokens"] / count,
+                    "inference_time": scores["inference_time"] / count,
+                    "count": count,
+                }
+        return averages
+
+    @staticmethod
+    def compute_translation_averages(translation_score_totals: dict) -> dict:
+        """
+        Compute average scores for translation evaluations.
+        """
+        translation_averages = {}
+        for model, scores in translation_score_totals.items():
+            count = scores["count"]
+            if count:
+                ta = scores["translation_accuracy"] / count
+                fluency = scores["fluency"] / count
+                style = scores["style_preservation"] / count
+                moral = scores["moral_clarity"] / count
+                translation_averages[model] = {
+                    "translation_accuracy": ta,
+                    "fluency": fluency,
+                    "style_preservation": style,
+                    "moral_clarity": moral,
+                    "average_score_(mean)": (ta + fluency + style + moral) / 4,
+                    "input_tokens": scores["input_tokens"] / count,
+                    "output_tokens": scores["output_tokens"] / count,
+                    "inference_time": scores["inference_time"] / count,
+                    "count": count,
+                }
+        return translation_averages
+
+    @staticmethod
+    def get_max_key(counter_dict: dict) -> str:
+        """Return the key with the maximum value from a dictionary (or 'unknown' if empty)."""
+        return max(counter_dict.items(), key=lambda x: x[1])[0] if counter_dict else "unknown"
+
+    @staticmethod
+    def create_fables_markdown_table(tf_model_stats: dict) -> str:
+        """
+        Create a markdown table summarizing tf_fables data.
+        """
+        header = [
+            "# Consolidated Fable Statistics",
+            "## Summary (All Files)",
+            "| Model | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) | Primary Host Provider | Primary GPU | GPU VRAM (GB) | DC Provider | DC Location | Avg Cost per Hour ($) |",
+            "|-------|-------|-----------------|------------------|---------------------|-----------------------|-------------|---------------|-------------|-------------|-----------------------|",
+        ]
+        rows = []
+        for model, stats in sorted(tf_model_stats.items()):
+            primary_provider = Evaluator.get_max_key(stats["host_providers"])
+            primary_gpu = Evaluator.get_max_key(stats["host_gpus"])
+            primary_gpu_vram = Evaluator.get_max_key(stats["host_gpu_vram"])
+            primary_dc_provider = Evaluator.get_max_key(stats["host_dc_providers"])
+            primary_dc_location = Evaluator.get_max_key(stats["host_dc_locations"])
+            row = (f"| {model} | {stats['count']} | {stats['avg_input_tokens']:.1f} | "
+                   f"{stats['avg_output_tokens']:.1f} | {stats['avg_inference_time']:.2f} | "
+                   f"{primary_provider} | {primary_gpu} | {primary_gpu_vram} | "
+                   f"{primary_dc_provider} | {primary_dc_location} | {stats['host_cost_per_hour']:.2f} |")
+            rows.append(row)
+        return "\n".join(header + [""] + rows)
+
+    @staticmethod
+    def create_evaluation_markdown_table(averages: dict) -> str:
+        """
+        Create a markdown table from evaluation averages.
+        """
+        header = [
+            "## Evaluation Averages",
+            "",
+            "| Model | Grammar | Creativity | Moral Clarity | Adherence to Prompt | Average Score (Mean) | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |",
+            "|-------|---------|------------|---------------|---------------------|----------------------|-------|------------------|-------------------|------------------------|",
+        ]
+        rows = []
+        for model, metrics in averages.items():
+            row = (f"| {model} | {metrics['grammar']:.2f} | {metrics['creativity']:.2f} | "
+                   f"{metrics['moral_clarity']:.2f} | {metrics['adherence_to_prompt']:.2f} | "
+                   f"{metrics['average_score_(mean)']:.2f} | {metrics['count']} | "
+                   f"{metrics['input_tokens']:.1f} | {metrics['output_tokens']:.1f} | "
+                   f"{metrics['inference_time']:.2f} |")
+            rows.append(row)
+        return "\n".join(header + [""] + rows)
+
+    @staticmethod
+    def create_translation_evaluation_markdown_table(translation_averages: dict) -> str:
+        """
+        Create a markdown table from translation evaluation averages.
+        """
+        header = [
+            "## Translation Evaluation Averages",
+            "",
+            "| Model | Translation Accuracy | Fluency | Style Preservation | Moral Clarity | Average Score (Mean) | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |",
+            "|-------|----------------------|---------|--------------------|---------------|----------------------|-------|------------------|-------------------|------------------------|",
+        ]
+        rows = []
+        for model, metrics in translation_averages.items():
+            row = (f"| {model} | {metrics['translation_accuracy']:.2f} | {metrics['fluency']:.2f} | "
+                   f"{metrics['style_preservation']:.2f} | {metrics['moral_clarity']:.2f} | "
+                   f"{metrics['average_score_(mean)']:.2f} | {metrics['count']} | "
+                   f"{metrics['input_tokens']:.1f} | {metrics['output_tokens']:.1f} | "
+                   f"{metrics['inference_time']:.2f} |")
+            rows.append(row)
+        return "\n".join(header + [""] + rows)
+
+    @staticmethod
+    def count_age_groups(evaluation_files):
+        """Count the frequency of each age group from evaluation files."""
+        age_group_counts = {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0}
+        total_evals = 0
+        
+        for eval_file in evaluation_files:
+            try:
+                with open(eval_file, "r") as f:
+                    for line in f:
+                        try:
+                            eval_data = json.loads(line.strip())
+                            if "best_age_group" in eval_data["evaluation"]:
+                                age_group = eval_data["evaluation"]["best_age_group"]
+                                if age_group in age_group_counts:
+                                    age_group_counts[age_group] += 1
+                                total_evals += 1
+                        except json.JSONDecodeError:
+                            logger.warning(f"Skipping invalid JSON line in {eval_file}")
+            except Exception as e:
+                logger.error(f"Error processing {eval_file}: {e}")
+        
+        # Convert to percentages
+        age_group_percentages = {
+            group: (count / total_evals * 100 if total_evals > 0 else 0) 
+            for group, count in age_group_counts.items()
         }
-    )
+        
+        return age_group_counts, age_group_percentages, total_evals
 
-    for file_path in translation_eval_files:
-        with open(file_path, "r") as f:
-            for line in f:
-                data = json.loads(line)
-                model = data.get("llm_name", "unknown").split("/")[-1]
+    @staticmethod
+    def count_age_groups_by_file(evaluation_files):
+        """Count the frequency of each age group for each evaluation file."""
+        results = {}
+        model_name = ""
+        
+        for eval_file in evaluation_files:
+            file_name = os.path.basename(eval_file)
+            age_group_counts = {"A": 0, "B": 0, "C": 0, "D": 0, "E": 0}
+            total_evals = 0
+            
+            try:
+                with open(eval_file, "r") as f:
+                    for line in f:
+                        try:
+                            eval_data = json.loads(line.strip())
+                            model_name = eval_data["llm_name"]
+                            if "evaluation" in eval_data and "best_age_group" in eval_data["evaluation"]:
+                                age_group = eval_data["evaluation"]["best_age_group"]
+                                if age_group in age_group_counts:
+                                    age_group_counts[age_group] += 1
+                                    total_evals += 1
+                        except json.JSONDecodeError:
+                            logger.warning(f"Skipping invalid JSON line in {file_name}")
+            except Exception as e:
+                logger.error(f"Error processing {file_name}: {e}")
+            
+            if total_evals > 0:
+                # Store results for this file
+                results[model_name] = {
+                    "counts": age_group_counts,
+                    "total": total_evals,
+                    "file": file_name
+                }
+        
+        return results
 
-                # Process translation evaluation scores
-                if "evaluation" in data:
-                    evaluation = data["evaluation"]
-                    
-                    # Check if this is a translation evaluation (contains translation_accuracy)
-                    if "translation_accuracy" in evaluation:
-                        translation_score_totals[model]["translation_accuracy"] += evaluation.get("translation_accuracy", 0)
-                        translation_score_totals[model]["fluency"] += evaluation.get("fluency", 0)
-                        translation_score_totals[model]["style_preservation"] += evaluation.get("style_preservation", 0)
-                        translation_score_totals[model]["moral_clarity"] += evaluation.get("moral_clarity", 0)
-                        
-                        # Process performance metrics
-                        translation_score_totals[model]["input_tokens"] += data.get("llm_input_tokens", 0)
-                        translation_score_totals[model]["output_tokens"] += data.get("llm_output_tokens", 0)
-                        translation_score_totals[model]["inference_time"] += data.get("llm_inference_time", 0)
-                        translation_score_totals[model]["count"] += 1
-    return translation_score_totals
 
-def compute_translation_averages(translation_score_totals):
-    """
-    Compute average scores from aggregated translation evaluation totals.
+# --- Visualization Module ---
+class Visualizer:
+    # ----- Plotly Visualizations -----
+    @staticmethod
+    def generate_plotly_visualizations(averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str, orientation: str = "vertical"):
+        models_list = list(averages.keys())
+        metrics_list = ["grammar", "creativity", "moral_clarity", "adherence_to_prompt", "average_score_(mean)"]
+        fig = Visualizer.create_plotly_figure(averages, tf_model_stats, metrics_list, models_list, orientation)
 
-    Parameters:
-        translation_score_totals: Dictionary of aggregated translation scores and counts
+        # Save outputs if required
+        if output_mode in ["files", "both"]:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_eval_plot_{timestamp}.png")
+            html_filename = os.path.join(stats_folder, f"tf_stats_eval_plot_{timestamp}.html")
+            fig.write_image(plot_filename)
+            fig.write_html(html_filename)
+            logger.info(f"Evaluation plots saved to {plot_filename} and {html_filename}")
+        if output_mode in ["terminal", "both"]:
+            fig.show()
 
-    Returns:
-        dict: Average metrics for each model's translation performance
-    """
-    translation_averages = {}
-    for model, scores in translation_score_totals.items():
-        count = scores["count"]
-        if count > 0:
-            # Calculate translation evaluation averages
-            translation_accuracy = scores["translation_accuracy"] / count
-            fluency = scores["fluency"] / count
-            style_preservation = scores["style_preservation"] / count
-            moral_clarity = scores["moral_clarity"] / count
-
-            # Store in dictionary
-            translation_averages[model] = {
-                "translation_accuracy": translation_accuracy,
-                "fluency": fluency,
-                "style_preservation": style_preservation,
-                "moral_clarity": moral_clarity,
-                "average_score_(mean)": (
-                    translation_accuracy + fluency + style_preservation + moral_clarity
-                ) / 4,
-                "input_tokens": scores["input_tokens"] / count,
-                "output_tokens": scores["output_tokens"] / count,
-                "inference_time": scores["inference_time"] / count,
-                "count": count,
-            }
-
-    return translation_averages
-
-def compute_averages(score_totals):
-    """
-    Compute average scores from aggregated totals.
-
-    Parameters:
-        score_totals: Dictionary of aggregated scores and counts
-
-    Returns:
-        dict: Average metrics for each model
-    """
-    averages = {}
-    for model, scores in score_totals.items():
-        count = scores["count"]
-        if count > 0:
-            # Calculate evaluation averages
-            grammar = scores["grammar"] / count
-            creativity = scores["creativity"] / count
-            moral_clarity = scores["moral_clarity"] / count
-            adherence = scores["adherence_to_prompt"] / count
-
-            # Store in dictionary
-            averages[model] = {
-                "grammar": grammar,
-                "creativity": creativity,
-                "moral_clarity": moral_clarity,
-                "adherence_to_prompt": adherence,
-                "average_score_(mean)": (
-                    grammar + creativity + moral_clarity + adherence
+    @staticmethod
+    def create_plotly_figure(averages: dict, tf_model_stats: dict, metrics_list: list, models_list: list, orientation: str = "vertical") -> go.Figure:
+        # Sort models for better visualization
+        models_list = sorted(models_list, key=lambda x: -averages[x]['average_score_(mean)'])
+        
+        if orientation == "horizontal":
+            # Use existing horizontal layout with custom row heights
+            fig = make_subplots(
+                rows=2, cols=1,
+                vertical_spacing=0.1,
+                specs=[
+                    [{"type": "bar"}, {"type": "bar"}],  # Top row: evaluation metrics split in two
+                    [{"type": "bar", "colspan": 2}, None],  # Bottom row: performance metrics spanning both columns
+                ],
+                row_heights=[0.75, 0.25]  # First plot takes 75% of height
+            )
+        else:
+            # For vertical orientation, split models into two columns for better readability
+            fig = make_subplots(
+                rows=3, cols=1,
+                vertical_spacing=0.2,
+                horizontal_spacing=0.1,
+                specs=[
+                    [{"type": "bar"}], 
+                    [{"type": "bar"}],
+                    [{"type": "bar"}],  # Bottom row: performance metrics spanning both columns
+                ],
+            )
+        
+        # Define colors for evaluation metrics
+        eval_colors = {
+            "grammar": "#1DB954",
+            "creativity": "#191414", 
+            "moral_clarity": "#535353",
+            "adherence_to_prompt": "#B3B3B3",
+            "average_score_(mean)": "#E60012",
+        }
+        
+        # Split models into two groups if in vertical orientation
+        if orientation == "vertical" and len(models_list) > 5:
+            mid_point = len(models_list) // 2
+            models_left = models_list[:mid_point]
+            models_right = models_list[mid_point:]
+        else:
+            models_left = models_list
+            models_right = []
+        
+        # Add evaluation metric traces
+        for i, metric in enumerate(metrics_list):
+            if orientation == "horizontal":
+                # Horizontal layout (single column)
+                values = [averages[model][metric] for model in models_list]
+                fig.add_trace(
+                    go.Bar(
+                        y=models_list,
+                        x=values,
+                        name=metric.replace("_", " ").title(),
+                        text=[f"{val:.2f}" for val in values],
+                        textposition="auto",
+                        marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{y}}<br>{metric.replace("_", " ").title()}: %{{x:.2f}}<extra></extra>',
+                        orientation='h',
+                    ),
+                    row=1, col=1
                 )
-                / 4,
-                "input_tokens": scores["input_tokens"] / count,
-                "output_tokens": scores["output_tokens"] / count,
-                "inference_time": scores["inference_time"] / count,
-                "count": count,
-            }
+            else:
+                # Vertical layout (split into two columns)
+                # Left column
+                values_left = [averages[model][metric] for model in models_left]
+                fig.add_trace(
+                    go.Bar(
+                        x=models_left,
+                        y=values_left,
+                        name=metric.replace("_", " ").title(),
+                        text=[f"{val:.2f}" for val in values_left],
+                        textposition="auto",
+                        marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                        showlegend=True,
+                    ),
+                    row=1, col=1
+                )
+                
+                # Right column (if models are split)
+                if models_right:
+                    values_right = [averages[model][metric] for model in models_right]
+                    fig.add_trace(
+                        go.Bar(
+                            x=models_right,
+                            y=values_right,
+                            name=metric.replace("_", " ").title(),
+                            text=[f"{val:.2f}" for val in values_right],
+                            textposition="auto",
+                            marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                            hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                            showlegend=False  # Don't duplicate legends
+                        ),
+                        row=2, col=1
+                    )
+        
+        # Performance metrics (bottom row)
+        if tf_model_stats:
+            performance_metrics = ["avg_input_tokens", "avg_output_tokens", "avg_inference_time"]
+            source = tf_model_stats
+        else:
+            performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
+            source = averages
+            
+        perf_colors = {
+            "input_tokens": "#4CAF50",
+            "output_tokens": "#2196F3",
+            "inference_time": "#FFC107",
+        }
+        
+        for i, metric in enumerate(performance_metrics):
+            if orientation == "horizontal":
+                values = [source.get(model, {}).get(metric, 0) for model in models_list]
+                fig.add_trace(
+                    go.Bar(
+                        y=models_list,
+                        x=values,
+                        name=metric.replace("avg_", "").replace("_", " ").title(),
+                        text=[f"{val:.1f}" for val in values],
+                        textposition="auto",
+                        marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{y}}<br>{metric.replace("avg_", "").replace("_", " ").title()}: %{{x:.1f}}<extra></extra>',
+                        orientation='h',
+                    ),
+                    row=2, col=1
+                )
+            else:
+                values = [source.get(model, {}).get(metric, 0) for model in models_list]
+                fig.add_trace(
+                    go.Bar(
+                        x=models_list,
+                        y=values,
+                        name=metric.replace("avg_", "").replace("_", " ").title(),
+                        text=[f"{val:.1f}" for val in values],
+                        textposition="auto",
+                        marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f"%{{x}}<br>{metric.replace('avg_', '').replace('_', ' ').title()}: %{{y:.1f}}<extra></extra>",
+                    ),
+                    row=3, col=1
+                )
+        
+        # Configure the layout based on orientation
+        if orientation == "horizontal":
+            fig.update_layout(height=3000, margin=dict(l=250, r=80, t=120, b=80))
+        else:
+            # For vertical layout, adjust height based on number of models
+            height = 1200 if len(models_list) <= 10 else 1800
+            fig.update_layout(height=height)
+            
+            # Set consistent y-axis range for evaluation metrics
+            fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
+            if models_right:
+                fig.update_yaxes(title_text="", range=[0, 10], row=1, col=2)
+ 
+        Visualizer.configure_plotly_layout(fig, orientation)
+        return fig
 
-    return averages
-
-
-def create_evaluation_markdown_table(averages):
-    """
-    Create a markdown table from evaluation averages.
-
-    Parameters:
-        averages: Dictionary of model averages
-
-    Returns:
-        str: Formatted markdown table
-    """
-    md_table_eval = "## Evaluation Averages\n\n"
-    md_table_eval += (
-        "| Model | Grammar | Creativity | Moral Clarity | Adherence to Prompt | Average Score (Mean) | Count | "
-        "Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |\n"
-        "|-------|---------|------------|---------------|---------------------|-----------------|-------|"
-        "-----------------|------------------|------------------------|\n"
-    )
-
-    for model, metrics in averages.items():
-        md_table_eval += (
-            f"| {model} | {metrics['grammar']:.2f} | {metrics['creativity']:.2f} | "
-            f"{metrics['moral_clarity']:.2f} | {metrics['adherence_to_prompt']:.2f} | "
-            f"{metrics['average_score_(mean)']:.2f} | {metrics['count']} | "
-            f"{metrics['input_tokens']:.1f} | {metrics['output_tokens']:.1f} | "
-            f"{metrics['inference_time']:.2f} |\n"
+    @staticmethod
+    def configure_plotly_layout(fig: go.Figure, orientation: str = "vertical"):
+        # Determine if we have a split layout by checking column count in row 1
+        split_layout = len(fig._grid_ref) > 2 and orientation == "vertical"
+        
+        fig.update_layout(
+            title_text="Model Evaluation and Performance Analytics",
+            title_x=0.5,
+            title_font=dict(size=24),
+            barmode="group",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.00,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12),
+                traceorder="normal"
+            ),
+            template="plotly_white",
+            width=1920,
+            margin=dict(
+                l=80,
+                r=80,
+                t=140 if split_layout else 120,
+                b=100 if split_layout else 80
+            ),
+            hoverlabel=dict(bgcolor="white", font_size=14, font_family="Arial"),
         )
+        
+        if orientation == "horizontal":
+            # Horizontal layout axis configuration
+            fig.update_xaxes(row=1, col=1, title_text="Score", range=[0, 10], 
+                        title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            fig.update_xaxes(row=2, col=1, title_text="Value", 
+                        title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            # Ensure y-axis labels (model names) have enough space
+            fig.update_yaxes(row=1, col=1, tickfont=dict(size=14), automargin=True)
+            fig.update_yaxes(row=2, col=1, tickfont=dict(size=14), automargin=True)
+        else:
+            # Vertical layout - already configured in main function
+            # Just ensure consistent tick formatting and rotation
+            if split_layout:
+                # Ensure x-axis labels are rotated for better readability in split layout
+                fig.update_xaxes(tickangle=45, row=1, col=1, automargin=True)
+                fig.update_xaxes(tickangle=45, row=1, col=2, automargin=True)
+                fig.update_xaxes(tickangle=45, row=2, col=1, automargin=True)
+            else:
+                fig.update_xaxes(tickangle=45, automargin=True)
 
-    return md_table_eval
+    @staticmethod
+    def generate_translation_plotly_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str, orientation: str = "vertical"):
+        models_list = list(translation_averages.keys())
+        metrics_list = ["translation_accuracy", "fluency", "style_preservation", "moral_clarity", "average_score_(mean)"]
 
+        # Sort models for better visualization
+        models_list = sorted(models_list, key=lambda x: -translation_averages[x]['average_score_(mean)'])
+        
+        if orientation == "horizontal":
+            # Use horizontal layout with custom row heights
+            fig = make_subplots(
+                rows=2, cols=1,
+                vertical_spacing=0.1,
+                specs=[[{"type": "bar"}], [{"type": "bar"}]],
+                row_heights=[0.75, 0.25]  # First plot takes 75% of height
+            )
+        else:
+            # For vertical orientation, split models into TWO ROWS (one under the other)
+            # for better readability instead of side-by-side columns
+            if len(models_list) > 5:
+                # Create a 3-row layout: first half of models, second half of models, performance metrics
+                fig = make_subplots(
+                    rows=3, cols=1,
+                    vertical_spacing=0.12,
+                    specs=[
+                        [{"type": "bar"}],  # First row: first half of models
+                        [{"type": "bar"}],  # Second row: second half of models
+                        [{"type": "bar"}],  # Third row: performance metrics
+                    ],
+                    row_heights=[0.4, 0.4, 0.2]  # Split evaluation metrics equally
+                )
+            else:
+                # If few models, just use two rows
+                fig = make_subplots(
+                    rows=2, cols=1,
+                    vertical_spacing=0.15,
+                    specs=[
+                        [{"type": "bar"}],  # First row: evaluation metrics
+                        [{"type": "bar"}],  # Second row: performance metrics
+                    ],
+                    row_heights=[0.7, 0.3]
+                )
+        
+        trans_colors = {
+            "translation_accuracy": "#1DB954",
+            "fluency": "#191414",
+            "style_preservation": "#535353",
+            "moral_clarity": "#B3B3B3",
+            "average_score_(mean)": "#E60012",
+        }
+        
+        # Split models into two groups if in vertical orientation with many models
+        if orientation == "vertical" and len(models_list) > 5:
+            mid_point = len(models_list) // 2
+            models_top = models_list[:mid_point]
+            models_bottom = models_list[mid_point:]
+            models_top_names = [model.split("_")[-1] for model in models_top]
+            models_bottom_names = [model.split("_")[-1] for model in models_bottom]
+        else:
+            models_top = models_list
+            models_top_names = [model.split("_")[-1] for model in models_top]
+            models_bottom = []
+            models_bottom_names = []
+        
+        # Add evaluation metric traces
+        for i, metric in enumerate(metrics_list):
+            if orientation == "horizontal":
+                values = [translation_averages[model][metric] for model in models_list]
+                fig.add_trace(
+                    go.Bar(
+                        y=models_list,
+                        x=values,
+                        name=metric.replace("_", " ").title(),
+                        text=[f"{val:.2f}" for val in values],
+                        textposition="auto",
+                        marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{y}}<br>{metric.replace("_", " ").title()}: %{{x:.2f}}<extra></extra>',
+                        orientation='h',
+                    ),
+                    row=1, col=1
+                )
+            else:
+                # Top group of models (row 1)
+                values_top = [translation_averages[model][metric] for model in models_top]
+                fig.add_trace(
+                    go.Bar(
+                        x=models_top_names,
+                        y=values_top,
+                        name=metric.replace("_", " ").title(),
+                        text=[f"{val:.2f}" for val in values_top],
+                        textposition="auto",
+                        marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                        showlegend=True  # Show legend for the first group
+                    ),
+                    row=1, col=1
+                )
+                
+                # Bottom group of models (row 2 if split)
+                if models_bottom:
+                    values_bottom = [translation_averages[model][metric] for model in models_bottom]
+                    fig.add_trace(
+                        go.Bar(
+                            x=models_bottom_names,
+                            y=values_bottom,
+                            name=metric.replace("_", " ").title(),
+                            text=[f"{val:.2f}" for val in values_bottom],
+                            textposition="auto",
+                            marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
+                            hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                            showlegend=False  # Don't duplicate legends for second group
+                        ),
+                        row=2, col=1
+                    )
+        
+        # Performance metrics for bottom row
+        if tf_model_stats:
+            performance_metrics = ["avg_input_tokens", "avg_output_tokens", "avg_inference_time"]
+            source = tf_model_stats
+        else:
+            performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
+            source = translation_averages
+            
+        perf_colors = {
+            "input_tokens": "#4CAF50",
+            "output_tokens": "#2196F3",
+            "inference_time": "#FFC107",
+        }
+    
+        performance_row = 2 if len(models_bottom) == 0 else 3
+        
+        for i, metric in enumerate(performance_metrics):
+            if orientation == "horizontal":
+                values = [source.get(model, {}).get(metric, 0) for model in models_list]
+                fig.add_trace(
+                    go.Bar(
+                        y=models_list,
+                        x=values,
+                        name=metric.replace("avg_", "").replace("_", " ").title(),
+                        text=[f"{val:.1f}" for val in values],
+                        textposition="auto",
+                        marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f'%{{y}}<br>{metric.replace("avg_", "").replace("_", " ").title()}: %{{x:.1f}}<extra></extra>',
+                        orientation='h',
+                    ),
+                    row=2, col=1
+                )
+            else:
+                values = [source.get(model, {}).get(metric, 0) for model in models_list]
+                model_names = [model.split("_")[-1] for model in models_list]
+                fig.add_trace(
+                    go.Bar(
+                        x=model_names,
+                        y=values,
+                        name=metric.replace("avg_", "").replace("_", " ").title(),
+                        text=[f"{val:.1f}" for val in values],
+                        textposition="auto",
+                        marker_color=perf_colors.get(metric.replace("avg_", ""), f"hsl({50 + i * 70}, 70%, 50%)"),
+                        hovertemplate=f"%{{x}}<br>{metric.replace('avg_', '').replace('_', ' ').title()}: %{{y:.1f}}<extra></extra>",
+                    ),
+                    row=performance_row, col=1
+                )
+        
+        # Configure the layout based on orientation
+        if orientation == "horizontal":
+            height = 3000
+            left_margin = 250
+        else:
+            # For vertical layout with models in two rows
+            height = 2000 if len(models_list) > 10 else 1600
+            left_margin = 80
+            
+            # Set consistent y-axis range for translation evaluation metrics
+            fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
+            if models_bottom:
+                fig.update_yaxes(title_text="Score", range=[0, 10], row=2, col=1)
+                
+            # Add annotations to clarify which models are in each row
+            if models_bottom:
+                fig.add_annotation(
+                    x=0.5, y=0.99,
+                    xref="paper", yref="paper",
+                    text=f"First Group (Models 1-{len(models_top)})",
+                    showarrow=False,
+                    font=dict(size=14)
+                )
+                fig.add_annotation(
+                    x=0.5, y=0.59,
+                    xref="paper", yref="paper",
+                    text=f"Second Group (Models {len(models_top)+1}-{len(models_list)})",
+                    showarrow=False,
+                    font=dict(size=14)
+                )
 
-def create_translation_evaluation_markdown_table(translation_averages):
-    """
-    Create a markdown table from translation evaluation averages.
-
-    Parameters:
-        translation_averages: Dictionary of model translation averages
-
-    Returns:
-        str: Formatted markdown table
-    """
-    md_table_trans = "## Translation Evaluation Averages\n\n"
-    md_table_trans += (
-        "| Model | Translation Accuracy | Fluency | Style Preservation | Moral Clarity | Average Score (Mean) | Count | "
-        "Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |\n"
-        "|-------|---------------------|---------|-------------------|---------------|-----------------|-------|"
-        "-----------------|------------------|------------------------|\n"
-    )
-
-    for model, metrics in translation_averages.items():
-        md_table_trans += (
-            f"| {model} | {metrics['translation_accuracy']:.2f} | {metrics['fluency']:.2f} | "
-            f"{metrics['style_preservation']:.2f} | {metrics['moral_clarity']:.2f} | "
-            f"{metrics['average_score_(mean)']:.2f} | {metrics['count']} | "
-            f"{metrics['input_tokens']:.1f} | {metrics['output_tokens']:.1f} | "
-            f"{metrics['inference_time']:.2f} |\n"
+        # Apply common layout settings
+        fig.update_layout(
+            title_text="Translation Evaluation and Performance Analytics",
+            title_x=0.5,
+            title_font=dict(size=24),
+            barmode="group",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom", 
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12),
+                traceorder="normal"
+            ),
+            template="plotly_white",
+            height=height,
+            width=1920,
+            margin=dict(l=left_margin, r=80, t=120, b=80),
+            hoverlabel=dict(bgcolor="white", font_size=14, font_family="Arial"),
         )
+        
+        # Configure axes
+        if orientation == "horizontal":
+            # For horizontal bars
+            fig.update_xaxes(row=1, col=1, title_text="Score", range=[0, 10], 
+                        title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            fig.update_xaxes(row=2, col=1, title_text="Value", 
+                        title_font=dict(size=16), tickfont=dict(size=14), automargin=True)
+            fig.update_yaxes(row=1, col=1, tickfont=dict(size=14), automargin=True)
+            fig.update_yaxes(row=2, col=1, tickfont=dict(size=14), automargin=True)
+        else:
+            # For vertical layout with rows instead of columns
+            fig.update_xaxes(tickangle=45, row=1, col=1, automargin=True)
+            if models_bottom:
+                fig.update_xaxes(tickangle=45, row=2, col=1, automargin=True)
+                fig.update_xaxes(tickangle=45, row=3, col=1, automargin=True)
+                fig.update_yaxes(title_text="Performance", row=3, col=1)
+            else:
+                fig.update_xaxes(tickangle=45, row=2, col=1, automargin=True)
+                fig.update_yaxes(title_text="Performance", row=2, col=1)
 
-    return md_table_trans
+        # Save outputs
+        if output_mode in ["files", "both"]:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_translation_plot_{timestamp}.png")
+            html_filename = os.path.join(stats_folder, f"tf_stats_translation_plot_{timestamp}.html")
+            fig.write_image(plot_filename)
+            fig.write_html(html_filename)
+            logger.info(f"Translation evaluation plots saved to {plot_filename} and {html_filename}")
+        if output_mode in ["terminal", "both"]:
+            fig.show()
 
-# --- VISUALIZATION FUNCTIONS ---
+    # ----- Matplotlib Visualizations -----
+    @staticmethod
+    def generate_matplotlib_visualizations(averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str):
+        models_list = list(averages.keys())
+        metrics_list = ["grammar", "creativity", "moral_clarity", "adherence_to_prompt", "average_score_(mean)"]
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 15))  # Increase figure size
+        Visualizer.plot_evaluation_scores(ax1, averages, models_list, metrics_list)
+        Visualizer.plot_performance_metrics(ax2, averages, tf_model_stats, models_list)
+        plt.tight_layout()
+        if output_mode in ["files", "both"]:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_eval_plot_{timestamp}.png")
+            plt.savefig(plot_filename)
+            logger.info(f"Evaluation plot saved to {plot_filename}")
+        if output_mode in ["terminal", "both"]:
+            plt.show()
 
+    @staticmethod
+    def plot_evaluation_scores(ax, averages: dict, models_list: list, metrics_list: list):
+        x = np.arange(len(models_list))
+        width = 0.17
+        colors = ["#1DB954", "#191414", "#535353", "#B3B3B3", "#E60012"]
+        for i, metric in enumerate(metrics_list):
+            values = [averages[model][metric] for model in models_list]
+            offset = (i - 2) * width
+            bars = ax.bar(x + offset, values, width, label=metric.replace("_", " ").title(), color=colors[i % len(colors)])
+            for bar in bars:
+                height = bar.get_height()
+                ax.annotate(f"{height:.2f}", xy=(bar.get_x() + bar.get_width() / 2, height),
+                            xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+                            fontsize=9, fontweight="bold")
+        ax.set_xticks(x)
+        ax.set_xticklabels(models_list, fontsize=12)
+        ax.set_ylim(0, 10)
+        ax.legend(fontsize=12)
+        ax.grid(axis="y", linestyle="--", alpha=0.7)
 
-def generate_plotly_visualizations(
-    averages, tf_model_stats, stats_folder, timestamp, output_mode
-):
-    """
-    Generate interactive Plotly visualizations for model evaluation and performance.
+    @staticmethod
+    def plot_performance_metrics(ax, averages: dict, tf_model_stats: dict, models_list: list):
+        if tf_model_stats:
+            performance_metrics = ["avg_input_tokens", "avg_output_tokens", "avg_inference_time"]
+            source = tf_model_stats
+        else:
+            performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
+            source = averages
+        x = np.arange(len(models_list))
+        width_perf = 0.15
+        colors_perf = ["#4CAF50", "#2196F3", "#FFC107"]
+        for i, metric in enumerate(performance_metrics):
+            values = [source.get(model, {}).get(metric, 0) for model in models_list]
+            offset = (i - 1) * width_perf
+            bars = ax.bar(x + offset, values, width_perf, label=metric.replace("avg_", "").replace("_", " ").title(), color=colors_perf[i % len(colors_perf)])
+            for bar in bars:
+                height = bar.get_height()
+                ax.annotate(f"{height:.1f}", xy=(bar.get_x() + bar.get_width() / 2, height),
+                            xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+                            fontsize=9, fontweight="bold")
+        ax.set_title("Performance Metrics by Model", fontsize=14, fontweight="bold")
+        ax.set_xticks(x)
+        ax.set_xticklabels(models_list, fontsize=12)
+        ax.legend(fontsize=12)
+        ax.grid(axis="y", linestyle="--", alpha=0.7)
 
-    Parameters:
-        averages: Dictionary with computed averages for each model's evaluation scores
-        tf_model_stats: Dictionary containing model performance statistics
-        stats_folder: Folder where to save output files
-        timestamp: Timestamp string for filenames
-        output_mode: Controls where output is displayed ('terminal', 'files', or 'both')
-    """
-    should_output_files = output_mode in ["files", "both"]
-    should_output_terminal = output_mode in ["terminal", "both"]
+    @staticmethod
+    def generate_translation_matplotlib_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str):
+        models_list = list(translation_averages.keys())
+        models_list_names = [model.split("_")[-1] for model in models_list]
+        metrics_list = ["translation_accuracy", "fluency", "style_preservation", "moral_clarity", "average_score_(mean)"]
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 15))  # Increase figure size
+        x = np.arange(len(models_list))
+        width = 0.17
+        colors = ["#1DB954", "#191414", "#535353", "#B3B3B3", "#E60012"]
+        for i, metric in enumerate(metrics_list):
+            values = [translation_averages[model][metric] for model in models_list]
+            offset = (i - 2) * width
+            bars = ax1.bar(x + offset, values, width, label=metric.replace("_", " ").title(), color=colors[i % len(colors)])
+            for bar in bars:
+                height = bar.get_height()
+                ax1.annotate(f"{height:.2f}", xy=(bar.get_x() + bar.get_width() / 2, height),
+                             xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+                             fontsize=9, fontweight="bold")
+        ax1.set_title("Average Translation Evaluation Scores by Model", fontsize=14, fontweight="bold")
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(models_list_names, fontsize=12)
+        ax1.set_ylim(0, 10)
+        ax1.legend(fontsize=12)
+        ax1.grid(axis="y", linestyle="--", alpha=0.7)
+        if tf_model_stats:
+            performance_metrics = ["avg_input_tokens", "avg_output_tokens", "avg_inference_time"]
+            source = tf_model_stats
+        else:
+            performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
+            source = translation_averages
+        width_perf = 0.15
+        colors_perf = ["#4CAF50", "#2196F3", "#FFC107"]
+        for i, metric in enumerate(performance_metrics):
+            values = [source.get(model, {}).get(metric, 0) for model in models_list]
+            offset = (i - 1) * width_perf
+            bars = ax2.bar(x + offset, values, width_perf, label=metric.replace("avg_", "").replace("_", " ").title(), color=colors_perf[i % len(colors_perf)])
+            for bar in bars:
+                height = bar.get_height()
+                ax2.annotate(f"{height:.1f}", xy=(bar.get_x() + bar.get_width() / 2, height),
+                             xytext=(0, 3), textcoords="offset points", ha="center", va="bottom",
+                             fontsize=9, fontweight="bold")
+        ax2.set_title("Performance Metrics by Model", fontsize=14, fontweight="bold")
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(models_list, fontsize=12)
+        ax2.legend(fontsize=12)
+        ax2.grid(axis="y", linestyle="--", alpha=0.7)
+        plt.tight_layout()
+        if output_mode in ["files", "both"]:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_translation_plot_{timestamp}.png")
+            plt.savefig(plot_filename)
+            logger.info(f"Translation evaluation plot saved to {plot_filename}")
+        if output_mode in ["terminal", "both"]:
+            plt.show()
 
-    # Define metrics and model lists
-    metrics_list = [
-        "grammar",
-        "creativity",
-        "moral_clarity",
-        "adherence_to_prompt",
-        "average_score_(mean)",
-    ]
-    models_list = list(averages.keys())
-
-    # Create visualization
-    fig = create_plotly_figure(averages, tf_model_stats, metrics_list, models_list)
-
-    # Save and display plots according to output mode
-    if should_output_files:
-        # Save as static image
-        plot_filename = os.path.join(
-            stats_folder, f"tf_stats_eval_plot_{timestamp}.png"
-        )
-        fig.write_image(plot_filename)
-
-        # Also save as interactive HTML
-        html_filename = os.path.join(
-            stats_folder, f"tf_stats_eval_plot_{timestamp}.html"
-        )
-        fig.write_html(html_filename)
-
-        print(f"Evaluation plots saved to {plot_filename} and {html_filename}")
-
-    # Show plot in browser if terminal output is enabled
-    if should_output_terminal:
-        fig.show()
-
-
-def create_plotly_figure(averages, tf_model_stats, metrics_list, models_list):
-    """
-    Create a Plotly figure with evaluation and performance data.
-
-    Parameters:
-        averages: Dictionary with computed averages for each model's evaluation scores
-        tf_model_stats: Dictionary containing model performance statistics
-        metrics_list: List of evaluation metrics to display
-        models_list: List of models to display
-
-    Returns:
-        go.Figure: Plotly figure object
-    """
-    # Create a subplot with 2 rows
-    fig = make_subplots(
-        rows=2,
-        cols=1,
-        subplot_titles=(
-            "Average Evaluation Scores by Model",
-            "Performance Metrics by Model",
-        ),
-        vertical_spacing=0.2,
-        specs=[[{"type": "bar"}], [{"type": "bar"}]],
-    )
-
-    # Define color schemes
-    eval_colors = {
-        "grammar": "#1DB954",  # Spotify green
-        "creativity": "#191414",  # Dark gray/black
-        "moral_clarity": "#535353",  # Medium gray
-        "adherence_to_prompt": "#B3B3B3",  # Light gray
-        "average_score_(mean)": "#E60012",  # Red
-    }
-
-    perf_colors = {
-        "input_tokens": "#4CAF50",  # Green
-        "output_tokens": "#2196F3",  # Blue
-        "inference_time": "#FFC107",  # Amber
-    }
-
-    # Add evaluation score bars
-    for i, metric in enumerate(metrics_list):
-        values = [averages[model][metric] for model in models_list]
-
+    @staticmethod
+    def generate_age_group_plot(age_group_data, stats_folder, timestamp, output_mode):
+        """Generate a plot showing age group distribution."""
+        counts, percentages, total = age_group_data
+        
+        # Create figure with secondary y-axis
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        
+        # Age group descriptions
+        age_descriptions = {
+            "A": "3 years or under",
+            "B": "4-7 years",
+            "C": "8-11 years",
+            "D": "12-15 years",
+            "E": "16 years or above"
+        }
+        
+        # Create x-axis labels with descriptions
+        x_labels = [f"{group} ({age_descriptions[group]})" for group in counts.keys()]
+        
+        # Add count bars
         fig.add_trace(
             go.Bar(
-                x=models_list,
-                y=values,
-                name=metric.replace("_", " ").title(),
-                text=[f"{val:.2f}" for val in values],
+                x=x_labels,
+                y=list(counts.values()),
+                name="Count",
+                text=[f"{count}" for count in counts.values()],
                 textposition="auto",
-                marker_color=eval_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
-                hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
+                marker_color="#1DB954",
+                hovertemplate="Age Group: %{x}<br>Count: %{y}<extra></extra>",
             ),
-            row=1,
-            col=1,
+            secondary_y=False,
         )
-
-    # Add performance metric bars
-    # Prefer tf_model_stats if available; otherwise, use evaluation aggregates
-    if tf_model_stats:
-        performance_metrics = [
-            "avg_input_tokens",
-            "avg_output_tokens",
-            "avg_inference_time",
-        ]
-        source = tf_model_stats
-    else:
-        performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
-        source = averages
-
-    for i, metric in enumerate(performance_metrics):
-        values = [
-            source[model][metric] if model in source else 0 for model in models_list
-        ]
-
-        display_name = metric.replace("avg_", "").replace("_", " ").title()
-        color_key = metric.replace("avg_", "")
-
+        
+        # Add percentage line
         fig.add_trace(
-            go.Bar(
-                x=models_list,
-                y=values,
-                name=display_name,
-                text=[f"{val:.1f}" for val in values],
-                textposition="auto",
-                marker_color=perf_colors.get(
-                    color_key, f"hsl({50 + i * 70}, 70%, 50%)"
-                ),
-                hovertemplate=f"%{{x}}<br>{display_name}: %{{y:.1f}}<extra></extra>",
+            go.Scatter(
+                x=x_labels,
+                y=list(percentages.values()),
+                name="Percentage",
+                mode="lines+markers+text",
+                text=[f"{p:.1f}%" for p in percentages.values()],
+                textposition="top center",
+                marker=dict(size=10, color="#E60012"),
+                line=dict(width=3, color="#E60012"),
+                hovertemplate="Age Group: %{x}<br>Percentage: %{y:.1f}%<extra></extra>",
             ),
-            row=2,
-            col=1,
+            secondary_y=True,
         )
-
-    # Set up layout and styling
-    configure_plotly_layout(fig)
-
-    return fig
-
-
-def configure_plotly_layout(fig):
-    """
-    Configure the layout and styling of a Plotly figure.
-
-    Parameters:
-        fig: Plotly figure to configure
-    """
-    # Update overall layout
-    fig.update_layout(
-        title_text="Model Evaluation and Performance Analytics",
-        barmode="group",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(size=10),
-        ),
-        template="plotly_white",
-        height=900,
-        width=1000,
-        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial"),
-    )
-
-    # Configure axes
-    fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
-    fig.update_yaxes(title_text="Value", row=2, col=1)
-    fig.update_xaxes(title_text="Models", row=1, col=1)
-    fig.update_xaxes(title_text="Models", row=2, col=1)
-
-
-def generate_matplotlib_visualizations(
-    averages, tf_model_stats, stats_folder, timestamp, output_mode
-):
-    """
-    Generate Matplotlib visualizations for model evaluation and performance.
-
-    Parameters:
-        averages: Dictionary with computed averages for each model's evaluation scores
-        tf_model_stats: Dictionary containing model performance statistics
-        stats_folder: Folder where to save output files
-        timestamp: Timestamp string for filenames
-        output_mode: Controls where output is displayed ('terminal', 'files', or 'both')
-    """
-    should_output_files = output_mode in ["files", "both"]
-    should_output_terminal = output_mode in ["terminal", "both"]
-
-    # Define metrics and models
-    metrics_list = [
-        "grammar",
-        "creativity",
-        "moral_clarity",
-        "adherence_to_prompt",
-        "average_score_(mean)",
-    ]
-    models_list = list(averages.keys())
-
-    # Create the figure
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 12))
-
-    # Plot evaluation scores on first subplot
-    plot_evaluation_scores(ax1, averages, models_list, metrics_list)
-
-    # Plot performance metrics on second subplot
-    plot_performance_metrics(ax2, averages, tf_model_stats, models_list)
-
-    plt.tight_layout()
-
-    # Save and display according to output mode
-    if should_output_files:
-        plot_filename = os.path.join(
-            stats_folder, f"tf_stats_eval_plot_{timestamp}.png"
+        
+        # Update layout
+        fig.update_layout(
+            title_text=f"Age Group Distribution (Total: {total} Evaluations)",
+            title_x=0.5,
+            title_font=dict(size=24),
+            title_font_color="#333333",
+            barmode="group",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(size=12),
+            ),
+            template="plotly_white",
+            height=800,
+            width=1200,
+            margin=dict(l=80, r=80, t=120, b=80),
+            hoverlabel=dict(bgcolor="white", font_size=14, font_family="Arial"),
         )
-        plt.savefig(plot_filename)
-        print(f"Evaluation plot saved to {plot_filename}")
+        
+        # Update yaxes
+        fig.update_yaxes(title_text="Count", secondary_y=False)
+        fig.update_yaxes(title_text="Percentage (%)", secondary_y=True)
+        
+        # Save outputs if required
+        if output_mode in ["files", "both"]:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_age_group_plot_{timestamp}.png")
+            html_filename = os.path.join(stats_folder, f"tf_stats_age_group_plot_{timestamp}.html")
+            fig.write_image(plot_filename)
+            fig.write_html(html_filename)
+            logger.info(f"Age group distribution plot saved to {plot_filename} and {html_filename}")
+        if output_mode in ["terminal", "both"]:
+            fig.show()
 
-    # Show plot in terminal mode
-    if should_output_terminal:
-        plt.show()
+        return fig
 
-
-def plot_evaluation_scores(ax, averages, models_list, metrics_list):
-    """
-    Plot evaluation scores on the provided matplotlib axis.
-
-    Parameters:
-        ax: Matplotlib axis to plot on
-        averages: Dictionary with evaluation score averages
-        models_list: List of models to display
-        metrics_list: List of metrics to display
-    """
-    x = np.arange(len(models_list))
-    width = 0.17
-    colors = ["#1DB954", "#191414", "#535353", "#B3B3B3", "#E60012"]
-
-    for i, metric in enumerate(metrics_list):
-        values = [averages[model][metric] for model in models_list]
-        offset = (i - 2) * width
-        bars = ax.bar(
-            x + offset,
-            values,
-            width,
-            label=metric.replace("_", " ").title(),
-            color=colors[i % len(colors)],
+    @staticmethod
+    def generate_age_groups_by_file_plot(age_groups_by_file, stats_folder, timestamp, output_mode):
+        """Generate a stacked bar chart showing age group distribution by file/model."""
+        if not age_groups_by_file:
+            logger.info("No age group data by file available")
+            return
+        
+        # Age group descriptions for hover info
+        age_descriptions = {
+            "A": "3 years or under",
+            "B": "4-7 years",
+            "C": "8-11 years",
+            "D": "12-15 years",
+            "E": "16 years or above"
+        }
+        
+        # Create figure
+        fig = go.Figure()
+        
+        # Sort files by name for consistent display
+        models = sorted(age_groups_by_file.keys())
+        
+        # Define colors for age groups
+        colors = {
+            "A": "#FF9999",  # Light red
+            "B": "#66B2FF",  # Light blue
+            "C": "#99FF99",  # Light green
+            "D": "#FFCC99",  # Light orange
+            "E": "#CC99FF"   # Light purple
+        }
+        
+        # Add traces for each age group
+        for age_group in ["A", "B", "C", "D", "E"]:
+            percentages = []
+            hover_texts = []
+            
+            for model in models:
+                data = age_groups_by_file[model]
+                count = data["counts"][age_group]
+                total = data["total"]
+                percentage = (count / total * 100) if total > 0 else 0
+                
+                percentages.append(percentage)
+                hover_texts.append(
+                    f"Model: {model}<br>"
+                    f"Age Group: {age_group} ({age_descriptions[age_group]})<br>"
+                    f"Count: {count}<br>"
+                    f"Percentage: {percentage:.1f}%<br>"
+                    f"Total evals: {total}"
+                )
+            
+            fig.add_trace(go.Bar(
+                x=models,
+                y=percentages,
+                name=f"Age {age_group} - {age_descriptions[age_group]}",
+                text=[f"{p:.1f}%" for p in percentages],
+                textposition="inside",
+                marker_color=colors[age_group],
+                hoverinfo="text",
+                hovertext=hover_texts
+            ))
+        
+        # Update layout to stacked bars
+        fig.update_layout(
+            title="Age Group Distribution by Model",
+            title_x=0.5,
+            title_font=dict(size=24),
+            barmode='stack',
+            xaxis=dict(title="Model", tickangle=45),
+            yaxis=dict(title="Percentage (%)", range=[0, 100]),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            template="plotly_white",
+            height=800,
+            width=1200
         )
-
-        # Add value labels on top of bars
-        for bar in bars:
-            height = bar.get_height()
-            ax.annotate(
-                f"{height:.2f}",
-                xy=(bar.get_x() + bar.get_width() / 2, height),
-                xytext=(0, 3),
-                textcoords="offset points",
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                fontweight="bold",
-            )
-
-    # Configure axis
-    ax.set_title("Average Evaluation Scores by Model", fontsize=14, fontweight="bold")
-    ax.set_xticks(x)
-    ax.set_xticklabels(models_list, fontsize=12)
-    ax.set_ylim(0, 10)
-    ax.legend(fontsize=12)
-    ax.grid(axis="y", linestyle="--", alpha=0.7)
+        
+        # Save outputs if required
+        if output_mode in ["files", "both"]:
+            plot_filename = os.path.join(stats_folder, f"tf_stats_age_groups_by_model_{timestamp}.png")
+            html_filename = os.path.join(stats_folder, f"tf_stats_age_groups_by_model_{timestamp}.html")
+            fig.write_image(plot_filename)
+            fig.write_html(html_filename)
+            logger.info(f"Age group distribution by model saved to {plot_filename} and {html_filename}")
+        if output_mode in ["terminal", "both"]:
+            fig.show()
+            
+        return fig
 
 
-def plot_performance_metrics(ax, averages, tf_model_stats, models_list):
-    """
-    Plot performance metrics on the provided matplotlib axis.
-
-    Parameters:
-        ax: Matplotlib axis to plot on
-        averages: Dictionary with evaluation score averages
-        tf_model_stats: Dictionary containing model performance statistics
-        models_list: List of models to display
-    """
-    # Determine data source and metrics
-    if tf_model_stats:
-        performance_metrics = [
-            "avg_input_tokens",
-            "avg_output_tokens",
-            "avg_inference_time",
-        ]
-        source = tf_model_stats
-    else:
-        performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
-        source = averages
-
-    x = np.arange(len(models_list))
-    width_perf = 0.15
-    colors_perf = ["#4CAF50", "#2196F3", "#FFC107"]
-
-    for i, metric in enumerate(performance_metrics):
-        # For each model, if the metric is missing, default to 0
-        values = [
-            source[model][metric] if model in source else 0 for model in models_list
-        ]
-        offset = (i - 1) * width_perf
-        bars = ax.bar(
-            x + offset,
-            values,
-            width_perf,
-            label=metric.replace("avg_", "").replace("_", " ").title(),
-            color=colors_perf[i % len(colors_perf)],
-        )
-
-        # Add value labels on top of bars
-        for bar in bars:
-            height = bar.get_height()
-            ax.annotate(
-                f"{height:.1f}",
-                xy=(bar.get_x() + bar.get_width() / 2, height),
-                xytext=(0, 3),
-                textcoords="offset points",
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                fontweight="bold",
-            )
-
-    # Configure axis
-    ax.set_title("Performance Metrics by Model", fontsize=14, fontweight="bold")
-    ax.set_xticks(x)
-    ax.set_xticklabels(models_list, fontsize=12)
-    ax.legend(fontsize=12)
-    ax.grid(axis="y", linestyle="--", alpha=0.7)
+# --- Orchestrator Functions ---
+def process_tf_files(tf_files, stats_folder, timestamp, output_mode) -> dict:
+    tf_model_stats = FileProcessor.parse_fables_data(tf_files)
+    md_table = Evaluator.create_fables_markdown_table(tf_model_stats)
+    if output_mode in ["files", "both"]:
+        md_tf_filename = os.path.join(stats_folder, f"tf_stats_fables_{timestamp}.md")
+        with open(md_tf_filename, "w") as f:
+            f.write(md_table)
+        logger.info(f"Consolidated tf_fable report saved to {md_tf_filename}")
+    if output_mode in ["terminal", "both"]:
+        print("\n" + md_table + "\n")
+    return tf_model_stats
 
 
-def process_eval_files(
-    eval_files, tf_model_stats, stats_folder, timestamp, output_mode, plot_mode="plotly"
-):
-    """
-    Process evaluation files to generate tables and plots of model performance.
-
-    Parameters:
-        eval_files: List of files with 'eval_e' in their filename
-        tf_model_stats: Dictionary containing model statistics (from process_tf_files)
-        stats_folder: Folder where to save output files
-        timestamp: Timestamp string for filenames
-        output_mode: Controls where output is displayed ('terminal', 'files', or 'both')
-        plot_mode: Plotting library to use ('plotly' or 'matplotlib')
-    """
-    should_output_files = output_mode in ["files", "both"]
-    should_output_terminal = output_mode in ["terminal", "both"]
-
-    # Parse data and compute averages
-    score_totals = parse_translation_evaluation_data(eval_files)
-    print(score_totals)
-    averages = compute_translation_averages(score_totals) #compute_averages(score_totals)
-
-    # Generate evaluation Markdown table
-    md_table_eval = create_translation_evaluation_markdown_table(averages) #create_evaluation_markdown_table(averages)
-
-    # Output table according to specified mode
-    if should_output_files:
-        md_eval_filename = os.path.join(
-            stats_folder, f"tf_stats_eval_table_{timestamp}.md"
-        )
-        with open(md_eval_filename, "w") as f:
-            f.write(md_table_eval)
-        print(f"Evaluation Markdown table saved to {md_eval_filename}")
-
-    if should_output_terminal:
-        print("\n" + md_table_eval + "\n")
-
-    # Generate visualizations according to selected plotting library
+def process_eval_files(eval_files, tf_model_stats, stats_folder, timestamp, output_mode, plot_mode="plotly", orientation="vertical"):
+    score_totals = Evaluator.parse_evaluation_data(eval_files)
+    averages = Evaluator.compute_averages(score_totals)
+    
+    # Generate standard model comparison visualizations
+    md_table = Evaluator.create_evaluation_markdown_table(averages)
+    if output_mode in ["files", "both"]:
+        md_filename = os.path.join(stats_folder, f"tf_stats_eval_table_{timestamp}.md")
+        with open(md_filename, "w") as f:
+            f.write(md_table)
+        logger.info(f"Evaluation table saved to {md_filename}")
+    if output_mode in ["terminal", "both"]:
+        print("\n" + md_table + "\n")
+        
     if plot_mode.lower() == "plotly":
-        generate_plotly_visualizations(
-            averages, tf_model_stats, stats_folder, timestamp, output_mode
-        )
-    else:  # Use matplotlib as default or fallback
-        generate_matplotlib_visualizations(
-            averages, tf_model_stats, stats_folder, timestamp, output_mode
-        )
+        Visualizer.generate_plotly_visualizations(averages, tf_model_stats, stats_folder, timestamp, output_mode, orientation)
+    else:
+        Visualizer.generate_matplotlib_visualizations(averages, tf_model_stats, stats_folder, timestamp, output_mode)
+        
+    # # Generate age group distribution plot for all files combined
+    # age_group_data = Evaluator.count_age_groups(eval_files)
+    # if any(age_group_data[0].values()):  # Check if we found any age group data
+    #     Visualizer.generate_age_group_plot(age_group_data, stats_folder, timestamp, output_mode)
+        
+    #     # Generate age group distribution plot by file/model
+    #     age_groups_by_file = Evaluator.count_age_groups_by_file(eval_files)
+    #     Visualizer.generate_age_groups_by_file_plot(age_groups_by_file, stats_folder, timestamp, output_mode)
+    # else:
+    #     logger.info("No age group data found in the evaluation files")
+    
+    # Generate age group distribution by file/model plot
+    age_groups_by_file = Evaluator.count_age_groups_by_file(eval_files)
+    if age_groups_by_file:
+        Visualizer.generate_age_groups_by_file_plot(age_groups_by_file, stats_folder, timestamp, output_mode)
+    else:
+        logger.info("No age group data by file found in the evaluation files")
 
 
-def process_translation_eval_files(
-    translation_eval_files, tf_model_stats, stats_folder, timestamp, output_mode, plot_mode="plotly"
-):
-    """
-    Process translation evaluation files to generate tables and plots.
-
-    Parameters:
-        translation_eval_files: List of translation evaluation files
-        tf_model_stats: Dictionary containing model statistics
-        stats_folder: Folder where to save output files
-        timestamp: Timestamp string for filenames
-        output_mode: Controls where output is displayed
-        plot_mode: Plotting library to use
-    """
-    should_output_files = output_mode in ["files", "both"]
-    should_output_terminal = output_mode in ["terminal", "both"]
-
-    # Parse data and compute averages
-    translation_score_totals = parse_translation_evaluation_data(translation_eval_files)
-    translation_averages = compute_translation_averages(translation_score_totals)
-
-    # Generate translation evaluation Markdown table
-    md_table_trans = create_translation_evaluation_markdown_table(translation_averages)
-
-    # Output table according to specified mode
-    if should_output_files:
-        md_trans_filename = os.path.join(
-            stats_folder, f"tf_stats_translation_eval_table_{timestamp}.md"
-        )
+def process_translation_eval_files(translation_eval_files, tf_model_stats, stats_folder, timestamp, output_mode, plot_mode="plotly", orientation="vertical"):
+    translation_score_totals = Evaluator.parse_translation_evaluation_data(translation_eval_files)
+    translation_averages = Evaluator.compute_translation_averages(translation_score_totals)
+    md_table = Evaluator.create_translation_evaluation_markdown_table(translation_averages)
+    if output_mode in ["files", "both"]:
+        md_trans_filename = os.path.join(stats_folder, f"tf_stats_translation_eval_table_{timestamp}.md")
         with open(md_trans_filename, "w") as f:
-            f.write(md_table_trans)
-        print(f"Translation evaluation table saved to {md_trans_filename}")
-
-    if should_output_terminal:
-        print("\n" + md_table_trans + "\n")
-
-    # Generate visualizations according to selected plotting library
+            f.write(md_table)
+        logger.info(f"Translation evaluation table saved to {md_trans_filename}")
+    if output_mode in ["terminal", "both"]:
+        print("\n" + md_table + "\n")
     if plot_mode.lower() == "plotly":
-        generate_translation_plotly_visualizations(
-            translation_averages, tf_model_stats, stats_folder, timestamp, output_mode
-        )
-    else:  # Use matplotlib as default or fallback
-        generate_translation_matplotlib_visualizations(
-            translation_averages, tf_model_stats, stats_folder, timestamp, output_mode
-        )
-
-
-# --- MAIN FUNCTION AND COMMAND LINE INTERFACE ---
+        Visualizer.generate_translation_plotly_visualizations(translation_averages, tf_model_stats, stats_folder, timestamp, output_mode, orientation)
+    else:
+        Visualizer.generate_translation_matplotlib_visualizations(translation_averages, tf_model_stats, stats_folder, timestamp, output_mode)
 
 
 def plot_model_averages(args):
     """
-    Main function to process evaluation and tf_fables files.
-
-    Parameters:
-        args: Arguments containing input path, output mode, and plot mode
+    Main orchestrator to process evaluation and tf_fables files.
     """
-    # Identify relevant files
-    standard_eval_files, translation_eval_files, tf_files = identify_files(args.input)
-
-    # Set up output directory
-    stats_folder = "tinyfabulist/data/stats/"
+    standard_eval_files, translation_eval_files, tf_files = FileProcessor.identify_files(args.input)
+    stats_folder = "data/stats/"
     if args.output_mode in ["files", "both"]:
         os.makedirs(stats_folder, exist_ok=True)
     timestamp = time.strftime("%y%m%d-%H%M%S")
 
-    # Process files
     tf_model_stats = None
     if tf_files:
-        tf_model_stats = process_tf_files(
-            tf_files, stats_folder, timestamp, args.output_mode
-        )
-
+        tf_model_stats = process_tf_files(tf_files, stats_folder, timestamp, args.output_mode)
     if standard_eval_files:
-        process_eval_files(
-            standard_eval_files,
-            tf_model_stats,
-            stats_folder,
-            timestamp,
-            args.output_mode,
-            args.plot_mode,
-        )
+        process_eval_files(standard_eval_files, tf_model_stats, stats_folder, timestamp, args.output_mode, args.plot_mode, args.orientation)
     else:
-        print("No standard evaluation files found.")
-        
+        logger.info("No standard evaluation files found.")
     if translation_eval_files:
-        process_translation_eval_files(
-            translation_eval_files,
-            tf_model_stats,
-            stats_folder,
-            timestamp,
-            args.output_mode,
-            args.plot_mode,
-        )
+        process_translation_eval_files(translation_eval_files, tf_model_stats, stats_folder, timestamp, args.output_mode, args.plot_mode, args.orientation)
     else:
-        print("No translation evaluation files found.")
-
-    if not standard_eval_files and not translation_eval_files and not tf_files:
-        print("No relevant files found.")
+        logger.info("No translation evaluation files found.")
+    if not (standard_eval_files or translation_eval_files or tf_files):
+        logger.info("No relevant files found.")
 
 
 def add_stats_subparser(subparsers) -> None:
-    """
-    Add statistics subparser to the main argument parser.
-
-    Parameters:
-        subparsers: Subparser collection to add to
-    """
     generate_parser = subparsers.add_parser(
         "stats",
-        help="Compute aggregated statistics from evaluation JSONL files (file or directory).",
+        help="Compute aggregated statistics from evaluation JSONL files (file or directory)."
     )
     generate_parser.add_argument(
         "--input",
         default="evaluate.jsonl",
-        help="Path to a JSONL file or a folder containing JSONL files",
+        help="Path to a JSONL file or a folder containing JSONL files"
     )
     generate_parser.add_argument(
         "--output-mode",
         choices=["terminal", "files", "both"],
         default="both",
-        help="Control where to output results: terminal only, files only, or both (default: both)",
+        help="Control where to output results: terminal only, files only, or both (default: both)"
     )
     generate_parser.add_argument(
         "--plot-mode",
         choices=["plotly", "matplotlib"],
         default="plotly",
-        help="Plotting library to use for visualizations (default: plotly)",
+        help="Plotting library to use for visualizations (default: plotly)"
+    )
+    generate_parser.add_argument(
+        "--orientation",
+        choices=["vertical", "horizontal"],
+        default="vertical",
+        help="Orientation of bar charts: vertical (default) or horizontal"
     )
     generate_parser.set_defaults(func=plot_model_averages)
 
-def generate_translation_plotly_visualizations(
-    translation_averages, tf_model_stats, stats_folder, timestamp, output_mode
-):
-    """
-    Generate interactive Plotly visualizations for model translation evaluations.
 
-    Parameters:
-        translation_averages: Dictionary with computed averages for each model's translation scores
-        tf_model_stats: Dictionary containing model performance statistics
-        stats_folder: Folder where to save output files
-        timestamp: Timestamp string for filenames
-        output_mode: Controls where output is displayed ('terminal', 'files', or 'both')
-    """
-    should_output_files = output_mode in ["files", "both"]
-    should_output_terminal = output_mode in ["terminal", "both"]
-
-    # Define metrics and model lists
-    metrics_list = [
-        "translation_accuracy",
-        "fluency", 
-        "style_preservation",
-        "moral_clarity",
-        "average_score_(mean)",
-    ]
-    models_list = list(translation_averages.keys())
-    models_list_names = [model.split("_")[-1] for model in models_list]
-
-
-    # Create a subplot with 2 rows
-    fig = make_subplots(
-        rows=2,
-        cols=1,
-        subplot_titles=(
-            "Average Translation Evaluation Scores by Model",
-            "Performance Metrics by Model",
-        ),
-        vertical_spacing=0.2,
-        specs=[[{"type": "bar"}], [{"type": "bar"}]],
-    )
-
-    # Define color schemes for translation metrics
-    trans_colors = {
-        "translation_accuracy": "#1DB954",  # Green
-        "fluency": "#191414",               # Dark gray/black
-        "style_preservation": "#535353",    # Medium gray
-        "moral_clarity": "#B3B3B3",         # Light gray
-        "average_score_(mean)": "#E60012",  # Red
-    }
-
-    perf_colors = {
-        "input_tokens": "#4CAF50",  # Green
-        "output_tokens": "#2196F3",  # Blue
-        "inference_time": "#FFC107",  # Amber
-    }
-
-    # Add translation evaluation score bars
-    for i, metric in enumerate(metrics_list):
-        values = [translation_averages[model][metric] for model in models_list]
-
-        fig.add_trace(
-            go.Bar(
-                x=models_list_names,
-                y=values,
-                name=metric.replace("_", " ").title(),
-                text=[f"{val:.2f}" for val in values],
-                textposition="auto",
-                marker_color=trans_colors.get(metric, f"hsl({50 + i * 70}, 70%, 50%)"),
-                hovertemplate=f'%{{x}}<br>{metric.replace("_", " ").title()}: %{{y:.2f}}<extra></extra>',
-            ),
-            row=1,
-            col=1,
-        )
-
-    # Add performance metric bars
-    # Prefer tf_model_stats if available; otherwise, use translation averages
-    if tf_model_stats:
-        performance_metrics = [
-            "avg_input_tokens",
-            "avg_output_tokens",
-            "avg_inference_time",
-        ]
-        source = tf_model_stats
-    else:
-        performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
-        source = translation_averages
-
-    for i, metric in enumerate(performance_metrics):
-        values = [
-            source[model][metric] if model in source else 0 for model in models_list
-        ]
-
-        display_name = metric.replace("avg_", "").replace("_", " ").title()
-        color_key = metric.replace("avg_", "")
-
-        fig.add_trace(
-            go.Bar(
-                x=models_list,
-                y=values,
-                name=display_name,
-                text=[f"{val:.1f}" for val in values],
-                textposition="auto",
-                marker_color=perf_colors.get(
-                    color_key, f"hsl({50 + i * 70}, 70%, 50%)"
-                ),
-                hovertemplate=f"%{{x}}<br>{display_name}: %{{y:.1f}}<extra></extra>",
-            ),
-            row=2,
-            col=1,
-        )
-
-    # Update layout for translation visualization
-    fig.update_layout(
-        title_text="Translation Evaluation and Performance Analytics",
-        barmode="group",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(size=10),
-        ),
-        template="plotly_white",
-        height=900,
-        width=1000,
-        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial"),
-    )
-
-    # Configure axes
-    fig.update_yaxes(title_text="Score", range=[0, 10], row=1, col=1)
-    fig.update_yaxes(title_text="Value", row=2, col=1)
-    fig.update_xaxes(title_text="Models", row=1, col=1)
-    fig.update_xaxes(title_text="Models", row=2, col=1)
-
-    # Save and display plots according to output mode
-    if should_output_files:
-        # Save as static image
-        plot_filename = os.path.join(
-            stats_folder, f"tf_stats_translation_plot_{timestamp}.png"
-        )
-        fig.write_image(plot_filename)
-
-        # Also save as interactive HTML
-        html_filename = os.path.join(
-            stats_folder, f"tf_stats_translation_plot_{timestamp}.html"
-        )
-        fig.write_html(html_filename)
-
-        print(f"Translation evaluation plots saved to {plot_filename} and {html_filename}")
-
-    # Show plot in browser if terminal output is enabled
-    if should_output_terminal:
-        fig.show()
-
-
-def generate_translation_matplotlib_visualizations(
-    translation_averages, tf_model_stats, stats_folder, timestamp, output_mode
-):
-    """
-    Generate Matplotlib visualizations for model translation evaluations.
-
-    Parameters:
-        translation_averages: Dictionary with computed averages for each model's translation scores
-        tf_model_stats: Dictionary containing model performance statistics
-        stats_folder: Folder where to save output files
-        timestamp: Timestamp string for filenames
-        output_mode: Controls where output is displayed ('terminal', 'files', or 'both')
-    """
-    should_output_files = output_mode in ["files", "both"]
-    should_output_terminal = output_mode in ["terminal", "both"]
-
-    # Define metrics and models
-    metrics_list = [
-        "translation_accuracy",
-        "fluency", 
-        "style_preservation",
-        "moral_clarity",
-        "average_score_(mean)",
-    ]
-    models_list = list(translation_averages.keys())
-    models_list_names = [model.split("_")[-1] for model in models_list]
-
-    # Create the figure
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 12))
-
-    # Plot translation evaluation scores on first subplot
-    x = np.arange(len(models_list))
-    width = 0.17
-    colors = ["#1DB954", "#191414", "#535353", "#B3B3B3", "#E60012"]
-
-    for i, metric in enumerate(metrics_list):
-        values = [translation_averages[model][metric] for model in models_list]
-        offset = (i - 2) * width
-        bars = ax1.bar(
-            x + offset,
-            values,
-            width,
-            label=metric.replace("_", " ").title(),
-            color=colors[i % len(colors)],
-        )
-
-        # Add value labels on top of bars
-        for bar in bars:
-            height = bar.get_height()
-            ax1.annotate(
-                f"{height:.2f}",
-                xy=(bar.get_x() + bar.get_width() / 2, height),
-                xytext=(0, 3),
-                textcoords="offset points",
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                fontweight="bold",
-            )
-
-    # Configure axis
-    ax1.set_title("Average Translation Evaluation Scores by Model", fontsize=14, fontweight="bold")
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(models_list_names, fontsize=12)
-    ax1.set_ylim(0, 10)
-    ax1.legend(fontsize=12)
-    ax1.grid(axis="y", linestyle="--", alpha=0.7)
-
-    # Plot performance metrics on second subplot
-    # Determine data source and metrics
-    if tf_model_stats:
-        performance_metrics = [
-            "avg_input_tokens",
-            "avg_output_tokens",
-            "avg_inference_time",
-        ]
-        source = tf_model_stats
-    else:
-        performance_metrics = ["input_tokens", "output_tokens", "inference_time"]
-        source = translation_averages
-
-    width_perf = 0.15
-    colors_perf = ["#4CAF50", "#2196F3", "#FFC107"]
-
-    for i, metric in enumerate(performance_metrics):
-        # For each model, if the metric is missing, default to 0
-        values = [
-            source[model][metric] if model in source else 0 for model in models_list
-        ]
-        offset = (i - 1) * width_perf
-        bars = ax2.bar(
-            x + offset,
-            values,
-            width_perf,
-            label=metric.replace("avg_", "").replace("_", " ").title(),
-            color=colors_perf[i % len(colors_perf)],
-        )
-
-        # Add value labels on top of bars
-        for bar in bars:
-            height = bar.get_height()
-            ax2.annotate(
-                f"{height:.1f}",
-                xy=(bar.get_x() + bar.get_width() / 2, height),
-                xytext=(0, 3),
-                textcoords="offset points",
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                fontweight="bold",
-            )
-
-    # Configure axis
-    ax2.set_title("Performance Metrics by Model", fontsize=14, fontweight="bold")
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(models_list, fontsize=12)
-    ax2.legend(fontsize=12)
-    ax2.grid(axis="y", linestyle="--", alpha=0.7)
-
-    plt.tight_layout()
-
-    # Save and display according to output mode
-    if should_output_files:
-        plot_filename = os.path.join(
-            stats_folder, f"tf_stats_translation_plot_{timestamp}.png"
-        )
-        plt.savefig(plot_filename)
-        print(f"Translation evaluation plot saved to {plot_filename}")
-
-    # Show plot in terminal mode
-    if should_output_terminal:
-        plt.show()
-
-# --- SCRIPT ENTRY POINT ---
-
+# --- Script Entry Point ---
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Generate statistics from evaluation files"
-    )
+    parser = argparse.ArgumentParser(description="Generate statistics from evaluation files")
     subparsers = parser.add_subparsers(title="Commands", dest="command")
     add_stats_subparser(subparsers)
-
     args = parser.parse_args()
-    args.func(args)
-
+    if hasattr(args, "func"):
+        args.func(args)
+    else:
+        parser.print_help()
