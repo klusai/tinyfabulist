@@ -88,6 +88,7 @@ TinyFabulist is a Python-based fable generation system that:
 ---
 
 ## Usage Examples
+Below is a usage guide for the `tinyfabulist.py` file, which serves as the main entry point for both generating and evaluating fables. This file uses subcommands to separate functionality.
 
 The `tinyfabulist.py` file serves as the main entry point for generating, evaluating, translating, and enhancing fables. Use the provided subcommands to separate functionality.
 
