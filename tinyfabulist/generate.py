@@ -6,6 +6,7 @@ import sys
 import time
 import asyncio
 import random
+import logging
 from itertools import count
 from random import sample
 
@@ -24,6 +25,21 @@ TOKENIZER_CACHE = {}
 # Global OpenAI client cache
 CLIENT_CACHE = {}
 
+PROMPTS_FOLDER = "data/prompts/"
+FABLES_FOLDER = "data/fables/"
+
+BATCH_SIZE = 30
+MAX_CONCURRENCY=30
+MAX_RETRIES = 8
+INITIAL_RETRY_DELAY = 1.0
+
+# Configure OpenAI client logging to suppress HTTP request logs
+logging.getLogger("openai._client").setLevel(logging.WARNING)
+logging.getLogger("openai.http_client").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+logger = setup_logging()
+
 def get_tokenizer(llm_name):
     if llm_name not in TOKENIZER_CACHE:
         try:
@@ -41,17 +57,6 @@ def get_client(base_url, api_key):
         client = AsyncOpenAI(base_url=base_url, api_key=api_key)
         CLIENT_CACHE[cache_key] = client
     return CLIENT_CACHE[cache_key]
-
-# Constants
-PROMPTS_FOLDER = "data/prompts/"
-FABLES_FOLDER = "data/fables/"
-
-logger = setup_logging()
-
-# Constants for request management
-MAX_RETRIES = 8
-INITIAL_RETRY_DELAY = 1.0
-
 
 def load_settings() -> dict:
     try:
@@ -372,7 +377,7 @@ async def async_generate_fables(
     
     # Create a semaphore to limit concurrent connections
     # Use a reasonable number based on available system resources
-    concurrency_limit = getattr(args, "max_concurrency", 1200)
+    concurrency_limit = getattr(args, "max_concurrency", MAX_CONCURRENCY)
     semaphore = asyncio.Semaphore(concurrency_limit)
     
     # First determine how many tasks we'll create per model
@@ -385,7 +390,7 @@ async def async_generate_fables(
         logger.info(f"Queuing tasks for model: {model_config['name']}")
         
         # Process prompts in efficient batches
-        batch_size = min(1000, len(fable_prompts))
+        batch_size = min(BATCH_SIZE, len(fable_prompts))
         for i in range(0, len(fable_prompts), batch_size):
             batch_prompts = fable_prompts[i:i+batch_size]
             batch_tasks = []
@@ -582,7 +587,7 @@ def add_generate_subparser(subparsers) -> None:
     generate_parser.add_argument(
         "--max-concurrency",
         type=int,
-        default=40000,
+        default=MAX_CONCURRENCY,
         help="Maximum number of concurrent requests (default: 500)",
     )
     generate_parser.set_defaults(func=run_generate)
