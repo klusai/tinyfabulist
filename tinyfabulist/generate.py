@@ -9,6 +9,7 @@ import random
 import logging
 from itertools import count
 from random import sample
+from tqdm import tqdm
 
 import yaml
 from decouple import config
@@ -25,18 +26,21 @@ TOKENIZER_CACHE = {}
 # Global OpenAI client cache
 CLIENT_CACHE = {}
 
-PROMPTS_FOLDER = "data/prompts/"
-FABLES_FOLDER = "data/fables/"
-
-BATCH_SIZE = 30
-MAX_CONCURRENCY=30
-MAX_RETRIES = 8
-INITIAL_RETRY_DELAY = 1.0
-
 # Configure OpenAI client logging to suppress HTTP request logs
 logging.getLogger("openai._client").setLevel(logging.WARNING)
 logging.getLogger("openai.http_client").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
+
+PROMPTS_FOLDER = "data/prompts/"
+FABLES_FOLDER = "data/fables/"
+
+# Constants for concurrency and batching
+BATCH_SIZE = 1000                   # Maximum number of prompts to process in a batch
+MAX_CONCURRENCY = 600  # Maximum number of concurrent requests
+
+# Constants for request management
+MAX_RETRIES = 8
+INITIAL_RETRY_DELAY = 1.0
 
 logger = setup_logging()
 
@@ -384,14 +388,31 @@ async def async_generate_fables(
     total_tasks = len(models_to_use) * len(fable_prompts)
     logger.info(f"Setting up {total_tasks} generation tasks across {len(models_to_use)} models")
     
+    # Track timing statistics
+    batch_times = []
+    show_progress = getattr(args, "show_progress", False)
+    
     # Create tasks for all models in parallel but control concurrency with semaphore
-    for model_name in models_to_use:
+    for model_idx, model_name in enumerate(models_to_use):
         model_config = available_models[model_name]
-        logger.info(f"Queuing tasks for model: {model_config['name']}")
+        logger.info(f"Queuing tasks for model: {model_config['name']} ({model_idx+1}/{len(models_to_use)})")
         
         # Process prompts in efficient batches
         batch_size = min(BATCH_SIZE, len(fable_prompts))
-        for i in range(0, len(fable_prompts), batch_size):
+        total_batches = (len(fable_prompts) + batch_size - 1) // batch_size
+        
+        # Create progress bar if enabled
+        batch_iterator = range(0, len(fable_prompts), batch_size)
+        if show_progress:
+            batch_iterator = tqdm(
+                batch_iterator, 
+                total=total_batches,
+                desc=f"Model {model_name}",
+                unit="batch"
+            )
+        
+        for batch_idx, i in enumerate(batch_iterator):
+            batch_start_time = time.time()
             batch_prompts = fable_prompts[i:i+batch_size]
             batch_tasks = []
             
@@ -411,11 +432,15 @@ async def async_generate_fables(
                 )
                 batch_tasks.append(task)
             
+            # Log batch processing start
+            batch_id = f"{model_name}-{batch_idx+1}/{total_batches}"
+            logger.info(f"Processing batch {batch_id} with {len(batch_tasks)} prompts")
+            
             # Start the batch processing
-            logger.info(f"Processing batch of {len(batch_tasks)} prompts for model {model_name}")
             batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
             
             # Process and write results from this batch immediately
+            successful_results = 0
             write_tasks = []
             for result in batch_results:
                 if isinstance(result, Exception):
@@ -423,6 +448,7 @@ async def async_generate_fables(
                     continue
                     
                 if result is not None:
+                    successful_results += 1
                     # Write result to file
                     write_task = write_result_to_file(
                         result, model_name, output_files, args.output
@@ -432,7 +458,32 @@ async def async_generate_fables(
             # Wait for all write operations in this batch to complete
             if write_tasks:
                 await asyncio.gather(*write_tasks)
-                
+            
+            # Calculate and log batch timing statistics
+            batch_end_time = time.time()
+            batch_duration = batch_end_time - batch_start_time
+            batch_times.append(batch_duration)
+            
+            # Calculate average time per item and estimate remaining time
+            avg_time_per_batch = sum(batch_times) / len(batch_times)
+            remaining_batches = total_batches * len(models_to_use) - (model_idx * total_batches + batch_idx + 1)
+            est_remaining_time = avg_time_per_batch * remaining_batches
+            
+            # Log batch completion with timing info
+            logger.info(
+                f"Completed batch {batch_id}: {successful_results}/{len(batch_tasks)} successful "
+                f"in {batch_duration:.2f}s (avg: {avg_time_per_batch:.2f}s/batch, "
+                f"est. remaining: {est_remaining_time/60:.1f}m)"
+            )
+            
+            # Update progress bar if enabled
+            if show_progress and hasattr(batch_iterator, "set_postfix"):
+                batch_iterator.set_postfix({
+                    "success": f"{successful_results}/{len(batch_tasks)}",
+                    "time": f"{batch_duration:.1f}s",
+                    "remaining": f"{est_remaining_time/60:.1f}m"
+                })
+            
             # Small delay between batches to allow recovery
             await asyncio.sleep(0.1)
 
@@ -604,5 +655,10 @@ def add_generate_subparser(subparsers) -> None:
         type=int,
         default=MAX_CONCURRENCY,
         help="Maximum number of concurrent requests (default: 500)",
+    )
+    generate_parser.add_argument(
+        "--show-progress",
+        action="store_true",
+        help="Show progress bars for batch processing",
     )
     generate_parser.set_defaults(func=run_generate)

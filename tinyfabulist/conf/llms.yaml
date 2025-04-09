@@ -66,3 +66,10 @@ llms:
       host_cost_per_hour: 1.0
       host_gpu_vram: 32
       host_gpu: "INF2"
+    llama-3-1-8b-instruct-oji:
+      base_url: "https://hawwn0mbacyml5my.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 1.0
+      host_gpu_vram: 384
+      host_gpu: "Nvidia L40S"
+
