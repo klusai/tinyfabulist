@@ -1,5 +1,5 @@
 metadata:
   pipeline_version: "1.0"
-  host_dc_location: "eu-west-1"
-  host_dc_provider: "eu-west-1"
-  host_provider: "endpoints.huggingface"
+  host_dc_location: "us-east-1"
+  host_dc_provider: "Amazon Web Services"
+  host_provider: "Hugging Face - Inference Endpoints"

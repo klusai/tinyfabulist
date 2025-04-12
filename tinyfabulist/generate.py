@@ -35,8 +35,8 @@ PROMPTS_FOLDER = "data/prompts/"
 FABLES_FOLDER = "data/fables/"
 
 # Constants for concurrency and batching
-BATCH_SIZE = 1000                   # Maximum number of prompts to process in a batch
-MAX_CONCURRENCY = 600  # Maximum number of concurrent requests
+BATCH_SIZE = 180                   # Maximum number of prompts to process in a batch
+MAX_CONCURRENCY = 100  # Maximum number of concurrent requests
 
 # Constants for request management
 MAX_RETRIES = 8
@@ -585,7 +585,7 @@ async def run_generate_async(args):
                     ],
                 )
                 writer.writeheader()
-                f.flush()
+                f.flush()   
             output_files[model_name] = f
 
         # Extract metadata from settings and add version info

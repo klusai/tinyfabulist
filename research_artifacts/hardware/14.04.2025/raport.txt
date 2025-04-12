@@ -1,0 +1,56 @@
+L40S
+Extracting dates from ./data/fables/llama-3-1-8b-instruct-l40st/tf_fables_llama-3-1-8b-instruct-l40st_dt250412-221514.jsonl...
+==================== RESULTS ====================
+Earliest datetime: 2025-04-12 22:15:28
+Latest datetime:   2025-04-12 22:30:52
+-------------------------------------------
+Difference: 924 seconds
+           15 minutes
+           0 hours
+           0 days
+===============================================
+
+
+
+A10G
+Extracting dates from ./data/fables/llama-3-1-8b-instruct-a10gt/tf_fables_llama-3-1-8b-instruct-a10gt_dt250412-221516.jsonl...
+==================== RESULTS ====================
+Earliest datetime: 2025-04-12 22:15:30
+Latest datetime:   2025-04-12 23:16:33
+-------------------------------------------
+Difference: 3663 seconds
+           61 minutes
+           1 hours
+           0 days
+===============================================
+
+
+A100
+Extracting dates from ./data/fables/llama-3-1-8b-instruct-a100t/tf_fables_llama-3-1-8b-instruct-a100t_dt250412-221508.jsonl...
+==================== RESULTS ====================
+Earliest datetime: 2025-04-12 22:15:20
+Latest datetime:   2025-04-12 22:28:01
+-------------------------------------------
+Difference: 761 seconds
+           12 minutes
+           0 hours
+           0 days
+===============================================
+
+L4
+Extracting dates from ./research_artifacts/hardware/14.04.2025/llama-3-1-8b-instruct-l4t/tf_fables_llama-3-1-8b-instruct-l4t_dt250412-221506.jsonl...
+==================== RESULTS ====================
+Earliest datetime: 2025-04-12 22:15:31
+Latest datetime:   2025-04-13 00:06:24
+-------------------------------------------
+Difference: 6653 seconds
+           110 minutes
+           1 hours
+           0 days
+===============================================
+
+
+L40S: $1.80 × (924/3600) = $0.462
+A10G: $1.00 × (3663/3600) = $1.017
+A100: $4.00 × (761/3600) = $0.845
+L4: $0.80 × (6653/3600) = $1.478
