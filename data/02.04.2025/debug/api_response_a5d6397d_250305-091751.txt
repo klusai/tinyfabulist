@@ -1,4 +1,0 @@
-ERROR: 'block_1'
-
-API RESPONSE:
-Error evaluating fable: 'block_1'
