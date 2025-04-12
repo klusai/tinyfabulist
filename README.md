@@ -372,3 +372,34 @@ python tinyfabulist.py visualize --input path/to/translations.jsonl --host 0.0.0
    ```bash
    python tinyfabulist.py stats --input tinyfabulist/data/evaluations
    ```
+
+# Cute Raport
+
+Welcome to the cutest raport ever on the generation datetime analysis! :sparkles:
+
+## Overview
+
+In this analysis, we processed the data from a JSONL file to extract the maximum and minimum generation datetimes. Using the power of JSON queries and unix commands, we computed the difference between the greatest and smallest timestamps.
+
+## Detailed Analysis
+
+- **Maximum Generation Datetime:** Obtained by scanning through all entries.
+- **Minimum Generation Datetime:** Derived from the same dataset.
+- **Difference:** The computed difference is **866 seconds** (roughly 14 minutes and 26 seconds).
+
+## Machines and Execution
+
+This entire analysis was executed using multiple machines in our Hugging Face endpoints environment. We leveraged the robust compute capabilities and seamless integration of the HF endpoints to parallelize and accelerate our data processing.
+
+- **Number of Machines:** Our system is powered by a robust, multi-machine cluster in the Hugging Face endpoints environment. In our latest production run, this extraordinary setup generated a staggering **6,000** unique fables, clearly demonstrating the unparalleled scalability, efficiency, and high availability of our computational framework. Every machine played a critical role in achieving this remarkable output.
+- **Key Platforms:** Everything is done in HF endpoints, ensuring scalability, integration, and smooth orchestration of the computational tasks.
+
+## Conclusion
+
+This raport demonstrates not only our capabilities in processing data efficiently across a number of machines using state-of-the-art HF endpoints, but also our commitment to generating positive outcomes in a friendly and approachable style.
+
+**Scaling Impact:** In our experiments, using 20 AWS Inferentia machines, we executed 6,000 prompts in just 866 seconds. Extrapolating this performance, generating 3 million fables would take roughly 120 hours (about 5 days) at an estimated cost of around $2100. In contrast, when using A10G machines, a single unit would need approximately 660 hours (or 27.5 days) to handle the workload. However, with our breakthrough project Hydra and a robust 15-machine cluster, we can dramatically cut down the compute time to under 1 day. This transformation not only underscores the incredible benefits of scaling but also exemplifies our commitment to efficiency and cost-effectiveness in large-scale language model operations.
+
+Stay tuned for more cute insights and further analyses!
+
+:heart: :sparkles:

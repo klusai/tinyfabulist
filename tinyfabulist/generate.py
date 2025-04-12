@@ -196,15 +196,15 @@ def load_existing_hashes(input_file: str, output_format: str) -> set:
                         continue
                     try:
                         record = json.loads(line)
-                        if "hash" in record:
-                            hashes.add(record["hash"])
+                        if "prompt_hash" in record:
+                            hashes.add(record["prompt_hash"])
                     except Exception as e:
                         logger.error(f"Error parsing JSON line: {e}")
             elif output_format == "csv":
                 reader = csv.DictReader(f)
                 for row in reader:
-                    if "hash" in row:
-                        hashes.add(row["hash"])
+                    if "prompt_hash" in row:
+                        hashes.add(row["prompt_hash"])
             # For text format, we cannot reliably extract hashes.
     except Exception as e:
         logger.error(f"Error reading output file {input_file}: {e}")
@@ -231,7 +231,7 @@ async def process_single_generation(
         # Compute hash to avoid duplicates
         hash_val = compute_hash(model_config["name"], prompt)
         if hash_val in existing_hashes:
-            logger.info(f"Skipping duplicate fable for hash: {hash_val}")
+            logger.info(f"Skipping duplicate fable for prompt hash: {hash_val}")
             return None
         
         try:
@@ -270,7 +270,7 @@ async def process_single_generation(
             result = {
                 "language": "en",
                 "prompt": prompt,
-                "hash": hash_val,
+                "prompt_hash": hash_val,
                 "fable": fable,
                 "llm_name": llm_name,
                 "llm_input_tokens": llm_input_tokens,
@@ -282,6 +282,7 @@ async def process_single_generation(
                 "host_gpu": model_config.get("host_gpu"),
                 "host_gpu_vram": model_config.get("host_gpu_vram"),
                 "host_cost_per_hour": model_config.get("host_cost_per_hour"),
+                "currency": model_config.get("currency"),
                 "generation_datetime": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "pipeline_version": metadata.get("pipeline_version"),
             }
@@ -315,7 +316,7 @@ async def write_result_to_file(result, model_name, output_files, output_format):
         f.write(f"Model: {result['llm_name']}\n")
         f.write(f"Prompt:\n{result['prompt']}\n")
         f.write(f"Fable:\n{result['fable']}\n")
-        f.write(f"Hash: {result['hash']}\n")
+        f.write(f"Prompt Hash: {result['prompt_hash']}\n")
         f.write("-" * 80 + "\n")
     f.flush()
 
@@ -567,7 +568,7 @@ async def run_generate_async(args):
                         "model",
                         "prompt",
                         "fable",
-                        "hash",
+                        "prompt_hash",
                         "llm_name",
                         "llm_input_tokens",
                         "llm_output_tokens",
