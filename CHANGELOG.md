@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 This project uses automatic versioning in the format `major_version.nr_of_commits.date` (e.g., `1.42.230512`). 
+## [1.105.250413] - 2025-04-13 01:00:52
+
+- Commit: 147bdf8 - Machines ready
+
 ## [1.104.250413] - 2025-04-13 00:20:35
 
 - Commit: e0e5c17 - Lightweight deployments
