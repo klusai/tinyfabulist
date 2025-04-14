@@ -16,6 +16,12 @@ from pybars import Compiler
 from tinyfabulist.logger import setup_logging
 from tinyfabulist.utils import load_settings
 
+import nltk
+from nltk import ngrams
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+
+import textstat
+
 logger = setup_logging()
 
 
@@ -250,6 +256,39 @@ class EvaluationUtils:
         error_msg = f"Operation failed after {max_attempts} attempts"
         logger.error(error_msg)
         return {"error": error_msg}
+
+    def distinct_n(text, n=1):
+        """
+        Calculate the distinct n-gram ratio of a given text.
+        """
+        tokens = text.split()
+        if len(tokens) < n:
+            return 0
+        ngram_list = list(ngrams(tokens, n))
+        distinct_count = len(set(ngram_list))
+        total_count = len(ngram_list)
+        return distinct_count / total_count
+
+    def get_readability(text):
+        """
+        Calculate the Flesch Reading Ease score of a given text.
+        """
+        return textstat.flesch_reading_ease(text)
+
+    def compute_self_bleu(generated_texts):
+        """
+        Compute the self-BLEU score for a list of generated texts.
+        """
+        smoothie = SmoothingFunction().method1
+        bleu_scores = []
+        for i, hypothesis in enumerate(generated_texts):
+            # Use all other texts as references for the current text.
+            references = [nltk.word_tokenize(text.lower()) for j, text in enumerate(generated_texts) if j != i]
+            hypothesis_tokens = nltk.word_tokenize(hypothesis.lower())
+            score = sentence_bleu(references, hypothesis_tokens, smoothing_function=smoothie)
+            bleu_scores.append(score)
+        avg_bleu = sum(bleu_scores) / len(bleu_scores) if bleu_scores else 0
+        return avg_bleu, bleu_scores
 
 
 # Helper functions for common evaluation patterns
