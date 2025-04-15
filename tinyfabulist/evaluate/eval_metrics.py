@@ -5,6 +5,9 @@ A simple evaluation script for fables that computes:
   - Flesch Reading Ease,
   - Self-BLEU (across all fables in the file).
 
+Additionally, it computes an overall distinct-n score and an overall
+Flesch Reading Ease score for the entire file (averaging the per-fable scores).
+
 Usage:
     python evaluate_fables_metrics.py --input path/to/fables.jsonl --output_dir path/to/output
 """
@@ -31,8 +34,8 @@ def evaluate_fable(entry):
     Expected that the entry contains a "fable" field.
     Adds the following keys:
        - "flesch_reading_ease"
-       - "distinct_1" (distinct unigrams)
-       - "distinct_2" (distinct bigrams)
+       - "distinct_1" (distinct unigram ratio)
+       - "distinct_2" (distinct bigram ratio)
     
     :param entry: Dictionary representing a fable entry.
     :return: Updated dictionary with added metrics.
@@ -53,6 +56,8 @@ def evaluate_file(file_path, output_dir=None):
       - "evaluated_entries": list of evaluated fable entries
       - "self_bleu": overall average self-BLEU score
       - "self_bleu_scores": list of individual self-BLEU scores
+      - "overall_distinct_1": average distinct-1 score of all evaluated fables
+      - "overall_flesch_reading_ease": average Flesch Reading Ease score of all evaluated fables
     
     :param file_path: Path to the input JSONL file.
     :param output_dir: Directory to save results; defaults to same directory as file_path.
@@ -62,11 +67,16 @@ def evaluate_file(file_path, output_dir=None):
     
     evaluated_entries = []
     fable_texts = []
+    distinct_1_scores = []
+    reading_ease_scores = []
+    
     for entry in entries:
         if "fable" in entry:
             evaluated_entry = evaluate_fable(entry)
             evaluated_entries.append(evaluated_entry)
             fable_texts.append(evaluated_entry["fable"])
+            distinct_1_scores.append(evaluated_entry["distinct_1"])
+            reading_ease_scores.append(evaluated_entry["flesch_reading_ease"])
         else:
             evaluated_entries.append(entry)
     
@@ -77,10 +87,23 @@ def evaluate_file(file_path, output_dir=None):
         avg_bleu = None
         bleu_scores = []
     
+    # Compute overall distinct_1 and overall Flesch Reading Ease scores (averages)
+    if distinct_1_scores:
+        overall_distinct_1 = sum(distinct_1_scores) / len(distinct_1_scores)
+    else:
+        overall_distinct_1 = None
+    
+    if reading_ease_scores:
+        overall_flesch_reading_ease = sum(reading_ease_scores) / len(reading_ease_scores)
+    else:
+        overall_flesch_reading_ease = None
+    
     result = {
         "evaluated_entries": evaluated_entries,
         "self_bleu": avg_bleu,
-        "self_bleu_scores": bleu_scores
+        "self_bleu_scores": bleu_scores,
+        "distinct_1": overall_distinct_1,
+        "flesch_reading_ease": overall_flesch_reading_ease
     }
     
     if output_dir is None:
