@@ -4,6 +4,10 @@
 
 ---
 
+This repository contains the **code used to generate the <a href="https://huggingface.co/datasets/klusai/ds-tf1-en-3m">ds-tf1-en-3m</a> dataset**, which is available on Hugging Face. The dataset includes 3 million fables in English, intended for training and fine-tuning natural language processing (NLP) models.
+
+---
+
 ## Docker Usage
 
 TinyFabulist can be run in a Docker container, providing a consistent environment across different systems.
