@@ -1,0 +1,86 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: tinyfabulist_app
+    volumes:
+      - ./data:/app/data:Z
+    environment:
+      PYTHONPATH: /app
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    entrypoint: ["/bin/bash", "/app/scripts/entrypoint.sh"]
+    command: ["--help"]
+
+  # Development service with hot reloading and interactive shell
+  dev:
+    build: .
+    container_name: tinyfabulist_dev
+    volumes:
+      - ./data:/app/data:Z
+      - ./tinyfabulist:/app/tinyfabulist:Z
+      - ./tinyfabulist.py:/app/tinyfabulist.py:Z
+      - ./setup.py:/app/setup.py:Z
+    environment:
+      PYTHONPATH: /app
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    # Set up an interactive development environment
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        # Install package in editable mode and watchdog
+        pip install -e .
+        pip install watchdog==3.0.0
+        
+        # Start file watcher in background
+        python -c "
+        import time
+        import os
+        import threading
+        import subprocess
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+        
+        def reload_notification(src_path):
+            print(f'\n\033[93m⚡ File {src_path} changed - code reloaded\033[0m')
+            print('Run your command again to use the updated code.')
+        
+        class ChangeHandler(FileSystemEventHandler):
+            def on_modified(self, event):
+                if event.is_directory:
+                    return
+                if event.src_path.endswith('.py'):
+                    reload_notification(event.src_path)
+        
+        # Start the file watcher in background
+        observer = Observer()
+        event_handler = ChangeHandler()
+        observer.schedule(event_handler, '/app/tinyfabulist', recursive=True)
+        observer.schedule(event_handler, '/app', recursive=False)
+        observer.start()
+        
+        # Keep running until the container stops
+        try:
+            while True:
+                time.sleep(10)
+        except KeyboardInterrupt:
+            observer.stop()
+        " &
+        
+        # Print welcome message
+        echo -e "\n\033[1;32m=== TinyFabulist Development Environment ===\033[0m"
+        echo -e "\033[1;34mPackage installed in editable mode with hot reloading enabled.\033[0m"
+        echo -e "Any changes to Python files will automatically reload the code.\n"
+        echo -e "\033[1;33mExample commands:\033[0m"
+        echo -e "  python tinyfabulist.py generate --generate-prompts --count 10"
+        echo -e "  python tinyfabulist.py generate --generate-fables data/prompts.jsonl --output jsonl"
+        echo -e "  python tinyfabulist.py --help\n"
+        
+        # Start interactive shell
+        cd /app
+        exec /bin/bash
+    # Keep container running
+    tty: true
+    stdin_open: true
