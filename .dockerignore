@@ -1,0 +1,9 @@
+data/
+research_artifacts/
+dist/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+tinyfabulist.egg-info/
+*.log

@@ -2,6 +2,10 @@ import os
 import glob
 import yaml
 from collections import defaultdict
+import subprocess
+import time
+import datetime
+from pathlib import Path
 
 from tinyfabulist.logger import *
 
@@ -79,3 +83,139 @@ def load_specific_config(config_name):
     except yaml.YAMLError as e:
         logger.error(f"Error parsing YAML file {config_file}: {e}")
         raise ConfigError(f"Invalid YAML format in {config_name}.yaml: {e}")
+
+def get_major_version() -> str:
+    """
+    Read the major version from the version.yaml config file.
+    Returns the major version as a string, defaulting to "0.1" if not found.
+    """
+    try:
+        version_config = load_specific_config("version")
+        return version_config.get("version", {}).get("major", "0.1")
+    except ConfigError as e:
+        logger.warning(f"Could not load version config: {e}. Using default major version 0.1")
+        return "0.1"
+
+def get_version_info():
+    """
+    Calculate the current version of the package in the format:
+    major_version.nr_of_commits_on_main.date (e.g., 0.1.42.230512)
+    
+    Returns:
+        dict: A dictionary containing version info with the following keys:
+            - 'version': The full version string
+            - 'major_version': The manually set major version
+            - 'commit_count': The number of commits on main
+            - 'date': The date in YYMMDD format
+            - 'last_commit_hash': The hash of the last commit
+            - 'last_commit_msg': The message of the last commit
+    """
+    # Get major version from config
+    major_version = get_major_version()
+    
+    try:
+        # Get number of commits on main
+        commit_count = subprocess.check_output(
+            ["git", "rev-list", "--count", "HEAD"],
+            stderr=subprocess.STDOUT
+        ).decode('utf-8').strip()
+        
+        # Get the date in YYMMDD format
+        date_str = datetime.datetime.now().strftime("%y%m%d")
+        
+        # Get the last commit hash and message
+        last_commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.STDOUT
+        ).decode('utf-8').strip()
+        
+        last_commit_msg = subprocess.check_output(
+            ["git", "log", "-1", "--pretty=%B"],
+            stderr=subprocess.STDOUT
+        ).decode('utf-8').strip()
+        
+        # Build the version string
+        version = f"{major_version}.{commit_count}.{date_str}"
+        
+        return {
+            'version': version,
+            'major_version': major_version,
+            'commit_count': commit_count,
+            'date': date_str,
+            'last_commit_hash': last_commit_hash,
+            'last_commit_msg': last_commit_msg
+        }
+    except subprocess.CalledProcessError:
+        # If git commands fail (e.g., not a git repo), return fallback version
+        date_str = datetime.datetime.now().strftime("%y%m%d")
+        return {
+            'version': f"{major_version}.0.{date_str}",
+            'major_version': major_version,
+            'commit_count': "0",
+            'date': date_str,
+            'last_commit_hash': "unknown",
+            'last_commit_msg': "unknown"
+        }
+
+def update_changelog(version_info=None):
+    """
+    Update the CHANGELOG.md file with the latest version information.
+    
+    Args:
+        version_info (dict, optional): Version info dictionary. If None, it will be calculated.
+        
+    Returns:
+        str: The path to the changelog file
+    """
+    if version_info is None:
+        version_info = get_version_info()
+    
+    changelog_path = Path("CHANGELOG.md")
+    
+    # Create changelog file if it doesn't exist
+    if not changelog_path.exists():
+        with open(changelog_path, "w") as f:
+            f.write("# Changelog\n\n")
+            f.write("All notable changes to this project will be documented in this file.\n\n")
+    
+    # Read existing changelog
+    with open(changelog_path, "r") as f:
+        content = f.read()
+    
+    # Check if this version is already in the changelog
+    version_header = f"## [{version_info['version']}]"
+    if version_header in content:
+        return str(changelog_path)
+    
+    # Get the timestamp in ISO format
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Build the new entry
+    new_entry = f"{version_header} - {timestamp}\n\n"
+    
+    # Add commit information
+    if version_info['last_commit_hash'] != "unknown":
+        new_entry += f"- Commit: {version_info['last_commit_hash']} - {version_info['last_commit_msg']}\n\n"
+    
+    # Find the position to insert the new entry (after the header and description)
+    lines = content.split("\n")
+    insert_pos = 0
+    
+    for i, line in enumerate(lines):
+        if line.startswith("## ["):
+            insert_pos = i
+            break
+        elif i > 5:  # If we've checked several lines and not found a version header
+            insert_pos = i
+    
+    # Insert the new entry
+    if insert_pos > 0:
+        updated_content = "\n".join(lines[:insert_pos]) + "\n" + new_entry + "\n".join(lines[insert_pos:])
+    else:
+        updated_content = content + "\n" + new_entry
+    
+    # Write updated changelog
+    with open(changelog_path, "w") as f:
+        f.write(updated_content)
+    
+    return str(changelog_path)
