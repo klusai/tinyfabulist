@@ -44,6 +44,78 @@ docker run -v $(pwd)/data:/app/data tiny_fabulist [COMMAND]
 docker run -v $(pwd)/data:/app/data tiny_fabulist generate --generate-fables data/prompts.jsonl --output jsonl
 ```
 
+### Using Docker Compose (Recommended)
+
+TinyFabulist provides a Docker Compose configuration for easier usage and development. This is the recommended way to run TinyFabulist as it handles all the volume mounting and environment setup automatically.
+
+#### Prerequisites
+
+Make sure you have Docker and Docker Compose installed:
+
+```bash
+# Check Docker installation
+docker --version
+
+# Check Docker Compose installation
+docker compose version
+```
+
+If you need to install Docker Compose, follow the [official installation instructions](https://docs.docker.com/compose/install/).
+
+#### Standard Usage
+
+Running TinyFabulist with Docker Compose:
+
+```bash
+# Show help information
+docker compose run --rm app
+
+# Generate prompts (10 prompts in JSONL format)
+docker compose run --rm app generate --generate-prompts --count 10
+
+# Generate fables from a prompts file
+docker compose run --rm app generate --generate-fables data/prompts.jsonl --output jsonl
+
+# Run with any other command
+docker compose run --rm app [COMMAND]
+```
+
+The `app` service automatically mounts your local `data/` directory to the container's `/app/data`, ensuring that all generated files are persisted on your host machine.
+
+#### Development with Hot Reloading
+
+For development, TinyFabulist provides a special service with hot reloading capabilities:
+
+```bash
+# Start the development environment
+docker compose run --rm dev
+```
+
+This opens an interactive shell where:
+- TinyFabulist is installed in editable mode (`pip install -e .`)
+- Python files are watched for changes and code is automatically reloaded
+- You can run any TinyFabulist command manually
+- Changes to your code are immediately available without container restarts
+
+Inside the development environment, you can run commands like:
+
+```bash
+# Generate 5 prompts
+python tinyfabulist.py generate --generate-prompts --count 5
+
+# Generate fables
+python tinyfabulist.py generate --generate-fables data/prompts.jsonl
+```
+
+When you modify any Python file in the project, you'll see a notification that the code has been reloaded. Then you can simply run your command again to use the updated code.
+
+#### Docker Compose Benefits
+
+1. **Persistent Data:** Changes to the `data/` directory are saved to your host machine
+2. **Simplified Commands:** No need to remember complex docker run arguments
+3. **Development Mode:** Edit code on your host while running in the container
+4. **Consistent Environment:** Same environment across all development machines
+
 ## Overview
 
 TinyFabulist is a Python-based fable generation system that:
