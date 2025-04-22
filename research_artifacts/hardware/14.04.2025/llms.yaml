@@ -1,0 +1,31 @@
+llms:
+  hf-models:
+    llama-3-1-8b-instruct-l4t:
+      base_url: "https://d6i8ygn9ud63ar2z.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 0.8
+      host_gpu_vram: 24
+      host_gpu: "Nvidia L4"
+      currency: "USD"
+    llama-3-1-8b-instruct-a10gt:
+      base_url: "https://d9gxevyjkdo9fjxk.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 1
+      host_gpu_vram: 24
+      host_gpu: "Nvidia A10G"
+      currency: "USD"
+    llama-3-1-8b-instruct-l40st:
+      base_url: "https://lhfa6leesxvm55qf.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 1.8
+      host_gpu_vram: 48
+      host_gpu: "Nvidia L40S"
+      currency: "USD"
+    llama-3-1-8b-instruct-a100t:
+      base_url: "https://hlezlz61g9fdbxbh.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 4
+      host_gpu_vram: 80
+      host_gpu: "Nvidia A100"
+      currency: "USD"
+
