@@ -179,6 +179,10 @@ class EvaluationUtils:
         """
         with open(output_path, "w", encoding="utf-8") as outfile:
             for result in results:
+                # Add pipeline_stage and metadata fields
+                result["pipeline_stage"] = "evaluation"
+                result["evaluator_model"] = self.model
+                result["evaluation_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 outfile.write(json.dumps(result, ensure_ascii=False) + "\n")
         
         logger.info(f"Results saved to {output_path}")
@@ -198,14 +202,21 @@ class EvaluationUtils:
             base_dir = os.path.join("data", f"evaluations{'_' + self.language if self.language != 'en' else ''}")
         
         os.makedirs(base_dir, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
         
+        # Extract model name from input path
+        model_name = "unknown"
         if os.path.isfile(input_path):
             basename = os.path.basename(input_path)
-            return os.path.join(base_dir, f"evaluations_eval_e_{self.model}_{timestamp}_{basename}")
-        else:
-            # This shouldn't happen in normal operations but provides a fallback
-            return os.path.join(base_dir, f"evaluations_eval_e_{self.model}_{timestamp}.jsonl")
+            # Try to extract model name from the input filename
+            if "llama" in basename:
+                model_name = "llama"
+            elif "gpt" in basename:
+                model_name = "gpt"
+            elif "claude" in basename:
+                model_name = "claude"
+        
+        return os.path.join(base_dir, f"evaluations_{timestamp}.jsonl")
     
     def get_original_prompt(self) -> str:
         """

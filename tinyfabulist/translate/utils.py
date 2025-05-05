@@ -4,6 +4,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
+from datetime import datetime
 
 import yaml
 from tqdm import tqdm
@@ -28,6 +29,9 @@ def save_progress(
     mode = "w" if is_first_batch else "a"
     with open(output_file, mode, encoding="utf-8") as f:
         for record in records:
+            record["pipeline_stage"] = "translation"
+            record["translation_model"] = model
+            record["translation_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
@@ -89,12 +93,11 @@ def read_api_key(key):
 
 def build_output_path(args, model):
     base_name = os.path.basename(args.input)
-    name_parts = os.path.splitext(base_name)
     output_dir = os.path.join("data", "translations")
     timestamp = time.strftime("%y%m%d-%H%M%S")
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(
-        output_dir, f"{name_parts[0]}_translation_ro_{model}_{timestamp}.jsonl"
+        output_dir, f"translations_{timestamp}.jsonl"
     )
 
     logger.info(f"Translating {args.input} to {args.target_lang}")

@@ -193,6 +193,10 @@ def enhance_jsonl(input_file, output_file, api_key, endpoint, enhance_template, 
     with open(output_file, "w", encoding="utf-8") as outfile:
         for entry in enhanced_entries:
             if entry:  # Skip None entries if any
+                # Add pipeline_stage and metadata fields
+                entry["pipeline_stage"] = "enhancement"
+                entry["enhancement_model"] = translator_name
+                entry["enhancement_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 json.dump(entry, outfile, ensure_ascii=False)
                 outfile.write("\n")
 
@@ -311,7 +315,7 @@ def handle_enhance(args):
     
     if not output:
         # Generate timestamp for the output file only if not provided
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = f"data/translations/tf_enhanced_{timestamp}.jsonl"
+        timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
+        output = f"data/translations/enhancements_{timestamp}.jsonl"
     
     return enhnace_entry_point(args.input, args.input_yaml)

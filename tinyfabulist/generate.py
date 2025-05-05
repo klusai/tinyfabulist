@@ -304,6 +304,8 @@ async def write_result_to_file(result, model_name, output_files, output_format):
     if result is None:
         return
     
+    result["pipeline_stage"] = "fable"
+    
     f = output_files[model_name]
     if output_format == "csv":
         writer = csv.DictWriter(f, fieldnames=list(result.keys()))
