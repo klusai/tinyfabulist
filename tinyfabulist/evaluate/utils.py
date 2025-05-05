@@ -22,6 +22,12 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
 import textstat
 
+# Download required NLTK data
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', quiet=True)
+
 logger = setup_logging()
 
 
@@ -183,40 +189,38 @@ class EvaluationUtils:
                 result["pipeline_stage"] = "evaluation"
                 result["evaluator_model"] = self.model
                 result["evaluation_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Extract model name from input path if available
+                if "input_file" in result:
+                    basename = os.path.basename(result["input_file"])
+                    if "llama" in basename:
+                        result["llm_name"] = "llama"
+                    elif "gpt" in basename:
+                        result["llm_name"] = "gpt"
+                    elif "claude" in basename:
+                        result["llm_name"] = "claude"
+                
                 outfile.write(json.dumps(result, ensure_ascii=False) + "\n")
         
         logger.info(f"Results saved to {output_path}")
     
-    def create_output_path(self, input_path: str, base_dir: str = None) -> str:
+    def create_output_path(self, input_path: str, output_dir: str = None) -> str:
         """
-        Create an output path for evaluation results.
+        Create a standardized output path for evaluation results.
         
         Args:
-            input_path: Path to the input file
-            base_dir: Base directory for output (defaults to language-specific dir)
+            input_path: Path to the input file (not used in filename)
+            output_dir: Optional output directory (defaults to data/evaluations)
             
         Returns:
             Path to the output file
         """
-        if base_dir is None:
-            base_dir = os.path.join("data", f"evaluations{'_' + self.language if self.language != 'en' else ''}")
+        if output_dir is None:
+            output_dir = os.path.join("data", "evaluations")
         
-        os.makedirs(base_dir, exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
-        
-        # Extract model name from input path
-        model_name = "unknown"
-        if os.path.isfile(input_path):
-            basename = os.path.basename(input_path)
-            # Try to extract model name from the input filename
-            if "llama" in basename:
-                model_name = "llama"
-            elif "gpt" in basename:
-                model_name = "gpt"
-            elif "claude" in basename:
-                model_name = "claude"
-        
-        return os.path.join(base_dir, f"evaluations_{timestamp}.jsonl")
+        return os.path.join(output_dir, f"evaluations_{timestamp}.jsonl")
     
     def get_original_prompt(self) -> str:
         """
@@ -268,36 +272,91 @@ class EvaluationUtils:
         logger.error(error_msg)
         return {"error": error_msg}
 
-    def distinct_n(text, n=1):
+    @staticmethod
+    def distinct_n(text: str, n: int = 1) -> float:
         """
         Calculate the distinct n-gram ratio of a given text.
+        
+        Args:
+            text: The text to analyze
+            n: The n-gram size
+            
+        Returns:
+            The distinct n-gram ratio
         """
-        tokens = text.split()
-        if len(tokens) < n:
-            return 0
-        ngram_list = list(ngrams(tokens, n))
-        distinct_count = len(set(ngram_list))
-        total_count = len(ngram_list)
-        return distinct_count / total_count
+        if not text or not isinstance(text, str):
+            return 0.0
+            
+        try:
+            # Simple tokenization by splitting on whitespace
+            tokens = text.lower().split()
+            if len(tokens) < n:
+                return 0.0
+                
+            # Generate n-grams manually
+            ngrams_list = []
+            for i in range(len(tokens) - n + 1):
+                ngrams_list.append(tuple(tokens[i:i + n]))
+                
+            if not ngrams_list:
+                return 0.0
+                
+            # Calculate distinct ratio
+            distinct_count = len(set(ngrams_list))
+            total_count = len(ngrams_list)
+            return distinct_count / total_count if total_count > 0 else 0.0
+            
+        except Exception as e:
+            logger.warning(f"Error calculating distinct-n for text: {e}")
+            return 0.0
 
-    def get_readability(text):
+    @staticmethod
+    def get_readability(text: str) -> float:
         """
         Calculate the Flesch Reading Ease score of a given text.
+        
+        Args:
+            text: The text to analyze
+            
+        Returns:
+            The Flesch Reading Ease score
         """
         return textstat.flesch_reading_ease(text)
 
-    def compute_self_bleu(generated_texts):
+    @staticmethod
+    def compute_self_bleu(generated_texts: List[str]) -> Tuple[float, List[float]]:
         """
         Compute the self-BLEU score for a list of generated texts.
+        
+        Args:
+            generated_texts: List of texts to analyze
+            
+        Returns:
+            Tuple of (average BLEU score, list of individual BLEU scores)
         """
+        if not generated_texts or len(generated_texts) < 2:
+            return 0.0, []
+            
         smoothie = SmoothingFunction().method1
         bleu_scores = []
+        
         for i, hypothesis in enumerate(generated_texts):
-            # Use all other texts as references for the current text.
+            # Use all other texts as references for the current text
             references = [nltk.word_tokenize(text.lower()) for j, text in enumerate(generated_texts) if j != i]
+            if not references:  # Skip if no references available
+                continue
+                
             hypothesis_tokens = nltk.word_tokenize(hypothesis.lower())
-            score = sentence_bleu(references, hypothesis_tokens, smoothing_function=smoothie)
-            bleu_scores.append(score)
+            if not hypothesis_tokens:  # Skip if hypothesis is empty
+                continue
+                
+            try:
+                score = sentence_bleu(references, hypothesis_tokens, smoothing_function=smoothie)
+                bleu_scores.append(score)
+            except Exception as e:
+                logger.warning(f"Error computing BLEU score for text {i}: {e}")
+                continue
+        
         avg_bleu = sum(bleu_scores) / len(bleu_scores) if bleu_scores else 0
         return avg_bleu, bleu_scores
 
@@ -325,6 +384,7 @@ def load_jsonl_entries(file_path: str) -> List[Dict]:
 def process_file_or_directory(input_path: str, 
                             process_file_func: Callable, 
                             file_pattern: str = None,
+                            output_dir: str = None,
                             **kwargs) -> None:
     """
     Process a file or all files in a directory.
@@ -333,11 +393,12 @@ def process_file_or_directory(input_path: str,
         input_path: Path to file or directory
         process_file_func: Function to process each file
         file_pattern: Pattern to match files in directory (e.g., "tf_fables")
+        output_dir: Directory to save output files
         **kwargs: Additional arguments to pass to process_file_func
     """
     if os.path.isfile(input_path):
         # Process a single file
-        process_file_func(input_path, **kwargs)
+        process_file_func(input_path, output_dir=output_dir, **kwargs)
     
     elif os.path.isdir(input_path):
         # Process files in directory
@@ -345,7 +406,7 @@ def process_file_or_directory(input_path: str,
             for file in files:
                 if file_pattern is None or (file_pattern in file and file.endswith(".jsonl")):
                     file_path = os.path.join(root, file)
-                    process_file_func(file_path, **kwargs)
+                    process_file_func(file_path, output_dir=output_dir, **kwargs)
     
     else:
         logger.error(f"Path does not exist: {input_path}")

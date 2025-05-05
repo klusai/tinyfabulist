@@ -3,6 +3,7 @@ import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from typing import Dict
 
 from tinyfabulist.evaluate.utils import EvaluationUtils, load_jsonl_entries, process_file_or_directory
 from tinyfabulist.logger import setup_logging
@@ -11,43 +12,73 @@ logger = setup_logging()
 utils = EvaluationUtils(language="en")
 
 
-def evaluate_fable_threaded(fable_data: dict, idx: int = 0) -> dict:
+def evaluate_fable_threaded(entry: Dict, index: int, **kwargs) -> Dict:
     """
-    Worker function to evaluate a single fable.
-    Returns the original data with evaluation results added.
-    """
-    llm_name = fable_data.get("llm_name", "unknown")
-    hash_value = fable_data.get("hash", "")
-    fable_text = fable_data.get("fable", "")
-    prompt = fable_data.get("prompt", "")
-    llm_input_tokens = fable_data.get("llm_input_tokens", 0)
-    llm_output_tokens = fable_data.get("llm_output_tokens", 0)
-    llm_inference_time = fable_data.get("llm_inference_time", 0)
-    host_provider = fable_data.get("host_provider", "unknown")
-    host_gpu = fable_data.get("host_gpu", "unknown")
+    Thread-safe wrapper for evaluating a single fable.
     
-    # Define the evaluation operation
-    def evaluate_operation():
-        system_prompt, evaluation_template = utils.get_prompts()
-        evaluation_prompt = utils.render_template(
-            evaluation_template, 
-            {"fable": fable_text, "prompt": prompt}
+    Args:
+        entry: The entry containing the fable to evaluate
+        index: Index of the entry in the batch
+        **kwargs: Additional arguments
+        
+    Returns:
+        Dictionary containing the evaluation results
+    """
+    try:
+        # Get the lock from kwargs
+        lock = kwargs.get("lock")
+        
+        # Get prompts
+        system_prompt, evaluation_prompt_template = utils.get_prompts()
+        
+        # Prepare context for template
+        context = {
+            "fable": entry.get("fable", ""),
+            "moral": entry.get("moral", ""),
+            "age_group": entry.get("age_group", ""),
+            "language": entry.get("language", "en"),
+            "prompt": entry.get("prompt", "")  # Add the original prompt
+        }
+        
+        # Render the evaluation prompt
+        user_prompt = utils.render_template(evaluation_prompt_template, context)
+        
+        # Call the API with retries
+        evaluation = utils.retry_operation(
+            utils.call_evaluation_api,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt
         )
-        return utils.call_evaluation_api(system_prompt, evaluation_prompt)
-    
-    # Perform the evaluation with retries
-    evaluation = utils.retry_operation(evaluate_operation)
-    
-    return {
-        "llm_name": llm_name,
-        "evaluation": evaluation,
-        "hash": hash_value,
-        "llm_input_tokens": llm_input_tokens,
-        "llm_output_tokens": llm_output_tokens,
-        "llm_inference_time": llm_inference_time,
-        "host_provider": host_provider,
-        "host_gpu": host_gpu,
-    }
+        
+        if "error" in evaluation:
+            logger.error(f"Error evaluating fable {index}: {evaluation['error']}")
+            return None
+        
+        # Keep all original fields and add evaluation results
+        result = entry.copy()  # This preserves all original fields
+        result["evaluation"] = evaluation
+        result["input_file"] = kwargs.get("input_file", "")  # Add input file path
+        result["pipeline_stage"] = "evaluation"  # Add pipeline stage
+        
+        # Ensure these fields exist (they should be in the original entry, but just in case)
+        if "hash" not in result:
+            result["hash"] = entry.get("hash", "")
+        if "llm_input_tokens" not in result:
+            result["llm_input_tokens"] = entry.get("llm_input_tokens", 0)
+        if "llm_output_tokens" not in result:
+            result["llm_output_tokens"] = entry.get("llm_output_tokens", 0)
+        if "llm_inference_time" not in result:
+            result["llm_inference_time"] = entry.get("llm_inference_time", 0)
+        if "host_provider" not in result:
+            result["host_provider"] = entry.get("host_provider", "unknown")
+        if "host_gpu" not in result:
+            result["host_gpu"] = entry.get("host_gpu", "unknown")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error processing fable {index}: {e}")
+        return None
 
 
 def evaluate_file(file_path: str, output_dir: str = None) -> None:
@@ -66,22 +97,16 @@ def evaluate_file(file_path: str, output_dir: str = None) -> None:
     results = utils.process_entries(
         fables_to_evaluate, 
         evaluate_fable_threaded, 
-        max_workers=25
+        max_workers=25,
+        input_file=file_path  # Pass the input file path
     )
     
-    # Create output path
-    if output_dir is None:
-        output_path = utils.create_output_path(file_path)
-    else:
-        base_name = os.path.splitext(os.path.basename(file_path))[0]
-        timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
-        output_path = os.path.join(
-            output_dir, f"{base_name}_jsonl_eval_e{utils.model}_dt{timestamp}.jsonl"
-        )
+    # Create output path using the standardized function
+    output_path = utils.create_output_path(file_path, output_dir)
     
     # Save results
     utils.save_results(results, output_path)
-    logger.info(f"Evaluations for {file_path} written to {output_path}")
+    logger.info(f"Evaluations saved to {output_path}")
 
 
 def run_evaluate(args) -> None:
@@ -95,7 +120,7 @@ def run_evaluate(args) -> None:
     process_file_or_directory(
         args.input, 
         evaluate_file, 
-        file_pattern="tf_fables", 
+        file_pattern="tf_fables",
         output_dir=output_dir
     )
 
