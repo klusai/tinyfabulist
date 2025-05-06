@@ -1,413 +1,221 @@
-import json
 import os
-import sys
+import glob
+import yaml
+from collections import defaultdict
+import subprocess
 import time
-import uuid
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from typing import Dict, List, Optional, Callable, Any, Tuple
+import datetime
+from pathlib import Path
 
-from decouple import config
-from dotenv import load_dotenv
-from openai import OpenAI
-from pybars import Compiler
+from tinyfabulist.logger import *
 
-from tinyfabulist.logger import setup_logging
-from tinyfabulist.utils import load_settings
-
-import nltk
-from nltk import ngrams
-from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-
-import textstat
-
-# Download required NLTK data
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', quiet=True)
+# Constants
+CONFIG_DIR = "tinyfabulist/conf"
 
 logger = setup_logging()
 
+class ConfigError(Exception):
+    """Exception raised for configuration errors."""
+    pass
 
-class EvaluationUtils:
+def deep_update(source, update):
     """
-    Utility class that provides common functionality for fable evaluation
-    across different languages.
+    Recursively update nested dictionaries
     """
+    for key, value in update.items():
+        if isinstance(value, dict) and key in source and isinstance(source[key], dict):
+            source[key] = deep_update(source[key], value)
+        else:
+            source[key] = value
+    return source
+
+def load_settings() -> dict:
+    """
+    Loads settings from all YAML files in the conf directory.
+    Returns a dictionary containing all configuration settings merged together.
+    Raises ConfigError if the directory is not found or files have invalid YAML format.
+    """
+    settings = {}
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), CONFIG_DIR)
     
-    def __init__(self, language: str = "en"):
-        """
-        Initialize the evaluation utilities with language-specific settings.
-        
-        Args:
-            language: Two-letter language code ('en' or 'ro')
-        """
-        self.language = language
-        self.settings = load_settings()
-        self.evaluator_config = self.settings.get("evaluator", {})
-        self.model = self.evaluator_config.get("model", "gpt-4o")
-        
-        # Get language-specific prompt keys
-        self.system_prompt_key = f"system{'_' + language if language != 'en' else ''}"
-        self.evaluation_prompt_key = f"evaluation{'_' + language if language != 'en' else ''}"
-        
-        # Initialize template compiler
-        self.compiler = Compiler()
+    if not os.path.exists(config_path):
+        logger.error(f"Configuration directory '{config_path}' not found")
+        raise ConfigError(f"Configuration directory '{config_path}' not found")
     
-    def get_prompts(self) -> Tuple[str, str]:
-        """
-        Get language-specific system and evaluation prompts.
-        
-        Returns:
-            Tuple containing (system_prompt, evaluation_prompt_template)
-        """
-        prompts = self.evaluator_config.get("prompt", {})
-        system_prompt = prompts.get(self.system_prompt_key, "")
-        evaluation_prompt_template = prompts.get(self.evaluation_prompt_key, "")
-        return system_prompt, evaluation_prompt_template
+    config_files = glob.glob(os.path.join(config_path, "*.yaml"))
     
-    def render_template(self, template_str: str, context: Dict[str, Any]) -> str:
-        """
-        Render a template with the provided context.
-        
-        Args:
-            template_str: The template string to render
-            context: Dictionary of values to use in the template
-            
-        Returns:
-            The rendered template string
-        """
-        template = self.compiler.compile(template_str)
-        return template(context)
+    if not config_files:
+        logger.error(f"No YAML configuration files found in '{config_path}'")
+        raise ConfigError(f"No YAML configuration files found in '{config_path}'")
     
-    def call_evaluation_api(self, system_prompt: str, user_prompt: str) -> Dict:
-        """
-        Call the evaluation API with the provided prompts.
-        
-        Args:
-            system_prompt: The system prompt to send to the API
-            user_prompt: The user prompt to send to the API
-            
-        Returns:
-            Dictionary containing the parsed JSON response or an error
-        """
-        load_dotenv()
-        client = OpenAI(api_key=config("OPENAI_API_KEY"))
-        
+    for config_file in sorted(config_files):
         try:
-            chat_completion = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-                reasoning_effort="high",
-            )
-            evaluation_text = chat_completion.choices[0].message.content.strip()
-            
-            try:
-                evaluation_json = json.loads(evaluation_text)
-                return evaluation_json
-            except json.JSONDecodeError as json_err:
-                error_msg = f"JSON decoding error: {str(json_err)}. Raw response: {evaluation_text[:200]}"
-                logger.error(error_msg)
-                self.save_debug_response(evaluation_text, error_msg)
-                return {"error": error_msg}
-                
-        except Exception as e:
-            error_msg = f"API error: {str(e)}"
-            logger.error(error_msg)
-            return {"error": error_msg}
+            with open(config_file, "r") as file:
+                file_settings = yaml.safe_load(file)
+                if file_settings:
+                    settings = deep_update(settings, file_settings)
+        except yaml.YAMLError as e:
+            logger.error(f"Error parsing YAML file {config_file}: {e}")
+            raise ConfigError(f"Invalid YAML format in {os.path.basename(config_file)}: {e}")
     
-    def save_debug_response(self, text: str, error: str) -> None:
-        """
-        Save a problematic API response for debugging.
-        
-        Args:
-            text: The API response text
-            error: The error message
-        """
-        debug_dir = os.path.join("data", "debug")
-        os.makedirs(debug_dir, exist_ok=True)
-        
-        # Create a unique filename
-        filename = f"api_response_{uuid.uuid4().hex[:8]}_{datetime.now().strftime('%y%m%d-%H%M%S')}.txt"
-        filepath = os.path.join(debug_dir, filename)
-        
-        with open(filepath, "w") as f:
-            f.write(f"ERROR: {error}\n\n")
-            f.write("API RESPONSE:\n")
-            f.write(text)
-        
-        logger.info(f"Saved problematic API response to {filepath}")
+    logger.info(f"Successfully loaded settings from {len(config_files)} configuration files")
+    return settings
+
+def load_specific_config(config_name):
+    """
+    Loads a specific configuration file from the conf directory.
+    Args:
+        config_name: Name of the configuration file (without .yaml extension)
+    Returns:
+        Dictionary containing the configuration settings
+    """
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), CONFIG_DIR)
+    config_file = os.path.join(config_path, f"{config_name}.yaml")
     
-    def process_entries(self, 
-                       entries: List[Dict], 
-                       process_func: Callable, 
-                       max_workers: int = 25, 
-                       **kwargs) -> List[Dict]:
-        """
-        Process multiple entries in parallel using ThreadPoolExecutor.
-        
-        Args:
-            entries: List of entries to process
-            process_func: Function to apply to each entry
-            max_workers: Maximum number of worker threads
-            **kwargs: Additional arguments to pass to process_func
-            
-        Returns:
-            List of processed entries
-        """
-        results = []
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = []
-            for i, entry in enumerate(entries):
-                if entry:
-                    futures.append(executor.submit(process_func, entry, i, **kwargs))
-            
-            for future in as_completed(futures):
-                result = future.result()
-                if result:
-                    results.append(result)
-        
-        return results
-    
-    def save_results(self, results: List[Dict], output_path: str) -> None:
-        """
-        Save results to a JSONL file.
-        
-        Args:
-            results: List of results to save
-            output_path: Path to the output file
-        """
-        with open(output_path, "w", encoding="utf-8") as outfile:
-            for result in results:
-                # Add pipeline_stage and metadata fields
-                result["pipeline_stage"] = "evaluation"
-                result["evaluator_model"] = self.model
-                result["evaluation_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                # Extract model name from input path if available
-                if "input_file" in result:
-                    basename = os.path.basename(result["input_file"])
-                    if "llama" in basename:
-                        result["llm_name"] = "llama"
-                    elif "gpt" in basename:
-                        result["llm_name"] = "gpt"
-                    elif "claude" in basename:
-                        result["llm_name"] = "claude"
-                
-                outfile.write(json.dumps(result, ensure_ascii=False) + "\n")
-        
-        logger.info(f"Results saved to {output_path}")
-    
-    def create_output_path(self, input_path: str, output_dir: str = None) -> str:
-        """
-        Create a standardized output path for evaluation results.
-        
-        Args:
-            input_path: Path to the input file (not used in filename)
-            output_dir: Optional output directory (defaults to data/evaluations)
-            
-        Returns:
-            Path to the output file
-        """
-        if output_dir is None:
-            output_dir = os.path.join("data", "evaluations")
-        
-        os.makedirs(output_dir, exist_ok=True)
-        timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
-        return os.path.join(output_dir, f"evaluations_{timestamp}.jsonl")
-    
-    def get_original_prompt(self) -> str:
-        """
-        Get the original prompt template from the generator configuration.
-        
-        Returns:
-            The full prompt template used for generating fables
-        """
-        generator_config = self.settings.get("generator", {})
-        prompt_config = generator_config.get("prompt", {})
-        
-        system_prompt = prompt_config.get("system", "")
-        fable_prompt = prompt_config.get("fable", "")
-        
-        combined_prompt = f"System Prompt:\n{system_prompt}\n\nFable Prompt:\n{fable_prompt}"
-        return combined_prompt
-    
-    def retry_operation(self, 
-                        operation: Callable, 
-                        max_attempts: int = 5, 
-                        delay: int = 1, 
-                        **kwargs) -> Any:
-        """
-        Retry an operation multiple times before giving up.
-        
-        Args:
-            operation: Function to retry
-            max_attempts: Maximum number of retry attempts
-            delay: Delay between retries in seconds
-            **kwargs: Arguments to pass to the operation
-            
-        Returns:
-            Result of the operation or error information
-        """
-        for attempt in range(1, max_attempts + 1):
-            try:
-                result = operation(**kwargs)
-                if isinstance(result, dict) and "error" not in result:
-                    return result
-                else:
-                    logger.error(f"Error on attempt {attempt}: {result.get('error', 'Unknown error')}")
-            except Exception as e:
-                logger.error(f"Exception on attempt {attempt}: {e}")
-            
-            if attempt < max_attempts:
-                time.sleep(delay)
-        
-        error_msg = f"Operation failed after {max_attempts} attempts"
-        logger.error(error_msg)
-        return {"error": error_msg}
-
-    @staticmethod
-    def distinct_n(text: str, n: int = 1) -> float:
-        """
-        Calculate the distinct n-gram ratio of a given text.
-        
-        Args:
-            text: The text to analyze
-            n: The n-gram size
-            
-        Returns:
-            The distinct n-gram ratio
-        """
-        if not text or not isinstance(text, str):
-            return 0.0
-            
-        try:
-            # Simple tokenization by splitting on whitespace
-            tokens = text.lower().split()
-            if len(tokens) < n:
-                return 0.0
-                
-            # Generate n-grams manually
-            ngrams_list = []
-            for i in range(len(tokens) - n + 1):
-                ngrams_list.append(tuple(tokens[i:i + n]))
-                
-            if not ngrams_list:
-                return 0.0
-                
-            # Calculate distinct ratio
-            distinct_count = len(set(ngrams_list))
-            total_count = len(ngrams_list)
-            return distinct_count / total_count if total_count > 0 else 0.0
-            
-        except Exception as e:
-            logger.warning(f"Error calculating distinct-n for text: {e}")
-            return 0.0
-
-    @staticmethod
-    def get_readability(text: str) -> float:
-        """
-        Calculate the Flesch Reading Ease score of a given text.
-        
-        Args:
-            text: The text to analyze
-            
-        Returns:
-            The Flesch Reading Ease score
-        """
-        return textstat.flesch_reading_ease(text)
-
-    @staticmethod
-    def compute_self_bleu(generated_texts: List[str]) -> Tuple[float, List[float]]:
-        """
-        Compute the self-BLEU score for a list of generated texts.
-        
-        Args:
-            generated_texts: List of texts to analyze
-            
-        Returns:
-            Tuple of (average BLEU score, list of individual BLEU scores)
-        """
-        if not generated_texts or len(generated_texts) < 2:
-            return 0.0, []
-            
-        smoothie = SmoothingFunction().method1
-        bleu_scores = []
-        
-        for i, hypothesis in enumerate(generated_texts):
-            # Use all other texts as references for the current text
-            references = [nltk.word_tokenize(text.lower()) for j, text in enumerate(generated_texts) if j != i]
-            if not references:  # Skip if no references available
-                continue
-                
-            hypothesis_tokens = nltk.word_tokenize(hypothesis.lower())
-            if not hypothesis_tokens:  # Skip if hypothesis is empty
-                continue
-                
-            try:
-                score = sentence_bleu(references, hypothesis_tokens, smoothing_function=smoothie)
-                bleu_scores.append(score)
-            except Exception as e:
-                logger.warning(f"Error computing BLEU score for text {i}: {e}")
-                continue
-        
-        avg_bleu = sum(bleu_scores) / len(bleu_scores) if bleu_scores else 0
-        return avg_bleu, bleu_scores
-
-
-# Helper functions for common evaluation patterns
-
-def load_jsonl_entries(file_path: str) -> List[Dict]:
-    """Load entries from a JSONL file."""
-    entries = []
     try:
-        with open(file_path, "r", encoding="utf-8") as infile:
-            for line in infile:
-                if line.strip():
-                    try:
-                        entry = json.loads(line)
-                        entries.append(entry)
-                    except json.JSONDecodeError:
-                        logger.warning(f"Skipping invalid JSON line in {file_path}")
-    except Exception as e:
-        logger.error(f"Error loading entries from {file_path}: {e}")
-    
-    return entries
+        with open(config_file, "r") as file:
+            settings = yaml.safe_load(file)
+            logger.info(f"Loaded specific configuration from {config_name}.yaml")
+            return settings
+    except FileNotFoundError:
+        logger.error(f"Configuration file '{config_name}.yaml' not found")
+        raise ConfigError(f"Configuration file '{config_name}.yaml' not found")
+    except yaml.YAMLError as e:
+        logger.error(f"Error parsing YAML file {config_file}: {e}")
+        raise ConfigError(f"Invalid YAML format in {config_name}.yaml: {e}")
 
-
-def process_file_or_directory(input_path: str, 
-                            process_file_func: Callable, 
-                            file_pattern: str = None,
-                            output_dir: str = None,
-                            **kwargs) -> None:
+def get_major_version() -> str:
     """
-    Process a file or all files in a directory.
+    Read the major version from the version.yaml config file.
+    Returns the major version as a string, defaulting to "0.1" if not found.
+    """
+    try:
+        version_config = load_specific_config("version")
+        return version_config.get("version", {}).get("major", "0.1")
+    except ConfigError as e:
+        logger.warning(f"Could not load version config: {e}. Using default major version 0.1")
+        return "0.1"
+
+def get_version_info():
+    """
+    Calculate the current version of the package in the format:
+    major_version.nr_of_commits_on_main.date (e.g., 0.1.42.230512)
+    
+    Returns:
+        dict: A dictionary containing version info with the following keys:
+            - 'version': The full version string
+            - 'major_version': The manually set major version
+            - 'commit_count': The number of commits on main
+            - 'date': The date in YYMMDD format
+            - 'last_commit_hash': The hash of the last commit
+            - 'last_commit_msg': The message of the last commit
+    """
+    # Get major version from config
+    major_version = get_major_version()
+    
+    try:
+        # Get number of commits on main
+        commit_count = subprocess.check_output(
+            ["git", "rev-list", "--count", "HEAD"],
+            stderr=subprocess.STDOUT
+        ).decode('utf-8').strip()
+        
+        # Get the date in YYMMDD format
+        date_str = datetime.datetime.now().strftime("%y%m%d")
+        
+        # Get the last commit hash and message
+        last_commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.STDOUT
+        ).decode('utf-8').strip()
+        
+        last_commit_msg = subprocess.check_output(
+            ["git", "log", "-1", "--pretty=%B"],
+            stderr=subprocess.STDOUT
+        ).decode('utf-8').strip()
+        
+        # Build the version string
+        version = f"{major_version}.{commit_count}.{date_str}"
+        
+        return {
+            'version': version,
+            'major_version': major_version,
+            'commit_count': commit_count,
+            'date': date_str,
+            'last_commit_hash': last_commit_hash,
+            'last_commit_msg': last_commit_msg
+        }
+    except subprocess.CalledProcessError:
+        # If git commands fail (e.g., not a git repo), return fallback version
+        date_str = datetime.datetime.now().strftime("%y%m%d")
+        return {
+            'version': f"{major_version}.0.{date_str}",
+            'major_version': major_version,
+            'commit_count': "0",
+            'date': date_str,
+            'last_commit_hash': "unknown",
+            'last_commit_msg': "unknown"
+        }
+
+def update_changelog(version_info=None):
+    """
+    Update the CHANGELOG.md file with the latest version information.
     
     Args:
-        input_path: Path to file or directory
-        process_file_func: Function to process each file
-        file_pattern: Pattern to match files in directory (e.g., "tf_fables")
-        output_dir: Directory to save output files
-        **kwargs: Additional arguments to pass to process_file_func
+        version_info (dict, optional): Version info dictionary. If None, it will be calculated.
+        
+    Returns:
+        str: The path to the changelog file
     """
-    if os.path.isfile(input_path):
-        # Process a single file
-        process_file_func(input_path, output_dir=output_dir, **kwargs)
+    if version_info is None:
+        version_info = get_version_info()
     
-    elif os.path.isdir(input_path):
-        # Process files in directory
-        for root, _, files in os.walk(input_path):
-            for file in files:
-                if file_pattern is None or (file_pattern in file and file.endswith(".jsonl")):
-                    file_path = os.path.join(root, file)
-                    process_file_func(file_path, output_dir=output_dir, **kwargs)
+    changelog_path = Path("CHANGELOG.md")
     
+    # Create changelog file if it doesn't exist
+    if not changelog_path.exists():
+        with open(changelog_path, "w") as f:
+            f.write("# Changelog\n\n")
+            f.write("All notable changes to this project will be documented in this file.\n\n")
+    
+    # Read existing changelog
+    with open(changelog_path, "r") as f:
+        content = f.read()
+    
+    # Check if this version is already in the changelog
+    version_header = f"## [{version_info['version']}]"
+    if version_header in content:
+        return str(changelog_path)
+    
+    # Get the timestamp in ISO format
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Build the new entry
+    new_entry = f"{version_header} - {timestamp}\n\n"
+    
+    # Add commit information
+    if version_info['last_commit_hash'] != "unknown":
+        new_entry += f"- Commit: {version_info['last_commit_hash']} - {version_info['last_commit_msg']}\n\n"
+    
+    # Find the position to insert the new entry (after the header and description)
+    lines = content.split("\n")
+    insert_pos = 0
+    
+    for i, line in enumerate(lines):
+        if line.startswith("## ["):
+            insert_pos = i
+            break
+        elif i > 5:  # If we've checked several lines and not found a version header
+            insert_pos = i
+    
+    # Insert the new entry
+    if insert_pos > 0:
+        updated_content = "\n".join(lines[:insert_pos]) + "\n" + new_entry + "\n".join(lines[insert_pos:])
     else:
-        logger.error(f"Path does not exist: {input_path}")
-        sys.exit(1)
+        updated_content = content + "\n" + new_entry
+    
+    # Write updated changelog
+    with open(changelog_path, "w") as f:
+        f.write(updated_content)
+    
+    return str(changelog_path)
