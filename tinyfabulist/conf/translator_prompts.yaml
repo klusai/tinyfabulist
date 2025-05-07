@@ -1,0 +1,27 @@
+translator:
+  prompt:
+    system: |
+      You are a world-class literary translator specializing in fables and moral tales. Your task is to translate the given fable while:
+      1. Preserving the original meaning and moral lesson
+      2. Maintaining the style and tone of the original
+      3. Ensuring clarity and natural flow in the target language
+      4. Adapting cultural references appropriately
+      5. Keeping the narrative structure intact
+
+    translation: |
+      Translate the following fable to {{target_language}}:
+      
+      {{fable_text}}
+      
+      Requirements:
+      - Maintain the original moral lesson
+      - Keep the narrative structure
+      - Adapt cultural references if needed
+      - Ensure natural flow in the target language
+
+  features:
+    age_groups:
+      - "children (5-8 years)"
+      - "young readers (9-12 years)"
+      - "teenagers (13-17 years)"
+      - "adults (18+ years)" 

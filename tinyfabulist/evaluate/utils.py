@@ -6,17 +6,155 @@ import subprocess
 import time
 import datetime
 from pathlib import Path
+import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, List, Optional, Callable, Any
 
 from tinyfabulist.logger import *
 
 # Constants
-CONFIG_DIR = "tinyfabulist/conf"
+CONFIG_DIR = "conf"
 
 logger = setup_logging()
+
+def load_jsonl_entries(file_path: str) -> List[Dict]:
+    """
+    Load entries from a JSONL file.
+    
+    Args:
+        file_path: Path to the JSONL file
+        
+    Returns:
+        List of dictionaries containing the entries
+    """
+    entries = []
+    try:
+        with open(file_path, 'r') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                    entries.append(entry)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Error decoding JSON line in {file_path}: {e}")
+                    continue
+    except FileNotFoundError:
+        logger.error(f"File not found: {file_path}")
+        raise
+    except Exception as e:
+        logger.error(f"Error reading file {file_path}: {e}")
+        raise
+    
+    return entries
+
+def process_file_or_directory(input_path: str, process_func: Callable, file_pattern: str = None, output_dir: str = None) -> None:
+    """
+    Process either a single file or all matching files in a directory.
+    
+    Args:
+        input_path: Path to a file or directory
+        process_func: Function to process each file
+        file_pattern: Optional pattern to match files (e.g., "*.jsonl")
+        output_dir: Optional output directory for results
+    """
+    if os.path.isfile(input_path):
+        # Process single file
+        process_func(input_path, output_dir)
+    elif os.path.isdir(input_path):
+        # Process all matching files in directory
+        if file_pattern:
+            files = glob.glob(os.path.join(input_path, file_pattern))
+        else:
+            files = glob.glob(os.path.join(input_path, "*"))
+        
+        for file_path in files:
+            if os.path.isfile(file_path):
+                process_func(file_path, output_dir)
+    else:
+        raise FileNotFoundError(f"Input path not found: {input_path}")
 
 class ConfigError(Exception):
     """Exception raised for configuration errors."""
     pass
+
+class EvaluationUtils:
+    """Utility class for handling fable evaluations."""
+    
+    def __init__(self, language: str = "en"):
+        self.language = language
+        self.settings = load_settings()
+        self.evaluator_config = self.settings.get("evaluator", {})
+        self.lock = threading.Lock()
+    
+    def get_prompts(self) -> tuple:
+        """Get the system prompt and evaluation prompt template."""
+        prompts = self.evaluator_config.get("prompts", {})
+        return prompts.get("system"), prompts.get("evaluation")
+    
+    def render_template(self, template: str, context: Dict) -> str:
+        """Render a template with the given context."""
+        try:
+            return template.format(**context)
+        except KeyError as e:
+            logger.error(f"Missing key in template context: {e}")
+            return template
+    
+    def retry_operation(self, operation: Callable, max_retries: int = 3, **kwargs) -> Dict:
+        """Retry an operation with exponential backoff."""
+        for attempt in range(max_retries):
+            try:
+                return operation(**kwargs)
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    return {"error": str(e)}
+                time.sleep(2 ** attempt)
+        return {"error": "Max retries exceeded"}
+    
+    def call_evaluation_api(self, system_prompt: str, user_prompt: str) -> Dict:
+        """Call the evaluation API with the given prompts."""
+        # This is a placeholder - the actual implementation would use the OpenAI API
+        # or whatever API is configured for evaluation
+        return {"error": "API call not implemented"}
+    
+    def process_entries(self, entries: List[Dict], process_func: Callable, 
+                       max_workers: int = 25, **kwargs) -> List[Dict]:
+        """Process entries in parallel using ThreadPoolExecutor."""
+        results = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for i, entry in enumerate(entries):
+                future = executor.submit(process_func, entry, i, **kwargs)
+                futures.append(future)
+            
+            for future in futures:
+                result = future.result()
+                if result:
+                    results.append(result)
+        return results
+    
+    def create_output_path(self, input_path: str, output_dir: Optional[str] = None) -> str:
+        """Create an output path for evaluation results."""
+        if output_dir is None:
+            output_dir = os.path.join("data", "evaluations")
+        
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Get the base filename without extension
+        base_name = os.path.splitext(os.path.basename(input_path))[0]
+        
+        # Create timestamp
+        timestamp = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+        
+        # Create output filename
+        output_filename = f"eval_{base_name}_{timestamp}.jsonl"
+        
+        return os.path.join(output_dir, output_filename)
+    
+    def save_results(self, results: List[Dict], output_path: str) -> None:
+        """Save evaluation results to a JSONL file."""
+        with open(output_path, "w") as f:
+            for result in results:
+                f.write(json.dumps(result) + "\n")
 
 def deep_update(source, update):
     """

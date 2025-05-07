@@ -5,28 +5,18 @@ def add_translate_subparser(
     Add the translate subparser to the main parser.
     """
     translate_parser = subparsers.add_parser(
-        "translate", help="Translate content in a JSONL file to Romanian"
+        "translate", help="Translate fables from a JSONL file"
     )
 
     translate_parser.add_argument(
-        "--input", required=True, help="Path to input JSONL file"
+        "--input", required=True, help="Path to input JSONL file containing fables"
     )
 
     translate_parser.add_argument(
         "--output",
-        help="Path to output translated JSONL file (default: input_filename_ro.jsonl)",
-    )
-
-    translate_parser.add_argument(
-        "--config",
-        default="conf/*.yaml",
-        help="Path to YAML configuration file (default: conf/*.yaml)",
-    )
-
-    translate_parser.add_argument(
-        "--translator-key",
-        default="translator_ro",
-        help="Key in the YAML config file for the Romanian translator (default: translator_ro)",
+        choices=["text", "jsonl", "csv"],
+        default="text",
+        help="Output format (default: text)",
     )
 
     translate_parser.add_argument(
@@ -38,22 +28,20 @@ def add_translate_subparser(
     )
 
     translate_parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=100,
-        help="Number of records to process before saving progress (default: 100)",
+        "--models", nargs="+", help="Specify models to use (as defined in configuration)"
     )
 
     translate_parser.add_argument(
-        "--fields",
-        help="Comma-separated list of fields to translate (default: fable,prompt)",
+        "--max-concurrency",
+        type=int,
+        default=500,
+        help="Maximum number of concurrent requests (default: 500)",
     )
 
     translate_parser.add_argument(
-        "--max-workers",
-        type=int,
-        default=200,
-        help="Maximum number of threads to use (default: 30)",
+        "--show-progress",
+        action="store_true",
+        help="Show progress bars for batch processing",
     )
 
     translate_parser.set_defaults(func=function)

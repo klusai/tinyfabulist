@@ -145,8 +145,8 @@ def get_version_info():
             'last_commit_hash': last_commit_hash,
             'last_commit_msg': last_commit_msg
         }
-    except subprocess.CalledProcessError:
-        # If git commands fail (e.g., not a git repo), return fallback version
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # If git commands fail (e.g., not a git repo or git not installed), return fallback version
         date_str = datetime.datetime.now().strftime("%y%m%d")
         return {
             'version': f"{major_version}.0.{date_str}",

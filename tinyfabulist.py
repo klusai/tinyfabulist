@@ -2,10 +2,8 @@ import argparse
 
 from tinyfabulist.evaluate.en import add_evaluate_subparser
 from tinyfabulist.evaluate.ro import add_evaluate_ro_subparser
-from tinyfabulist.generate import add_generate_subparser
+from tinyfabulist.generate import add_generate_subparser, add_translate_subparser
 from tinyfabulist.stats import add_stats_subparser
-from tinyfabulist.translate.controller import add_enhance_subparser, get_translate_subparser
-from tinyfabulist.translate.controller import add_translate_subparser
 from tinyfabulist.visualizer.jsonl_visualizer import add_visualize_subparser
 
 
@@ -30,10 +28,7 @@ def main():
     add_stats_subparser(subparsers)
 
     # Translates fables to other languages using various translation engines
-    add_translate_subparser(subparsers) 
-    
-    # Improves existing translations based on evaluation feedback
-    add_enhance_subparser()(subparsers)
+    add_translate_subparser(subparsers)
 
     # Add visualization dashboard functionality
     add_visualize_subparser(subparsers)

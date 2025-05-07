@@ -665,3 +665,283 @@ def add_generate_subparser(subparsers) -> None:
         help="Show progress bars for batch processing",
     )
     generate_parser.set_defaults(func=run_generate)
+
+
+async def translate_fable_async(system_prompt: str, fable_text: str, target_language: str, base_url: str, api_key: str) -> str:
+    """Async version of fable translation using OpenAI client"""
+    client = get_client(base_url, api_key)
+    
+    attempt = 0
+    backoff_time = INITIAL_RETRY_DELAY
+    
+    # Prepare the translation prompt
+    compiler = Compiler()
+    translation_template = compiler.compile(config["translator"]["prompt"]["translation"])
+    translation_prompt = translation_template({
+        "fable_text": fable_text,
+        "target_language": target_language
+    })
+    
+    while attempt < MAX_RETRIES:
+        try:
+            chat_completion = await client.chat.completions.create(
+                model="gpt-4-turbo-preview",  # Using GPT-4 for better translation quality
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": translation_prompt},
+                ],
+                max_tokens=1000,
+                temperature=0.3,  # Lower temperature for more consistent translations
+            )
+            return chat_completion.choices[0].message.content
+        except Exception as e:
+            attempt += 1
+            logger.error(f"Error during API call (attempt {attempt}/{MAX_RETRIES}): {e}")
+            if attempt < MAX_RETRIES:
+                backoff_time = min(30, backoff_time * 1.5) + (random.random() * 2)
+                logger.info(f"Retrying in {backoff_time:.2f} seconds...")
+                await asyncio.sleep(backoff_time)
+            else:
+                logger.error(f"Max retries reached. Failed to translate fable.")
+                raise Exception(f"Failed after {MAX_RETRIES} retries: {e}")
+    
+    raise Exception("Failed to translate fable after multiple attempts")
+
+async def process_single_translation(
+    model_name: str,
+    model_config: dict,
+    fable_text: str,
+    target_language: str,
+    system_prompt: str,
+    output_format: str,
+    existing_hashes: set,
+    output_files: dict,
+    counter,
+    metadata: dict,
+    semaphore,
+    api_key: str,
+) -> None:
+    """Process a single fable translation with rate limiting via semaphore"""
+    async with semaphore:
+        start_inference_time = time.time()
+        
+        # Compute hash to avoid duplicates
+        hash_val = compute_hash(model_name, fable_text)
+        if hash_val in existing_hashes:
+            logger.info(f"Skipping duplicate translation for fable hash: {hash_val}")
+            return None
+        
+        try:
+            # For GPT-4, we use OpenAI's API directly
+            if model_name == "gpt-4-turbo-preview":
+                client = AsyncOpenAI(api_key=api_key)
+                chat_completion = await client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Translate the following fable to {target_language}:\n\n{fable_text}"}
+                    ],
+                    max_tokens=1000,
+                    temperature=0.3
+                )
+                translated_fable = chat_completion.choices[0].message.content
+            else:
+                # For other models, use the existing translation function
+                translated_fable = await translate_fable_async(
+                    system_prompt,
+                    fable_text,
+                    target_language,
+                    model_config.get("base_url", "https://api.openai.com/v1"),
+                    api_key
+                )
+            
+            # Calculate inference time
+            inference_time = time.time() - start_inference_time
+            
+            # Add the result to existing hashes
+            existing_hashes.add(hash_val)
+            
+            # Prepare the result
+            result = {
+                "model": model_name,
+                "original_fable": fable_text,
+                "translated_fable": translated_fable,
+                "target_language": target_language,
+                "inference_time": inference_time,
+                "prompt_hash": hash_val,
+                "metadata": metadata
+            }
+            
+            # Write the result to file
+            if output_format == "jsonl":
+                json.dump(result, output_files[model_name])
+                output_files[model_name].write("\n")
+                output_files[model_name].flush()
+            elif output_format == "csv":
+                writer = csv.DictWriter(output_files[model_name], fieldnames=result.keys())
+                writer.writerow(result)
+                output_files[model_name].flush()
+            else:  # txt format
+                output_files[model_name].write(f"Model: {model_name}\n")
+                output_files[model_name].write(f"Original Fable:\n{fable_text}\n\n")
+                output_files[model_name].write(f"Translated Fable:\n{translated_fable}\n")
+                output_files[model_name].write("-" * 80 + "\n")
+                output_files[model_name].flush()
+            
+            # Update counter
+            counter[0] += 1
+            
+        except Exception as e:
+            logger.error(f"Error processing translation for model {model_name}: {e}")
+            raise
+
+async def run_translate_async(args):
+    """Main async function to run the translation process"""
+    try:
+        # Load settings and configuration
+        settings = load_settings()
+        config = yaml.safe_load(open("tinyfabulist/conf/translator_prompts.yaml"))
+        
+        # Get API key from environment variable
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+        
+        # Load system prompt
+        compiler = Compiler()
+        system_template = compiler.compile(config["translator"]["prompt"]["system"])
+        system_prompt = system_template({})
+        
+        # Read input fables
+        fables = []
+        with open(args.input, 'r') as f:
+            for line in f:
+                if line.strip():
+                    fable_data = json.loads(line)
+                    fables.append(fable_data)
+        
+        # Prepare output files
+        output_files = {}
+        for model in args.models:
+            output_dir = os.path.join(FABLES_FOLDER, model)
+            os.makedirs(output_dir, exist_ok=True)
+            timestamp = time.strftime("%y%m%d-%H%M%S")
+            output_file = os.path.join(output_dir, f"tf_translations_{model}_dt{timestamp}.{args.output}")
+            output_files[model] = open(output_file, 'w', encoding='utf-8')
+        
+        # Load existing hashes
+        existing_hashes = set()
+        for output_file in output_files.values():
+            existing_hashes.update(load_existing_hashes(output_file.name, args.output))
+        
+        # Prepare metadata with just timestamp and target language
+        metadata = {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "target_language": args.target_lang
+        }
+        
+        # Create semaphore for rate limiting
+        semaphore = asyncio.Semaphore(args.max_concurrency)
+        
+        # Process fables
+        counter = [0]
+        tasks = []
+        
+        # Get model configurations from settings
+        available_models = settings.get("llms", {}).get("hf-models", {})
+        if not available_models:
+            raise ConfigError("No models found in configuration")
+            
+        # Validate models
+        invalid_models = [m for m in args.models if m not in available_models]
+        if invalid_models:
+            raise ConfigError(f"Invalid models: {', '.join(invalid_models)}")
+        
+        for fable_data in fables:
+            for model in args.models:
+                task = process_single_translation(
+                    model,
+                    available_models[model],
+                    fable_data["fable"],
+                    args.target_lang,
+                    system_prompt,
+                    args.output,
+                    existing_hashes,
+                    output_files,
+                    counter,
+                    metadata,
+                    semaphore,
+                    api_key
+                )
+                tasks.append(task)
+        
+        # Run all tasks with progress bar
+        if args.show_progress:
+            with tqdm(total=len(tasks), desc="Translating fables") as pbar:
+                for task in asyncio.as_completed(tasks):
+                    try:
+                        await task
+                    except Exception as e:
+                        logger.error(f"Error in translation task: {e}")
+                    finally:
+                        pbar.update(1)
+        else:
+            await asyncio.gather(*tasks)
+        
+        # Close all output files
+        for f in output_files.values():
+            f.close()
+        
+        logger.info(f"Successfully translated {counter[0]} fables")
+        
+    except Exception as e:
+        logger.error(f"Error in translation process: {e}")
+        raise
+
+def run_translate(args):
+    """Main function to run the translation process"""
+    asyncio.run(run_translate_async(args))
+
+def add_translate_subparser(subparsers) -> None:
+    """Add the translate subparser to the main parser"""
+    translate_parser = subparsers.add_parser(
+        "translate",
+        help="Translate fables using specified models",
+    )
+    translate_parser.add_argument(
+        "--input",
+        type=str,
+        required=True,
+        help="Input JSONL file containing fables to translate",
+    )
+    translate_parser.add_argument(
+        "--output",
+        type=str,
+        choices=["jsonl", "csv", "txt"],
+        default="jsonl",
+        help="Output format for translations",
+    )
+    translate_parser.add_argument(
+        "--target-lang",
+        type=str,
+        required=True,
+        help="Target language for translation",
+    )
+    translate_parser.add_argument(
+        "--models",
+        nargs="+",
+        required=True,
+        help="List of models to use for translation",
+    )
+    translate_parser.add_argument(
+        "--max-concurrency",
+        type=int,
+        default=MAX_CONCURRENCY,
+        help="Maximum number of concurrent translation requests",
+    )
+    translate_parser.add_argument(
+        "--show-progress",
+        action="store_true",
+        help="Show progress bar during translation",
+    )
+    translate_parser.set_defaults(func=run_translate)
