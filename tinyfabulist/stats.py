@@ -34,7 +34,7 @@ class FileProcessor:
 
         def process_file(file_path: str):
             base_name = os.path.basename(file_path)
-            if "eval_e" in base_name:
+            if "Evaluation" in base_name:
                 is_translation = False
                 try:
                     with open(file_path, "r") as f:

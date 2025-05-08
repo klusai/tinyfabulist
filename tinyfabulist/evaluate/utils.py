@@ -107,7 +107,7 @@ class EvaluationUtils:
         # Get the base name from the input path
         base_name = os.path.splitext(os.path.basename(input_path))[0]
         timestamp = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
-        return os.path.join(output_dir, f"{base_name}_evaluated_{timestamp}.jsonl")
+        return os.path.join(output_dir, f"Evaluation_{timestamp}.jsonl")
     
     def save_results(self, results, output_path):
         """Save evaluation results to a JSONL file."""
