@@ -6,6 +6,15 @@ import subprocess
 import time
 import datetime
 from pathlib import Path
+from pybars import Compiler
+import json
+import nltk
+from nltk.util import ngrams
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+import textstat
+from openai import OpenAI
+from dotenv import load_dotenv
+from concurrent.futures import ThreadPoolExecutor
 
 from tinyfabulist.logger import *
 
@@ -17,6 +26,129 @@ logger = setup_logging()
 class ConfigError(Exception):
     """Exception raised for configuration errors."""
     pass
+
+class EvaluationUtils:
+    def __init__(self, language="en"):
+        self.language = language
+        load_dotenv()
+        self.client = OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("OPENAI_API_BASE")
+        )
+        self.compiler = Compiler()
+    def get_prompts(self):
+        """Get the system prompt and evaluation prompt template for the current language."""
+        config = load_specific_config("evaluator")
+        if self.language == "en":
+            return config["evaluator"]["prompt"]["system"], config["evaluator"]["prompt"]["evaluation"]
+        else:
+            return config["evaluator"]["prompt"]["system_ro"], config["evaluator"]["prompt"]["evaluation_ro"]
+    
+    def render_template(self, template_str: str, context: dict[str, any]) -> str:
+        """
+        Render a template with the provided context.
+        
+        Args:
+            template_str: The template string to render
+            context: Dictionary of values to use in the template
+            
+        Returns:
+            The rendered template string
+        """
+        template = self.compiler.compile(template_str)
+        return template(context)
+    
+    def call_evaluation_api(self, system_prompt, user_prompt):
+        """Call the evaluation API with the given prompts."""
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4",  # or whatever model is configured
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7,
+                max_tokens=1000
+            )
+            return json.loads(response.choices[0].message.content)
+        except Exception as e:
+            logger.error(f"Error calling evaluation API: {e}")
+            return {"error": str(e)}
+    
+    def retry_operation(self, operation, max_retries=3, **kwargs):
+        """Retry an operation with exponential backoff."""
+        for attempt in range(max_retries):
+            try:
+                return operation(**kwargs)
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.error(f"Operation failed after {max_retries} attempts: {e}")
+                    return {"error": str(e)}
+                time.sleep(2 ** attempt)  # Exponential backoff
+    
+    def process_entries(self, entries, process_func, max_workers=25, **kwargs):
+        """Process entries in parallel using ThreadPoolExecutor."""
+        results = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(process_func, entry, i, **kwargs) 
+                      for i, entry in enumerate(entries)]
+            for future in futures:
+                result = future.result()
+                if result:
+                    results.append(result)
+        return results
+    
+    def create_output_path(self, input_path, output_dir=None):
+        """Create an output path for evaluation results."""
+        # Always use data/evaluations as the output directory
+        output_dir = os.path.join("data", "evaluations")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Get the base name from the input path
+        base_name = os.path.splitext(os.path.basename(input_path))[0]
+        timestamp = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
+        return os.path.join(output_dir, f"{base_name}_evaluated_{timestamp}.jsonl")
+    
+    def save_results(self, results, output_path):
+        """Save evaluation results to a JSONL file."""
+        with open(output_path, "w", encoding="utf-8") as f:
+            for result in results:
+                json.dump(result, f, ensure_ascii=False)
+                f.write("\n")
+    
+    @staticmethod
+    def get_readability(text):
+        """Calculate Flesch Reading Ease score for a text."""
+        return textstat.flesch_reading_ease(text)
+    
+    @staticmethod
+    def distinct_n(text, n):
+        """Calculate distinct-n score for a text."""
+        tokens = nltk.word_tokenize(text.lower())
+        ngrams_list = list(ngrams(tokens, n))
+        if not ngrams_list:
+            return 0
+        return len(set(ngrams_list)) / len(ngrams_list)
+    
+    @staticmethod
+    def compute_self_bleu(texts):
+        """Compute self-BLEU scores for a list of texts."""
+        if len(texts) < 2:
+            return None, []
+        
+        bleu_scores = []
+        for i, text in enumerate(texts):
+            references = texts[:i] + texts[i+1:]
+            if not references:
+                continue
+            
+            hypothesis = nltk.word_tokenize(text.lower())
+            references = [nltk.word_tokenize(ref.lower()) for ref in references]
+            
+            score = sentence_bleu(references, hypothesis, smoothing_function=SmoothingFunction().method1)
+            bleu_scores.append(score)
+        
+        return sum(bleu_scores) / len(bleu_scores) if bleu_scores else None, bleu_scores
 
 def deep_update(source, update):
     """
@@ -36,7 +168,7 @@ def load_settings() -> dict:
     Raises ConfigError if the directory is not found or files have invalid YAML format.
     """
     settings = {}
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), CONFIG_DIR)
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), CONFIG_DIR)
     
     if not os.path.exists(config_path):
         logger.error(f"Configuration directory '{config_path}' not found")
@@ -69,13 +201,12 @@ def load_specific_config(config_name):
     Returns:
         Dictionary containing the configuration settings
     """
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), CONFIG_DIR)
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), CONFIG_DIR)
     config_file = os.path.join(config_path, f"{config_name}.yaml")
-    
+
     try:
         with open(config_file, "r") as file:
             settings = yaml.safe_load(file)
-            logger.info(f"Loaded specific configuration from {config_name}.yaml")
             return settings
     except FileNotFoundError:
         logger.error(f"Configuration file '{config_name}.yaml' not found")
@@ -219,3 +350,48 @@ def update_changelog(version_info=None):
         f.write(updated_content)
     
     return str(changelog_path)
+
+def load_jsonl_entries(file_path):
+    """
+    Load entries from a JSONL file.
+    
+    Args:
+        file_path: Path to the JSONL file
+        
+    Returns:
+        List of dictionaries containing the entries
+    """
+    entries = []
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():
+                    entries.append(json.loads(line))
+        return entries
+    except Exception as e:
+        logger.error(f"Error loading JSONL file {file_path}: {e}")
+        raise
+
+def process_file_or_directory(input_path, process_func, file_pattern=None, output_dir=None):
+    """
+    Process either a single file or all matching files in a directory.
+    
+    Args:
+        input_path: Path to a file or directory
+        process_func: Function to process each file
+        file_pattern: Optional pattern to match files (e.g., "tf_fables")
+        output_dir: Optional output directory for results
+    """
+    if os.path.isfile(input_path):
+        # Process single file
+        if file_pattern is None or file_pattern in os.path.basename(input_path):
+            process_func(input_path, output_dir)
+    elif os.path.isdir(input_path):
+        # Process all matching files in directory
+        for root, _, files in os.walk(input_path):
+            for file in files:
+                if file_pattern is None or file_pattern in file:
+                    file_path = os.path.join(root, file)
+                    process_func(file_path, output_dir)
+    else:
+        raise ConfigError(f"Input path does not exist: {input_path}")

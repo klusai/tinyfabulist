@@ -113,15 +113,11 @@ def run_evaluate(args) -> None:
     """
     Process the input path, evaluating fables in files/directories.
     """
-    output_dir = os.path.join("data", "evaluations")
-    os.makedirs(output_dir, exist_ok=True)
-    
     # Process files or directories
     process_file_or_directory(
         args.input, 
         evaluate_file, 
-        file_pattern="tf_fables",
-        output_dir=output_dir
+        file_pattern="tf_fables"
     )
 
 
