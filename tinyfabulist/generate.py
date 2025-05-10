@@ -33,6 +33,7 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 PROMPTS_FOLDER = "data/prompts/"
 FABLES_FOLDER = "data/fables/"
+TRANSLATIONS_FOLDER = "data/translations/"
 
 # Constants for concurrency and batching
 BATCH_SIZE = 180                   # Maximum number of prompts to process in a batch
@@ -53,6 +54,7 @@ def get_tokenizer(llm_name):
             tokenizer = None
         TOKENIZER_CACHE[llm_name] = tokenizer
     return TOKENIZER_CACHE[llm_name]
+
 
 def get_client(base_url, api_key):
     """Get or create an AsyncOpenAI client for the given base_url"""
@@ -168,6 +170,112 @@ async def generate_fable_async(system_prompt: str, fable_prompt: str, base_url: 
     
     raise Exception("Failed to generate fable after multiple attempts")
 
+async def generate_translation_async(system_prompt: str, fable_text: str, base_url: str, api_key: str) -> str:
+    """Async translation call using the same LLM client"""
+    client = get_client(base_url, api_key)
+    attempt = 0
+    backoff = INITIAL_RETRY_DELAY
+    while attempt < MAX_RETRIES:
+        try:
+            chat_completion = await client.chat.completions.create(
+                model="tgi",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": fable_text},
+                ],
+                max_tokens=1000,
+                temperature=0.7,
+            )
+            return chat_completion.choices[0].message.content
+        except Exception as e:
+            attempt += 1
+            logger.error(f"Error during translation API call (attempt {attempt}): {e}")
+            if attempt < MAX_RETRIES:
+                backoff = min(30, backoff * 1.5) + (random.random() * 2)
+                await asyncio.sleep(backoff)
+            else:
+                raise
+
+def load_translation_prompt_config(path: str) -> dict:
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            cfg = yaml.safe_load(f)
+        tpl = cfg.get('translator', {}).get('prompt', {}).get('translation')
+        system = cfg.get('translator', {}).get('prompt', {}).get('system')
+        if not tpl or not system:
+            raise KeyError
+        return {'system': system, 'template': tpl}
+    except Exception as e:
+        logger.error(f"Failed to load translation prompt config: {e}")
+        raise ConfigError("Invalid translation_prompt.yaml")
+
+
+def format_translation_prompt(template: str, **kwargs) -> str:
+    # Simple placeholder replacement
+    result = template
+    for key, val in kwargs.items():
+        result = result.replace(f"{{{{{key}}}}}", val)
+    return result
+
+
+async def process_single_translation(
+    entry: dict,
+    system_prompt: str,
+    template: str,
+    base_url: str,
+    api_key: str,
+    output_file,
+):
+    fable = entry.get('fable')
+    if not fable:
+        return
+    content = format_translation_prompt(
+        template,
+        target_language=entry.get('target_lang', 'ro'),
+        fable_text=fable
+    )
+    translated = await generate_translation_async(system_prompt, content, base_url, api_key)
+    entry['fable'] = translated
+    entry['pipeline_stage'] = 'translation'
+    json.dump(entry, output_file, ensure_ascii=False)
+    output_file.write("\n")
+
+
+async def async_generate_translations(
+    fable_files: list,
+    args
+):
+    # Load translation prompt
+    cfg = load_translation_prompt_config('conf/translator_prompt.yaml')
+    system_prompt = cfg['system']
+    template = cfg['template']
+    api_key = config('HF_ACCESS_TOKEN')
+
+    os.makedirs(TRANSLATIONS_FOLDER, exist_ok=True)
+    timestamp = time.strftime("%y%m%d-%H%M%S")
+    out_path = os.path.join(TRANSLATIONS_FOLDER, f"translations_{args.source_lang}-{args.target_lang}_dt{timestamp}.jsonl")
+    with open(out_path, 'w', encoding='utf-8') as outfile:
+        semaphore = asyncio.Semaphore(getattr(args, 'max_concurrency', MAX_CONCURRENCY))
+        tasks = []
+        for ffile in fable_files:
+            with open(ffile, 'r', encoding='utf-8') as inf:
+                for line in inf:
+                    if not line.strip(): continue
+                    entry = json.loads(line)
+                    entry['source_lang'] = args.source_lang
+                    entry['target_lang'] = args.target_lang
+                    task = process_single_translation(
+                        entry,
+                        system_prompt,
+                        template,
+                        None,  # use default base_url from settings if needed
+                        api_key,
+                        outfile
+                    )
+                    tasks.append(task)
+        # Run all in parallel with concurrency limit
+        await asyncio.gather(*tasks)
+    print(f"Translations saved to {out_path}")
 
 def compute_hash(model: str, prompt: str) -> str:
     """
@@ -494,109 +602,100 @@ async def async_generate_fables(
 async def run_generate_async(args):
     """Async entry point for the generate command"""
     start_time = time.time()
-    
-    # Get version info and update changelog
+
+    # Versioning and changelog
     version_info = get_version_info()
     changelog_path = update_changelog(version_info)
     logger.info(f"Current version: {version_info['version']}")
     logger.info(f"Changelog updated at {changelog_path}")
-    
+
     settings = load_settings()
-    
-    if args.generate_prompts:
+
+    # 1) Generate prompts
+    if getattr(args, 'generate_prompts', False):
         system_prompt, fable_templates = generate_prompts(
             settings, count=args.count, randomize=args.randomize
         )
         write_generated_prompts(system_prompt, fable_templates)
-    else:
+        return
+
+    # 2) Generate translations
+    if getattr(args, 'generate_translations', False):
+        # Recursively collect every JSONL under data/fables/
+        from pathlib import Path
+        base = Path(FABLES_FOLDER)
+        fable_files = [str(path) for path in base.rglob('*.jsonl')]
+        if not fable_files:
+            raise ConfigError(f"No fable files found to translate under {FABLES_FOLDER!r}")
+
+        logger.info(
+            f"Translating {len(fable_files)} fable files from {args.source_lang} to {args.target_lang}"
+        )
+        await async_generate_translations(fable_files, args)
+        elapsed = time.time() - start_time
+        logger.info(f"Translation completed in {elapsed:.2f} seconds")
+        return
+
+    # 3) Generate fables
+    if getattr(args, 'generate_fables', None):
         available_models = settings.get("llms", {}).get("hf-models", {})
         if not available_models:
             raise ConfigError("No models found in configuration")
-            
+
         models_to_use = args.models if args.models else list(available_models.keys())
-        invalid_models = [m for m in models_to_use if m not in available_models]
-        if invalid_models:
-            raise ConfigError(f"Invalid models: {', '.join(invalid_models)}")
-            
+        invalid = [m for m in models_to_use if m not in available_models]
+        if invalid:
+            raise ConfigError(f"Invalid models: {', '.join(invalid)}")
+
         prompts = list(read_prompts(args.generate_fables))
         system_prompt = next(
             (p["content"] for p in prompts if p["prompt_type"] == "system_prompt"), None
         )
-        fable_prompts = [
-            p["content"] for p in prompts if p["prompt_type"] == "generator_prompt"
-        ]
+        fable_prompts = [p["content"] for p in prompts if p["prompt_type"] == "generator_prompt"]
         if not system_prompt:
             raise ConfigError("No system prompt found in prompt file.")
 
-        # NEW: Check for worker-specific environment variables to split work across machines.
+        # Distributed worker splitting
         worker_id = int(os.environ.get("WORKER_ID", 0))
         total_workers = int(os.environ.get("TOTAL_WORKERS", 1))
-        original_count = len(fable_prompts)
+        orig = len(fable_prompts)
         fable_prompts = [p for idx, p in enumerate(fable_prompts) if idx % total_workers == worker_id]
-        logger.info(f"Worker {worker_id}/{total_workers}: Processing {len(fable_prompts)} prompts out of {original_count}")
-
-        if total_workers > 1:
-            original_count = len(fable_prompts)
-            # Each worker processes only the prompts where index % total_workers == worker_id
-            fable_prompts = [p for idx, p in enumerate(fable_prompts) if idx % total_workers == worker_id]
-            logger.info(
-                f"Worker {worker_id}/{total_workers}: Processing {len(fable_prompts)} prompts out of {original_count}"
-            )
+        logger.info(f"Worker {worker_id}/{total_workers}: Processing {len(fable_prompts)}/{orig} prompts")
 
         existing_hashes = load_existing_hashes(args.input_file, args.output)
-        logger.info(
-            f"Found {len(existing_hashes)} existing hashes in {args.input_file}"
-        )
+        logger.info(f"Found {len(existing_hashes)} existing hashes in {args.input_file}")
 
-        # Open output files for each model
+        # Prepare output files per model
         output_files = {}
         for model_name in models_to_use:
-            model_folder = os.path.join(FABLES_FOLDER, model_name)
-            os.makedirs(model_folder, exist_ok=True)
-            timestamp = time.strftime("%y%m%d-%H%M%S")
+            folder = os.path.join(FABLES_FOLDER, model_name)
+            os.makedirs(folder, exist_ok=True)
+            ts = time.strftime("%y%m%d-%H%M%S")
             if args.output == "csv":
-                file_name = f"tf_fables_{model_name}_dt{timestamp}.csv"
+                fname = f"tf_fables_{model_name}_dt{ts}.csv"
             elif args.output == "jsonl":
-                file_name = f"tf_fables_{model_name}_dt{timestamp}.jsonl"
+                fname = f"tf_fables_{model_name}_dt{ts}.jsonl"
             else:
-                file_name = f"tf_fables_{model_name}_dt{timestamp}.txt"
-            full_path = os.path.join(model_folder, file_name)
-            f = open(full_path, "w", encoding="utf-8")
+                fname = f"tf_fables_{model_name}_dt{ts}.txt"
+            path = os.path.join(folder, fname)
+            f = open(path, "w", encoding="utf-8")
             if args.output == "csv":
-                writer = csv.DictWriter(
-                    f,
-                    fieldnames=[
-                        "language",
-                        "model",
-                        "prompt",
-                        "fable",
-                        "prompt_hash",
-                        "llm_name",
-                        "llm_input_tokens",
-                        "llm_output_tokens",
-                        "llm_inference_time",
-                        "llm_inference_cost_usd",
-                        "host_provider",
-                        "host_dc_provider",
-                        "host_dc_location",
-                        "host_gpu",
-                        "host_gpu_vram",
-                        "host_cost_per_hour",
-                        "generation_datetime",
-                        "pipeline_version",
-                    ],
-                )
+                writer = csv.DictWriter(f, fieldnames=[
+                    "language","model","prompt","fable","prompt_hash",
+                    "llm_name","llm_input_tokens","llm_output_tokens",
+                    "llm_inference_time","llm_inference_cost_usd",
+                    "host_provider","host_dc_provider","host_dc_location",
+                    "host_gpu","host_gpu_vram","host_cost_per_hour",
+                    "generation_datetime","pipeline_version"
+                ])
                 writer.writeheader()
-                f.flush()   
+                f.flush()
             output_files[model_name] = f
 
-        # Extract metadata from settings and add version info
         metadata = settings.get("metadata", {})
-        metadata.update({
-            "pipeline_version": version_info["version"]
-        })
+        metadata.update({"pipeline_version": version_info["version"]})
 
-        # Run the async generation
+        # Run fable generation
         await async_generate_fables(
             models_to_use,
             available_models,
@@ -608,12 +707,13 @@ async def run_generate_async(args):
             metadata,
         )
 
-        # Close all output files
+        # Close files and log completion
         for f in output_files.values():
             f.close()
-
-        elapsed_time = time.time() - start_time
-        logger.info(f"Fable generation completed in {elapsed_time:.2f} seconds")
+        elapsed = time.time() - start_time
+        logger.info(f"Fable generation completed in {elapsed:.2f} seconds")
+    else:
+        raise ConfigError("Please specify --generate-prompts, --generate-fables, or --generate-translations")
 
 
 def run_generate(args):
@@ -626,13 +726,22 @@ def run_generate(args):
 
 def add_generate_subparser(subparsers) -> None:
     generate_parser = subparsers.add_parser(
-        "generate", help="Generate fable prompts or fables"
+        "generate", help="Generate fable prompts, fables, or translations"
     )
     generate_parser.add_argument(
         "--generate-prompts", action="store_true", help="Generate fable prompts"
     )
     generate_parser.add_argument(
         "--generate-fables", type=str, help="Generate fables from a JSONL prompt file"
+    )
+    generate_parser.add_argument(
+        "--generate-translations", action="store_true", help="Generate fable translations"
+    )
+    generate_parser.add_argument(
+        "--source-lang", type=str, default="en", help="Source language code"
+    )
+    generate_parser.add_argument(
+        "--target-lang", type=str, default="ro", help="Target language code"
     )
     generate_parser.add_argument(
         "--randomize", action="store_true", help="Randomize feature selection"
@@ -657,7 +766,7 @@ def add_generate_subparser(subparsers) -> None:
         "--max-concurrency",
         type=int,
         default=MAX_CONCURRENCY,
-        help="Maximum number of concurrent requests (default: 500)",
+        help="Maximum number of concurrent requests (default: 100)",
     )
     generate_parser.add_argument(
         "--show-progress",

@@ -96,66 +96,50 @@ def get_major_version() -> str:
         logger.warning(f"Could not load version config: {e}. Using default major version 0.1")
         return "0.1"
 
+import datetime
+
+
 def get_version_info():
     """
     Calculate the current version of the package in the format:
-    major_version.nr_of_commits_on_main.date (e.g., 0.1.42.230512)
-    
+    major_version.commit_count.date (e.g., 0.1.42.230512)
+
     Returns:
         dict: A dictionary containing version info with the following keys:
             - 'version': The full version string
             - 'major_version': The manually set major version
-            - 'commit_count': The number of commits on main
+            - 'commit_count': The number of commits (fallback to 0)
             - 'date': The date in YYMMDD format
-            - 'last_commit_hash': The hash of the last commit
-            - 'last_commit_msg': The message of the last commit
+            - 'last_commit_hash': 'unknown'
+            - 'last_commit_msg': 'unknown'
     """
-    # Get major version from config
-    major_version = get_major_version()
-    
+    # Get major version from config or constant
     try:
-        # Get number of commits on main
-        commit_count = subprocess.check_output(
-            ["git", "rev-list", "--count", "HEAD"],
-            stderr=subprocess.STDOUT
-        ).decode('utf-8').strip()
-        
-        # Get the date in YYMMDD format
-        date_str = datetime.datetime.now().strftime("%y%m%d")
-        
-        # Get the last commit hash and message
-        last_commit_hash = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            stderr=subprocess.STDOUT
-        ).decode('utf-8').strip()
-        
-        last_commit_msg = subprocess.check_output(
-            ["git", "log", "-1", "--pretty=%B"],
-            stderr=subprocess.STDOUT
-        ).decode('utf-8').strip()
-        
-        # Build the version string
-        version = f"{major_version}.{commit_count}.{date_str}"
-        
-        return {
-            'version': version,
-            'major_version': major_version,
-            'commit_count': commit_count,
-            'date': date_str,
-            'last_commit_hash': last_commit_hash,
-            'last_commit_msg': last_commit_msg
-        }
-    except subprocess.CalledProcessError:
-        # If git commands fail (e.g., not a git repo), return fallback version
-        date_str = datetime.datetime.now().strftime("%y%m%d")
-        return {
-            'version': f"{major_version}.0.{date_str}",
-            'major_version': major_version,
-            'commit_count': "0",
-            'date': date_str,
-            'last_commit_hash': "unknown",
-            'last_commit_msg': "unknown"
-        }
+        from tinyfabulist.utils import get_major_version
+        major_version = get_major_version()
+    except ImportError:
+        major_version = "0.1"
+
+    # Always use current date
+    date_str = datetime.datetime.now().strftime("%y%m%d")
+
+    # Fallback values since git is not used
+    commit_count = "0"
+    last_commit_hash = "unknown"
+    last_commit_msg = "unknown"
+
+    # Build the version string
+    version = f"{major_version}.{commit_count}.{date_str}"
+
+    return {
+        'version': version,
+        'major_version': major_version,
+        'commit_count': commit_count,
+        'date': date_str,
+        'last_commit_hash': last_commit_hash,
+        'last_commit_msg': last_commit_msg
+    }
+
 
 def update_changelog(version_info=None):
     """
