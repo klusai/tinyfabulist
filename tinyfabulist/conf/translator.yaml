@@ -1,3 +1,4 @@
 translator_ro:
-  model: "Llama-3.3-70B-Instruct"
-  endpoint: "https://oe8q601rmy8lqqgk.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+  engine: open_source
+  model: meta-llama/Llama-3.1-8B-Instruct
+  endpoint: https://d6i8ygn9ud63ar2z.us-east-1.aws.endpoints.huggingface.cloud/v1/

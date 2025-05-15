@@ -32,7 +32,7 @@ logging.getLogger("openai.http_client").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 PROMPTS_FOLDER = "data/prompts/"
-FABLES_FOLDER = "data/fables/"
+FABLES_FOLDER = "tinyfabulist/data/fables/"
 TRANSLATIONS_FOLDER = "data/translations/"
 
 # Constants for concurrency and batching
@@ -246,7 +246,7 @@ async def async_generate_translations(
     args
 ):
     # Load translation prompt
-    cfg = load_translation_prompt_config('conf/translator_prompt.yaml')
+    cfg = load_translation_prompt_config('tinyfabulist/conf/translator_prompt.yaml')
     system_prompt = cfg['system']
     template = cfg['template']
     api_key = config('HF_ACCESS_TOKEN')
