@@ -118,7 +118,7 @@ class DependecyContainer:
         self.prompts = PROMPTS_SYSTEM, PROMPTS_TEMPLATE
         self.translator = TRANSLATOR_CFG
         self.api_key = API_KEY
-        self.model = 'meta-llama/Llama-3.1-8B-Instruct'
+        self.model = 'google/gemma-3-12b-it'
         self.max_tokens = 1000
         self.temperature = 0.7
 
