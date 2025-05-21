@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 This project uses automatic versioning in the format `major_version.nr_of_commits.date` (e.g., `1.42.230512`). 
+## [1.0.250519] - 2025-05-19 08:21:49
+
 ## [1.0.250515] - 2025-05-15 13:18:51
 
 ## [1.0.250514] - 2025-05-14 13:22:14

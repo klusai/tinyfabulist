@@ -19,6 +19,8 @@ translator:
       - Adapt cultural references if needed
       - Ensure natural flow in the target language
 
+      Return only the translated fable, no other text.
+
   features:
     age_groups:
       - "children (5-8 years)"

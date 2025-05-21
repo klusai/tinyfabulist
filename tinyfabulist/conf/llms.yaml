@@ -28,4 +28,11 @@ llms:
       host_gpu_vram: 80
       host_gpu: "Nvidia A100"
       currency: "USD"
+    llama-3-1-8b-instruct-wrc:
+      base_url: "https://gc72tzpwbwqvwr58.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+      name: "meta-llama/Llama-3.1-8B-Instruct"
+      host_cost_per_hour: 1.8
+      host_gpu_vram: 48
+      host_gpu: "GPU · Nvidia L40S · 1x GPU · 48 GB"
+      currency: "USD"
 

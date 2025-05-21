@@ -146,5 +146,4 @@ def handle_translate(args):
     engine_func(args)
 
 def add_enhance_subparser():
-    logger.info("Running Translation Enhancement")
     return enhance_subparser

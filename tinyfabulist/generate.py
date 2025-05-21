@@ -1,4 +1,6 @@
 import csv
+import datetime
+import glob
 import hashlib  # For computing SHA-256 hash
 import json
 import os
@@ -36,8 +38,8 @@ FABLES_FOLDER = "tinyfabulist/data/fables/"
 TRANSLATIONS_FOLDER = "data/translations/"
 
 # Constants for concurrency and batching
-BATCH_SIZE = 180                   # Maximum number of prompts to process in a batch
-MAX_CONCURRENCY = 100  # Maximum number of concurrent requests
+BATCH_SIZE = 50                  # Maximum number of prompts to process in a batch
+MAX_CONCURRENCY = 50 # Maximum number of concurrent requests
 
 # Constants for request management
 MAX_RETRIES = 8
@@ -55,7 +57,6 @@ def get_tokenizer(llm_name):
         TOKENIZER_CACHE[llm_name] = tokenizer
     return TOKENIZER_CACHE[llm_name]
 
-
 def get_client(base_url, api_key):
     """Get or create an AsyncOpenAI client for the given base_url"""
     cache_key = base_url
@@ -63,6 +64,7 @@ def get_client(base_url, api_key):
         client = AsyncOpenAI(base_url=base_url, api_key=api_key)
         CLIENT_CACHE[cache_key] = client
     return CLIENT_CACHE[cache_key]
+
 
 def load_settings() -> dict:
     try:
@@ -178,7 +180,7 @@ async def generate_translation_async(system_prompt: str, fable_text: str, base_u
     while attempt < MAX_RETRIES:
         try:
             chat_completion = await client.chat.completions.create(
-                model="tgi",
+                model="meta-llama/Llama-3.1-8B-Instruct",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": fable_text},
@@ -207,7 +209,7 @@ def load_translation_prompt_config(path: str) -> dict:
         return {'system': system, 'template': tpl}
     except Exception as e:
         logger.error(f"Failed to load translation prompt config: {e}")
-        raise ConfigError("Invalid translation_prompt.yaml")
+        raise ConfigError("Invalid file")
 
 
 def format_translation_prompt(template: str, **kwargs) -> str:
@@ -225,25 +227,33 @@ async def process_single_translation(
     base_url: str,
     api_key: str,
     output_file,
+    semaphore,
 ):
-    fable = entry.get('fable')
-    if not fable:
-        return
-    content = format_translation_prompt(
-        template,
-        target_language=entry.get('target_lang', 'ro'),
-        fable_text=fable
-    )
-    translated = await generate_translation_async(system_prompt, content, base_url, api_key)
-    entry['fable'] = translated
-    entry['pipeline_stage'] = 'translation'
-    json.dump(entry, output_file, ensure_ascii=False)
-    output_file.write("\n")
+    async with semaphore:
+        fable = entry.get('fable')
+        if not fable:
+            return
+        content = format_translation_prompt(
+            template,
+            target_language=entry.get('target_lang', 'ro'),
+            fable_text=fable
+        )
+        translated = await generate_translation_async(system_prompt, content, base_url, api_key)
+        # Keep original fable and store translation in a new field
+        entry['fable'] = fable
+        entry['translated_fable'] = translated
+        entry['pipeline_stage'] = 'translation'
+        json.dump(entry, output_file, ensure_ascii=False)
+        output_file.write("\n")
+        await asyncio.sleep(3)  # 3-second delay between requests
 
 
 async def async_generate_translations(
     fable_files: list,
-    args
+    args,
+    translations_folder: str=TRANSLATIONS_FOLDER, 
+    suggested_improvements: str = "",
+    max_fables: int = 10_000_000
 ):
     # Load translation prompt
     cfg = load_translation_prompt_config('tinyfabulist/conf/translator_prompt.yaml')
@@ -251,31 +261,341 @@ async def async_generate_translations(
     template = cfg['template']
     api_key = config('HF_ACCESS_TOKEN')
 
-    os.makedirs(TRANSLATIONS_FOLDER, exist_ok=True)
+    if suggested_improvements:
+        system_prompt += f"\n\nHere are some suggested improvements for the translation:\n{suggested_improvements}"
+        template += f"\n\nHere are some suggested improvements for the translation:\n{suggested_improvements}"
+
+    with open('tinyfabulist/conf/translator.yaml', 'r', encoding='utf-8') as f:
+        translator_cfg = yaml.safe_load(f)
+
+    translator_llm = translator_cfg.get('translator_ro', {}).get('model')
+    translator_endpoint = translator_cfg.get('translator_ro', {}).get('endpoint')
+    logger.info(f"Translator endpoint: {translator_endpoint}, Translator LLM: {translator_llm}")
+
+    os.makedirs(translations_folder, exist_ok=True)
     timestamp = time.strftime("%y%m%d-%H%M%S")
-    out_path = os.path.join(TRANSLATIONS_FOLDER, f"translations_{args.source_lang}-{args.target_lang}_dt{timestamp}.jsonl")
+    out_path = os.path.join(translations_folder, f"translations_{args.source_lang}-{args.target_lang}_dt{timestamp}.jsonl")
+    
+    # Count total number of entries to process
+    total_entries = 0
+    for ffile in fable_files:
+        with open(ffile, 'r', encoding='utf-8') as inf:
+            for line in inf:
+                if line.strip():
+                    total_entries += 1
+    
+    logger.info(f"Processing {total_entries} entries for translation")
+    
     with open(out_path, 'w', encoding='utf-8') as outfile:
         semaphore = asyncio.Semaphore(getattr(args, 'max_concurrency', MAX_CONCURRENCY))
         tasks = []
+        
+        processed_count = 0
         for ffile in fable_files:
             with open(ffile, 'r', encoding='utf-8') as inf:
                 for line in inf:
                     if not line.strip(): continue
-                    entry = json.loads(line)
-                    entry['source_lang'] = args.source_lang
-                    entry['target_lang'] = args.target_lang
-                    task = process_single_translation(
-                        entry,
-                        system_prompt,
-                        template,
-                        None,  # use default base_url from settings if needed
-                        api_key,
-                        outfile
+                    try:
+                        entry = json.loads(line)
+                        entry['source_lang'] = args.source_lang
+                        entry['target_lang'] = args.target_lang
+                        
+                        # Skip if exceeding max_fables limit
+                        if max_fables and processed_count >= max_fables:
+                            break
+                            
+                        processed_count += 1
+                        task = process_single_translation(
+                            entry,
+                            system_prompt,
+                            template,
+                            translator_endpoint,
+                            api_key,
+                            outfile,
+                            semaphore
+                        )
+                        tasks.append(task)
+                    except json.JSONDecodeError:
+                        logger.error(f"Error parsing JSON line in {ffile}")
+        
+        # Show progress while translating
+        if tasks:
+            logger.info(f"Starting translation of {len(tasks)} tasks")
+            for i, task_completed in enumerate(asyncio.as_completed(tasks)):
+                try:
+                    await task_completed
+                    if (i+1) % 5 == 0 or i+1 == len(tasks):
+                        logger.info(f"Completed {i+1}/{len(tasks)} translations")
+                except Exception as e:
+                    logger.error(f"Error in translation task: {e}")
+                    
+    logger.info(f"Translations saved to {out_path}")
+    return out_path
+
+def process_evaluation_explanations(explanation_data):
+    """
+    Process evaluation explanations from different formats into usable improvement guidance
+    
+    Handles:
+    - List of explanation strings
+    - Single explanation string
+    - JSON-formatted explanation with specific criteria
+    
+    Returns a structured set of improvement points
+    """
+    improvement_points = []
+    
+    # Handle if it's already a list of strings
+    if isinstance(explanation_data, list):
+        for item in explanation_data:
+            if isinstance(item, str):
+                # Clean up the explanation text
+                cleaned = item.strip().replace('"', '').replace('[', '').replace(']', '')
+                if cleaned:
+                    improvement_points.append(cleaned)
+    
+    # Handle single string that might be JSON-formatted
+    elif isinstance(explanation_data, str):
+        # Check if it's a JSON string and try to parse it
+        if explanation_data.startswith('[') and explanation_data.endswith(']'):
+            try:
+                parsed = json.loads(explanation_data)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        if isinstance(item, str):
+                            improvement_points.append(item.strip())
+            except json.JSONDecodeError:
+                # If it's not valid JSON, treat as plain text
+                improvement_points.append(explanation_data.strip())
+        else:
+            # Plain text explanation
+            improvement_points.append(explanation_data.strip())
+    
+    # Return all unique improvement points
+    return list(set(improvement_points))
+
+async def evaluate_translation(translated_entry, api_key, endpoint):
+    """Evaluate a translated fable and return evaluation results"""
+    client = get_client(endpoint, api_key)
+    
+    original = translated_entry.get('fable', '')
+    translation = translated_entry.get('translated_fable', '')
+    
+    if not original or not translation:
+        return None
+    
+    system_prompt = """You are a professional literary translator evaluator. You will be given an original text in English and a translation in Romanian.
+Your job is to evaluate the translation on the following criteria:
+1. Accuracy (1-10): How well the translation preserves the original's meaning
+2. Fluency (1-10): How natural and grammatically correct the translation is
+3. Style preservation (1-10): How well the translation maintains the original's style and tone
+4. Moral clarity (1-10): How clearly the moral of the fable is conveyed
+
+For each criterion, provide a brief explanation of your score.
+Also provide 2-3 specific suggestions for improvement."""
+
+    user_prompt = f"""Original text (English):
+{original}
+
+Translation (Romanian):
+{translation}
+
+Please evaluate this translation according to the criteria."""
+    
+    try:
+        response = await client.chat.completions.create(
+            model="meta-llama/Llama-3.1-70B-Instruct",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=800,
+            temperature=0.2,
+        )
+        evaluation_text = response.choices[0].message.content
+        
+        # Extract scores and explanations from the evaluation
+        evaluation_result = {
+            "full_evaluation": evaluation_text,
+            "explanation": []
+        }
+        
+        # Extract explanations and suggestions
+        for line in evaluation_text.split("\n"):
+            if "score is" in line.lower() or "because" in line.lower():
+                evaluation_result["explanation"].append(line.strip())
+            elif "suggestion" in line.lower() or "improve" in line.lower():
+                if "suggested_improvements" not in evaluation_result:
+                    evaluation_result["suggested_improvements"] = line.strip()
+                else:
+                    evaluation_result["suggested_improvements"] += "\n" + line.strip()
+        
+        return evaluation_result
+    except Exception as e:
+        logger.error(f"Error during evaluation: {e}")
+        return None
+
+async def evaluation_step(translation_file, api_key, endpoint):
+    """Process a translation file and add evaluations"""
+    evaluated_entries = []
+    logger.info(f"Evaluating translations in {translation_file}")
+    
+    try:
+        with open(translation_file, 'r', encoding='utf-8') as f:
+            entries = [json.loads(line) for line in f if line.strip()]
+        
+        total = len(entries)
+        logger.info(f"Found {total} entries to evaluate")
+        
+        # Use semaphore to limit concurrent evaluations
+        semaphore = asyncio.Semaphore(5)  # Limit to 5 concurrent evaluations
+        
+        async def evaluate_with_semaphore(entry):
+            async with semaphore:
+                evaluation = await evaluate_translation(entry, api_key, endpoint)
+                if evaluation:
+                    entry['evaluation'] = evaluation
+                return entry
+        
+        # Create tasks for all entries
+        tasks = [evaluate_with_semaphore(entry) for entry in entries]
+        
+        # Process evaluations and show progress
+        for i, task_completed in enumerate(asyncio.as_completed(tasks)):
+            try:
+                entry = await task_completed
+                evaluated_entries.append(entry)
+                if (i+1) % 5 == 0 or (i+1) == total:
+                    logger.info(f"Evaluated {i+1}/{total} translations")
+            except Exception as e:
+                logger.error(f"Error in evaluation task: {e}")
+        
+        # Save evaluated entries to new file
+        eval_file = translation_file.replace('.jsonl', '_evaluated.jsonl')
+        with open(eval_file, 'w', encoding='utf-8') as f:
+            for entry in evaluated_entries:
+                json.dump(entry, f, ensure_ascii=False)
+                f.write('\n')
+        
+        logger.info(f"Saved {len(evaluated_entries)} evaluated entries to {eval_file}")
+        return eval_file
+    
+    except Exception as e:
+        logger.error(f"Error during evaluation step: {e}")
+        return None
+
+async def translation_routine(fable_files: list, args, iterations: int = 3):
+    from datetime import datetime
+    translation_folder = f"data/translations/{datetime.now().strftime('%y%m%d-%H%M%S')}/"
+    os.makedirs(translation_folder, exist_ok=True)
+    suggested_improvements = ""
+    explanations = []
+    
+    # Get API key for evaluations
+    api_key = config('HF_ACCESS_TOKEN')
+    # Load translator config for evaluation endpoint
+    with open('tinyfabulist/conf/translator.yaml', 'r', encoding='utf-8') as f:
+        translator_cfg = yaml.safe_load(f)
+    evaluation_endpoint = translator_cfg.get('translator_ro', {}).get('endpoint')
+    
+    logger.info(f"Starting translation routine with {iterations} iterations")
+    
+    try:
+        last_translation_file = None
+        for iter in range(iterations):
+            logger.info(f"Starting iteration {iter+1}/{iterations}")
+            
+            if iter > 0 and last_translation_file:
+                logger.info(f"Suggested improvements: {suggested_improvements}, ")
+                # First evaluate the previous translations
+                logger.info(f"Evaluating translations from previous iteration")
+                evaluated_file = await evaluation_step(last_translation_file, api_key, evaluation_endpoint)
+                
+                if not evaluated_file:
+                    logger.warning("No evaluations created, continuing with original translations")
+                    evaluated_file = last_translation_file
+                
+                # Now collect improvements from evaluations
+                if os.path.exists(evaluated_file):
+                    with open(evaluated_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            if not line.strip(): continue
+                            try:
+                                entry = json.loads(line)
+                                
+                                # Extract suggested improvements
+                                suggested_improvements_entry = entry.get('evaluation', {}).get('suggested_improvements', '')
+                                if suggested_improvements_entry:
+                                    suggested_improvements += f"{suggested_improvements_entry}\n\n"
+                                
+                                # Extract explanation details
+                                explanation_data = entry.get('evaluation', {}).get('explanation')
+                                if explanation_data:
+                                    processed_explanations = process_evaluation_explanations(explanation_data)
+                                    explanations.extend(processed_explanations)
+                                    
+                            except json.JSONDecodeError:
+                                logger.error(f"Error parsing JSON in {evaluated_file}")
+                
+                # Create improvement context from explanations
+                improvement_context = ""
+                if explanations:
+                    improvement_context = "Based on previous translation evaluations, please improve on these aspects:\n\n"
+                    for i, explanation in enumerate(explanations):
+                        improvement_context += f"{i+1}. {explanation}\n"
+                
+                # Combine with suggested improvements
+                if suggested_improvements:
+                    improvement_context += f"\n\nSpecific improvement suggestions:\n{suggested_improvements}"
+                
+                logger.info(f"Created improvement context with {len(explanations)} points")
+                
+                # Run translation with different parameters based on iteration
+                if iter == iterations - 1:
+                    logger.info(f"Final iteration - using all collected feedback")
+                    last_translation_file = await async_generate_translations(
+                        fable_files, 
+                        args, 
+                        translation_folder, 
+                        improvement_context
                     )
-                    tasks.append(task)
-        # Run all in parallel with concurrency limit
-        await asyncio.gather(*tasks)
-    print(f"Translations saved to {out_path}")
+                else:
+                    logger.info(f"Iteration {iter+1} - processing with feedback")
+                    last_translation_file = await async_generate_translations(
+                        fable_files, 
+                        args, 
+                        translation_folder, 
+                        improvement_context,
+                        max_fables=5
+                    )
+            else:
+                # First iteration - process initial fable files
+                logger.info("First iteration - processing input files")
+                last_translation_file = await async_generate_translations(
+                    fable_files, 
+                    args, 
+                    translation_folder, 
+                    max_fables=5
+                )
+            
+            # Log completion of current iteration
+            logger.info(f"Completed iteration {iter+1}/{iterations}")
+            
+            # Allow some time between iterations
+            if iter < iterations - 1:
+                await asyncio.sleep(1)
+        
+        # Final evaluation for the last batch
+        if last_translation_file:
+            logger.info("Running final evaluation on translations")
+            final_evaluated_file = await evaluation_step(last_translation_file, api_key, evaluation_endpoint)
+            if final_evaluated_file:
+                logger.info(f"Final evaluated translations saved to {final_evaluated_file}")
+    
+    except Exception as e:
+        logger.error(f"Error in translation routine: {e}")
+        
+    logger.info(f"Translation routine completed - results in {translation_folder}")
 
 def compute_hash(model: str, prompt: str) -> str:
     """
@@ -624,14 +944,14 @@ async def run_generate_async(args):
         # Recursively collect every JSONL under data/fables/
         from pathlib import Path
         base = Path(FABLES_FOLDER)
-        fable_files = [str(path) for path in base.rglob('*.jsonl')]
+        fable_files = ['/home/andrei/Documents/Work/tinyfabulist/data/fables/llama-3-1-8b-instruct-l4t/tf_fables_llama-3-1-8b-instruct-l4t_dt250412-221506.jsonl']
         if not fable_files:
             raise ConfigError(f"No fable files found to translate under {FABLES_FOLDER!r}")
 
         logger.info(
             f"Translating {len(fable_files)} fable files from {args.source_lang} to {args.target_lang}"
         )
-        await async_generate_translations(fable_files, args)
+        await translation_routine(fable_files, args)
         elapsed = time.time() - start_time
         logger.info(f"Translation completed in {elapsed:.2f} seconds")
         return
@@ -766,7 +1086,7 @@ def add_generate_subparser(subparsers) -> None:
         "--max-concurrency",
         type=int,
         default=MAX_CONCURRENCY,
-        help="Maximum number of concurrent requests (default: 100)",
+        help="Maximum number of concurrent requests (default: 10)",
     )
     generate_parser.add_argument(
         "--show-progress",

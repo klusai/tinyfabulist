@@ -83,6 +83,7 @@ def evaluate_file(input_path: str, output_path: str = None) -> None:
 
 def run_evaluate(args) -> None:
     """Main entry point for Romanian evaluation"""
+    logger.info("Running EN-RO Translation Evaluation")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_base_dir = os.path.join("data", "evaluations_ro")
     os.makedirs(output_base_dir, exist_ok=True)
