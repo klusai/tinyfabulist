@@ -16,36 +16,6 @@ import uvloop  # Add uvloop for faster event loop
 
 from tinyfabulist.logger import setup_logging
 
-'''
-PERFORMANCE OPTIMIZATIONS:
-
-1. Worker Pool Architecture
-   - Fixed number of workers instead of per-entry tasks
-   - Avoids excessive coroutine scheduling overhead
-   - Steady state of active coroutines
-
-2. Binary I/O and Serialization
-   - Uses binary file mode for direct byte writing
-   - Eliminates UTF-8 encode/decode overhead
-   - Batches writes to reduce syscalls
-   - Uses orjson for faster JSON serialization
-
-3. Memory Optimization
-   - Uses integer timestamps instead of formatted strings
-   - Implements periodic garbage collection
-   - Only keeps essential fields in output entries
-
-4. Async Optimizations
-   - Uses uvloop for ~2x faster async performance
-   - Properly manages semaphores for concurrency control
-   - Offloads file I/O to dedicated background task
-
-5. Performance Monitoring
-   - Detailed profiling of all critical functions
-   - Saves performance metrics to JSONL for analysis
-   - Tracks avg/min/max/p95 timings for each operation
-'''
-
 # Use uvloop for faster event loop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
