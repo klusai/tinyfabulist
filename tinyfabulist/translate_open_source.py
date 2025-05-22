@@ -13,6 +13,7 @@ import gc
 from functools import wraps
 from collections import defaultdict
 import uvloop  # Add uvloop for faster event loop
+import httpx   # For HTTP/2 customization
 
 from tinyfabulist.logger import setup_logging
 
@@ -23,7 +24,7 @@ CLIENT_CACHE = {}
 MAX_RETRIES = 3
 INITIAL_RETRY_DELAY = 1
 TRANSLATIONS_FOLDER = 'data/translations'
-MAX_CONCURRENCY = 115
+MAX_CONCURRENCY = 120
 BATCH_SIZE = 20  # Process 8 fables per API call for optimal throughput
 FABLES_FILES = ['/home/andrei/Documents/Work/tinyfabulist/data/fables/llama-3-1-8b-instruct-a10gt/tf_fables_llama-3-1-8b-instruct-a10gt_dt250412-221516.jsonl']
 ARGS = argparse.Namespace(source_lang='English', target_lang='Romanian')
@@ -41,7 +42,7 @@ PROFILING_FILE = os.path.join('logs', 'profiling_stats.jsonl')
 # File writer queue and entry processing queue
 WRITE_QUEUE = asyncio.Queue()
 ENTRY_QUEUE = asyncio.Queue()  # Queue for worker pool
-WRITE_BATCH_SIZE = 100  # Increased batch size for less frequent writes
+WRITE_BATCH_SIZE = 40 
 
 # Ensure logs directory exists
 os.makedirs('logs', exist_ok=True)
@@ -112,13 +113,17 @@ PROMPTS_SYSTEM, PROMPTS_TEMPLATE = get_prompts()
 TRANSLATOR_CFG = get_translator()
 API_KEY = config('HF_ACCESS_TOKEN')
 
+# Configure HTTP/2 connection limits for optimal pooling
+HTTP_MAX_CONNECTIONS = 100
+HTTP_MAX_KEEPALIVE_CONNECTIONS = 20
+HTTP_KEEPALIVE_EXPIRY = 60  # seconds
+
 class DependecyContainer:
     def __init__(self):
         self.client = None
         self.prompts = PROMPTS_SYSTEM, PROMPTS_TEMPLATE
         self.translator = TRANSLATOR_CFG
         self.api_key = API_KEY
-        self.model = 'google/gemma-3-12b-it'
         self.max_tokens = 1000
         self.temperature = 0.7
 
@@ -126,31 +131,109 @@ class DependecyContainer:
 DEPENDENCY_CONTAINER = DependecyContainer()
 
 def get_client():
-    """Get or create an AsyncOpenAI client for the given base_url"""
-    _, endpoint = DEPENDENCY_CONTAINER.translator
+    """Get or create an AsyncOpenAI client for any endpoint"""
+    model_name, endpoint = DEPENDENCY_CONTAINER.translator
     api_key = DEPENDENCY_CONTAINER.api_key
-
+        
+    # Log the endpoint being used
+    logger.info(f"Using endpoint: {endpoint}")
+    
     cache_key = endpoint
     if cache_key not in CLIENT_CACHE:
-        client = AsyncOpenAI(base_url=endpoint, api_key=api_key)
-        CLIENT_CACHE[cache_key] = client
+        try:
+            logger.info(f"Creating AsyncOpenAI client for {endpoint}")
+            client = AsyncOpenAI(
+                base_url=endpoint, 
+                api_key=api_key,
+                timeout=60.0,
+                max_retries=3
+            )
+            CLIENT_CACHE[cache_key] = client
+        except Exception as e:
+            logger.error(f"Failed to create client: {e}")
+            raise
+    
     return CLIENT_CACHE[cache_key]
 
-@profile("llm_call")
 async def execute_llm_call(system_prompt: str, user_prompt: str, model: str):
+    """Call the LLM API with appropriate format for the endpoint"""
     max_tokens = DEPENDENCY_CONTAINER.max_tokens
     temperature = DEPENDENCY_CONTAINER.temperature
-
+    
     client = get_client()
+    _, endpoint = DEPENDENCY_CONTAINER.translator
+    
+    # Log request details for debugging
+    logger.debug(f"Sending request to endpoint: {endpoint}")
+    logger.debug(f"System prompt: {system_prompt[:50]}...")
+    logger.debug(f"User prompt: {user_prompt[:50]}...")
+    
     try:
-        # Return the coroutine instead of trying to access its results directly
-        return await client.chat.completions.create(
-            model=model,
-            messages=[{"role": "system", "content": system_prompt}, 
-                  {"role": "user", "content": user_prompt}],
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+        # Try standard format first (OpenAI-compatible)
+        try:
+            logger.debug("Attempting OpenAI-compatible chat completion format")
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+            logger.debug("OpenAI format succeeded")
+            return response.choices[0].message.content
+        except Exception as e:
+            error_msg = str(e).lower()
+            logger.warning(f"OpenAI format failed: {e}")
+            
+            # If 404 or other indication endpoint doesn't support OpenAI format
+            if '404' in error_msg or 'not found' in error_msg:
+                # Try Hugging Face text generation API format
+                logger.debug("Attempting Hugging Face text generation format")
+                
+                # Prepare combined prompt
+                combined_prompt = f"{system_prompt}\n\n{user_prompt}"
+                
+                # Make a direct POST request to the endpoint
+                base_url = client.base_url
+                headers = {
+                    "Authorization": f"Bearer {client.api_key}",
+                    "Content-Type": "application/json"
+                }
+                
+                async with httpx.AsyncClient(timeout=60.0) as http_client:
+                    payload = {
+                        "inputs": combined_prompt,
+                        "parameters": {
+                            "max_new_tokens": max_tokens,
+                            "temperature": temperature,
+                            "return_full_text": False
+                        }
+                    }
+                    
+                    logger.debug(f"Sending direct request to: {base_url}")
+                    response = await http_client.post(
+                        str(base_url), 
+                        json=payload,
+                        headers=headers
+                    )
+                    
+                    response.raise_for_status()
+                    result = response.json()
+                    
+                    if isinstance(result, list) and result:
+                        # Standard HF format
+                        return result[0].get('generated_text', '')
+                    elif isinstance(result, dict):
+                        # Alternative format
+                        return result.get('generated_text', '') or result.get('text', '')
+                    else:
+                        logger.error(f"Unexpected response format: {result}")
+                        return "Error: Unexpected response format"
+            else:
+                # Not a 404 error, re-raise
+                raise
     except Exception as e:
         logger.error(f"Error during LLM call: {e}")
         return None
@@ -166,16 +249,18 @@ def format_translation_prompt(template: str, **kwargs) -> str:
 
 @profile("translation")
 async def generate_translation_async(system_prompt: str, fable_text: str) -> str:
-    """Async translation call using the same LLM client"""
+    """Async translation call using direct HTTP requests"""
     attempt = 0
     backoff = INITIAL_RETRY_DELAY
     model = DEPENDENCY_CONTAINER.model
     
     while attempt < MAX_RETRIES:
         try:
-            # Get the coroutine from execute_llm_call and await it here
+            # Call the LLM API directly
             response = await execute_llm_call(system_prompt, fable_text, model)
-            return response.choices[0].message.content
+            if response:
+                return response
+            raise Exception("Empty response from LLM")
         except Exception as e:
             attempt += 1
             logger.error(f"Error during translation API call (attempt {attempt}): {e}")
@@ -211,7 +296,6 @@ async def read_entries(fable_files, max_fables=10_000_000, source_lang='English'
                     logger.error(f"Error parsing JSON line in {ffile}")
 
 # File writer task
-@profile("file_writer")
 async def file_writer_task(output_file):
     """Background task to handle file writing without blocking the main process"""
     buffer = []
@@ -261,7 +345,6 @@ async def file_writer_task(output_file):
                     pass  # If this fails too, we've done our best
 
 # Function to wait for all active tasks
-@profile("wait_tasks")
 async def wait_for_all_tasks():
     if not ACTIVE_TASKS:
         return
@@ -282,7 +365,6 @@ def task_done_callback(task):
         # Remove from active tasks
         ACTIVE_TASKS.discard(task)
 
-@profile("process_translation")
 async def process_single_translation(
     entry: dict,
     system_prompt: str,
@@ -378,8 +460,34 @@ async def async_generate_translations(
     timestamp = time.strftime("%y%m%d-%H%M%S")
     out_path = os.path.join(translations_folder, f"translations_{args.source_lang}-{args.target_lang}_dt{timestamp}.jsonl")
     
-    # Create bounded semaphore
-    semaphore = asyncio.BoundedSemaphore(MAX_CONCURRENCY)
+    # Create bounded semaphore with a slight buffer to prevent stalling
+    semaphore = asyncio.BoundedSemaphore(MAX_CONCURRENCY + 10)  # Add buffer to prevent stalling
+    
+    # Use a prefetch queue with larger size to ensure workers always have entries
+    entry_prefetch_task = None
+    entry_prefetch_running = True
+    
+    async def prefetch_entries(fable_files, max_fables, source_lang, target_lang):
+        """Prefetches entries into queue without blocking on queue size"""
+        nonlocal entry_prefetch_running
+        processed_count = 0
+        try:
+            entries = read_entries(fable_files, max_fables, source_lang, target_lang)
+            async for entry in entries:
+                if not entry_prefetch_running:
+                    break
+                await ENTRY_QUEUE.put(entry)
+                processed_count += 1
+                
+                # Log progress but don't block on it
+                if processed_count % 100 == 0:
+                    logger.info(f"Prefetched {processed_count} entries for processing")
+            
+            logger.info(f"Entry prefetching completed, queued {processed_count} entries")
+            return processed_count
+        except Exception as e:
+            logger.error(f"Error during entry prefetching: {e}")
+            return processed_count
     
     processed_count = 0
     
@@ -400,29 +508,32 @@ async def async_generate_translations(
         start_time = time.perf_counter()
         
         try:
-            # Create a properly awaitable async generator
-            entries = read_entries(
-                fable_files, 
-                max_fables, 
-                args.source_lang, 
-                args.target_lang
+            # Start prefetching entries in the background
+            entry_prefetch_task = asyncio.create_task(
+                prefetch_entries(fable_files, max_fables, args.source_lang, args.target_lang)
             )
             
-            # Feed entries to the worker pool via queue
-            async for entry in entries:
-                await ENTRY_QUEUE.put(entry)
-                processed_count += 1
+            # Wait for all entries to be processed
+            while True:
+                # Check if prefetcher is still running
+                if entry_prefetch_task.done():
+                    processed_count = entry_prefetch_task.result()
+                    if ENTRY_QUEUE.empty():
+                        break
                 
-                if processed_count % 100 == 0:
+                # Periodically check and log progress
+                queue_size = ENTRY_QUEUE.qsize()
+                if processed_count > 0:
                     elapsed = time.perf_counter() - start_time
                     rate = processed_count / elapsed if elapsed > 0 else 0
-                    logger.info(f"Queued {processed_count} entries in {elapsed:.2f}s ({rate:.2f} entries/s)")
+                
+                # Periodic garbage collection
+                if processed_count % 500 == 0:
+                    gc.collect()
                     
-                    # Periodic garbage collection
-                    if processed_count % 500 == 0:
-                        gc.collect()
+                # Give other tasks a chance to run
+                await asyncio.sleep(2.0)  # Check progress every 2 seconds
             
-            # Wait for all entries to be processed
             logger.info(f"All {processed_count} entries queued, waiting for processing to complete...")
             await ENTRY_QUEUE.join()
             
@@ -440,6 +551,15 @@ async def async_generate_translations(
             await WRITE_QUEUE.join()
             
         finally:
+            # Stop prefetching
+            entry_prefetch_running = False
+            if entry_prefetch_task and not entry_prefetch_task.done():
+                entry_prefetch_task.cancel()
+                try:
+                    await entry_prefetch_task
+                except asyncio.CancelledError:
+                    pass
+            
             # Cancel all tasks
             for worker in workers:
                 if not worker.done():
@@ -507,35 +627,85 @@ def save_profiling_stats():
     except Exception as e:
         logger.error(f"Failed to save profiling stats: {e}")
 
-if __name__ == "__main__":
-    # check if endpoint is accessible
-    llm, endpoint = DEPENDENCY_CONTAINER.translator
+async def validate_endpoint_config():
+    """Validate the endpoint URL and API key configuration"""
+    _, endpoint = DEPENDENCY_CONTAINER.translator
+    api_key = DEPENDENCY_CONTAINER.api_key
+    model = DEPENDENCY_CONTAINER.model
     
-    async def test_connection():
-        try:
-            client = get_client()
-            response = await client.chat.completions.create(
-                model=DEPENDENCY_CONTAINER.model, 
-                messages=[{"role": "system", "content": "You are a helpful assistant."}],
-                max_tokens=10
-            )
-            return True
-        except Exception as e:
-            logger.error(f"Error connecting to endpoint: {e}")
-            return False
-    
-    async def main():
-        # Test connection first
-        connection_ok = await test_connection()
-        if not connection_ok:
-            logger.error("Failed to connect to the model endpoint. Please check your configuration.")
-            return
+    # Validate endpoint URL
+    if not endpoint or not endpoint.startswith(('http://', 'https://')):
+        logger.error(f"Invalid endpoint URL: {endpoint}. Must start with http:// or https://")
+        return False
         
-        # Run the translation process
-        try:
-            await async_generate_translations()
-        except Exception as e:
-            logger.error(f"Translation process failed: {e}")
+    # Simple validation of API key
+    if not api_key or len(api_key) < 8:
+        logger.error(f"API key appears invalid or too short")
+        return False
+        
+    # Check if model is specified
+    if not model:
+        logger.error(f"No model specified")
+        return False
+        
+    logger.info(f"Configuration validation passed. Endpoint: {endpoint}, Model: {model}")
+    return True
+
+async def test_connection():
+    """Test connection to the endpoint with fallback mechanisms"""
+    try:
+        # Get endpoint info
+        _, endpoint = DEPENDENCY_CONTAINER.translator
+        api_key = DEPENDENCY_CONTAINER.api_key
+        model = DEPENDENCY_CONTAINER.model
+        
+        # Log diagnostic info
+        logger.info(f"Testing connection to endpoint: {endpoint}")
+        logger.info(f"Using model: {model}")
+        logger.info(f"API key length: {len(api_key)} chars, starts with: {api_key[:4]}...")
+        
+        # Simple test prompt
+        system_prompt = "You are a helpful assistant."
+        user_prompt = "Say hello."
+        
+        # Try a simple call
+        response = await execute_llm_call(system_prompt, user_prompt, model)
+        
+        if response:
+            logger.info(f"Connection test successful. Response: {response[:100]}...")
+            return True
+        else:
+            logger.error("Connection test failed: Empty response")
+            return False
+            
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e)
+        
+        # Print detailed error info
+        logger.error(f"Error connecting to endpoint: {error_type}: {error_msg}")
+        return False
+
+async def main():
+    # Validate configuration first
+    if not await validate_endpoint_config():
+        logger.error("Failed configuration validation. Check your .env file and translator.yaml")
+        return
+        
+    # Test connection
+    connection_ok = await test_connection()
+    if not connection_ok:
+        logger.error("Failed to connect to the model endpoint. Please check your configuration.")
+        return
     
+    # Run the translation process
+    try:
+        await async_generate_translations()
+    except Exception as e:
+        logger.error(f"Translation process failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+if __name__ == "__main__":
     # Run the main async function
     asyncio.run(main())
