@@ -26,7 +26,7 @@ INITIAL_RETRY_DELAY = 1
 TRANSLATIONS_FOLDER = 'data/translations'
 MAX_CONCURRENCY = 120
 BATCH_SIZE = 20  # Process 8 fables per API call for optimal throughput
-FABLES_FILES = ['/home/andrei/Documents/Work/tinyfabulist/data/fables/llama-3-1-8b-instruct-a10gt/tf_fables_llama-3-1-8b-instruct-a10gt_dt250412-221516.jsonl']
+FABLES_FILES = ['data/output.jsonl']
 ARGS = argparse.Namespace(source_lang='English', target_lang='Romanian')
 
 logger = setup_logging()
@@ -126,7 +126,7 @@ class DependecyContainer:
         self.api_key = API_KEY
         self.max_tokens = 1000
         self.temperature = 0.7
-        self.model = 'utter-project/EuroLLM-9B-Instruct'
+        self.model = TRANSLATOR_CFG[0]
 
 # Create once at module level
 DEPENDENCY_CONTAINER = DependecyContainer()
@@ -136,7 +136,7 @@ def get_client():
     model_name, endpoint = DEPENDENCY_CONTAINER.translator
     api_key = DEPENDENCY_CONTAINER.api_key
         
-    
+
     cache_key = endpoint
     if cache_key not in CLIENT_CACHE:
         try:
@@ -147,7 +147,7 @@ def get_client():
                 timeout=60.0,
                 max_retries=3
             )
-            CLIENT_CACHE[cache_key] = client
+        CLIENT_CACHE[cache_key] = client
         except Exception as e:
             logger.error(f"Failed to create client: {e}")
             raise
@@ -158,7 +158,7 @@ async def execute_llm_call(system_prompt: str, user_prompt: str, model: str):
     """Call the LLM API with appropriate format for the endpoint"""
     max_tokens = DEPENDENCY_CONTAINER.max_tokens
     temperature = DEPENDENCY_CONTAINER.temperature
-    
+
     client = get_client()
     _, endpoint = DEPENDENCY_CONTAINER.translator
     
@@ -172,16 +172,16 @@ async def execute_llm_call(system_prompt: str, user_prompt: str, model: str):
         try:
             logger.debug("Attempting OpenAI-compatible chat completion format")
             response = await client.chat.completions.create(
-                model=model,
+            model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
             logger.debug("OpenAI format succeeded")
-            return response.choices[0].message.content
+        return response.choices[0].message.content
         except Exception as e:
             error_msg = str(e).lower()
             logger.warning(f"OpenAI format failed: {e}")
@@ -394,6 +394,7 @@ async def process_single_translation(
             'target_lang': entry.get('target_lang'),
             'llm_name': DEPENDENCY_CONTAINER.model,
             'generation_timestamp': generation_time,
+            'translation_model': DEPENDENCY_CONTAINER.model,
         }
 
         # 3) Put onto write queue instead of writing directly
@@ -446,7 +447,7 @@ async def async_generate_translations(
     logger.info("Translation started - using optimized streaming approach with worker pool")
     logger.info(f"Translator endpoint: {DEPENDENCY_CONTAINER.translator}")
     logger.info(f"Max concurrency: {MAX_CONCURRENCY}")
-    
+
     # Load translation prompt
     system_prompt, template = DEPENDENCY_CONTAINER.prompts
 

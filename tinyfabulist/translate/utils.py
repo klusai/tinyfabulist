@@ -16,7 +16,7 @@ logger = setup_logging()
 
 
 def save_progress(
-    records: List[Dict[str, Any]], output_file: str, is_first_batch: bool
+    records: List[Dict[str, Any]], output_file: str, is_first_batch: bool, model: str="o3-mini-2025-01-31"
 ) -> None:
     """
     Save a batch of translated records to the output file.
@@ -269,12 +269,12 @@ def translate_jsonl(
                 # Save progress after processing each batch
                 if processed_count % batch_size == 0 and translated_records:
                     save_progress(
-                        translated_records, output_file, processed_count == batch_size
+                        translated_records, output_file, processed_count == batch_size, model_name
                     )
                     translated_records.clear()
 
     # Save any remaining records
     if translated_records:
-        save_progress(translated_records, output_file, False)
+        save_progress(translated_records, output_file, False, model_name)
 
     logger.info(f"Translation complete. Processed {processed_count} records.")

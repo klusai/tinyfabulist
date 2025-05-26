@@ -20,6 +20,7 @@ from tinyfabulist.logger import *
 
 # Constants
 CONFIG_DIR = "tinyfabulist/conf"
+MODEL = "o3-mini-2025-01-31"
 
 logger = setup_logging()
 
@@ -42,7 +43,7 @@ class EvaluationUtils:
         if self.language == "en":
             return config["evaluator"]["prompt"]["system"], config["evaluator"]["prompt"]["evaluation"]
         else:
-            return config["evaluator"]["prompt"]["system_ro"], config["evaluator"]["prompt"]["evaluation_ro"]
+            return config["evaluator"]["prompt"]["system_prompt_ro"], config["evaluator"]["prompt"]["user_prompt_ro"]
     
     def render_template(self, template_str: str, context: dict[str, any]) -> str:
         """
@@ -62,13 +63,12 @@ class EvaluationUtils:
         """Call the evaluation API with the given prompts."""
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",  # or whatever model is configured
+                model=MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1000
+                max_completion_tokens=3000
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:

@@ -43,7 +43,7 @@ class FileProcessor:
                                 break
                             try:
                                 data = json.loads(line)
-                                if "evaluation" in data and "translation_accuracy" in data["evaluation"]:
+                                if "evaluation" in data and "accuracy" in data["evaluation"]:
                                     is_translation = True
                                     break
                             except json.JSONDecodeError:
@@ -166,9 +166,11 @@ class Evaluator:
         Parse translation evaluation file(s) into aggregated scores.
         """
         translation_score_totals = defaultdict(lambda: {
-            "translation_accuracy": 0,
+            "accuracy": 0,
             "fluency": 0,
-            "moral_clarity": 0,
+            "coherence": 0,
+            "style": 0,
+            "cultural_pragmatic": 0,
             "input_tokens": 0,
             "output_tokens": 0,
             "inference_time": 0,
@@ -178,19 +180,32 @@ class Evaluator:
         for file_path in translation_eval_files:
             try:
                 with open(file_path, "r") as f:
-                    for line in f:
+                    for line in f:  
                         data = json.loads(line)
-                        model = data.get("llm_name", "unknown").split("/")[-1]
+                        model = data.get("translation_model", "unknown").split("/")[-1]
                         if "evaluation" in data:
                             eval_data = data["evaluation"]
+                            # Handle both old and new format
                             if "translation_accuracy" in eval_data:
-                                translation_score_totals[model]["translation_accuracy"] += eval_data.get("translation_accuracy", 0)
+                                # Old format
+                                translation_score_totals[model]["accuracy"] += eval_data.get("translation_accuracy", 0)
                                 translation_score_totals[model]["fluency"] += eval_data.get("fluency", 0)
-                                translation_score_totals[model]["moral_clarity"] += eval_data.get("moral_clarity", 0)
-                                translation_score_totals[model]["input_tokens"] += data.get("llm_input_tokens", 0)
-                                translation_score_totals[model]["output_tokens"] += data.get("llm_output_tokens", 0)
-                                translation_score_totals[model]["inference_time"] += data.get("llm_inference_time", 0)
+                                translation_score_totals[model]["coherence"] += 0  # Not present in old format
+                                translation_score_totals[model]["style"] += 0  # Not present in old format
+                                translation_score_totals[model]["cultural_pragmatic"] += 0  # Not present in old format
                                 translation_score_totals[model]["count"] += 1
+                            elif isinstance(eval_data, dict) and "accuracy" in eval_data:
+                                # New format with nested structure
+                                translation_score_totals[model]["accuracy"] += eval_data["accuracy"].get("score", 0)
+                                translation_score_totals[model]["fluency"] += eval_data["fluency"].get("score", 0)
+                                translation_score_totals[model]["coherence"] += eval_data["coherence"].get("score", 0)
+                                translation_score_totals[model]["style"] += eval_data["style"].get("score", 0)
+                                translation_score_totals[model]["cultural_pragmatic"] += eval_data["cultural_pragmatic"].get("score", 0)
+                                translation_score_totals[model]["count"] += 1
+                            
+                            translation_score_totals[model]["input_tokens"] += data.get("llm_input_tokens", 0)
+                            translation_score_totals[model]["output_tokens"] += data.get("llm_output_tokens", 0)
+                            translation_score_totals[model]["inference_time"] += data.get("llm_inference_time", 0)
             except Exception as e:
                 logger.error(f"Error parsing translation evaluation file {file_path}: {e}")
         return translation_score_totals
@@ -227,17 +242,26 @@ class Evaluator:
         for model, scores in translation_score_totals.items():
             count = scores["count"]
             if count:
-                ta = scores["translation_accuracy"] / count
+                accuracy = scores["accuracy"] / count
                 fluency = scores["fluency"] / count
-                moral = scores["moral_clarity"] / count
+                coherence = scores["coherence"] / count
+                style = scores["style"] / count
+                cultural = scores["cultural_pragmatic"] / count
+                
+                # For old format compatibility, only include non-zero averages in the mean
+                valid_scores = [score for score in [accuracy, fluency, coherence, style, cultural] if score > 0]
+                mean_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0
+                
                 translation_averages[model] = {
-                    "translation_accuracy": ta,
+                    "accuracy": accuracy,
                     "fluency": fluency,
-                    "moral_clarity": moral,
-                    "average_score_(mean)": (ta + fluency + moral) / 3,
-                    "input_tokens": scores["input_tokens"] / count,
-                    "output_tokens": scores["output_tokens"] / count,
-                    "inference_time": scores["inference_time"] / count,
+                    "coherence": coherence,
+                    "style": style,
+                    "cultural_pragmatic": cultural,
+                    "average_score_(mean)": mean_score,
+                    "input_tokens": scores["input_tokens"] / count if scores["input_tokens"] else 0,
+                    "output_tokens": scores["output_tokens"] / count if scores["output_tokens"] else 0,
+                    "inference_time": scores["inference_time"] / count if scores["inference_time"] else 0,
                     "count": count,
                 }
         return translation_averages
@@ -301,13 +325,13 @@ class Evaluator:
         header = [
             "## Translation Evaluation Averages",
             "",
-            "| Model | Translation Accuracy | Fluency | Moral Clarity | Average Score (Mean) | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |",
-            "|-------|----------------------|---------|---------------|----------------------|-------|------------------|-------------------|------------------------|",
+            "| Model | Accuracy | Fluency | Coherence | Style | Cultural/Pragmatic | Average Score | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |",
+            "|-------|----------|---------|-----------|-------|-------------------|--------------|-------|------------------|-------------------|------------------------|",
         ]
         rows = []
         for model, metrics in translation_averages.items():
-            row = (f"| {model} | {metrics['translation_accuracy']:.2f} | {metrics['fluency']:.2f} | "
-                   f"{metrics['moral_clarity']:.2f} | "
+            row = (f"| {model} | {metrics['accuracy']:.2f} | {metrics['fluency']:.2f} | "
+                   f"{metrics['coherence']:.2f} | {metrics['style']:.2f} | {metrics['cultural_pragmatic']:.2f} | "
                    f"{metrics['average_score_(mean)']:.2f} | {metrics['count']} | "
                    f"{metrics['input_tokens']:.1f} | {metrics['output_tokens']:.1f} | "
                    f"{metrics['inference_time']:.2f} |")
@@ -615,7 +639,7 @@ class Visualizer:
     @staticmethod
     def generate_translation_plotly_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str, orientation: str = "vertical"):
         models_list = list(translation_averages.keys())
-        metrics_list = ["translation_accuracy", "fluency", "moral_clarity", "average_score_(mean)"]
+        metrics_list = ["accuracy", "fluency", "coherence", "style", "cultural_pragmatic", "average_score_(mean)"]
 
         # Sort models for better visualization
         models_list = sorted(models_list, key=lambda x: -translation_averages[x]['average_score_(mean)'])
@@ -656,10 +680,12 @@ class Visualizer:
                 )
         
         trans_colors = {
-            "translation_accuracy": "#1DB954",
-            "fluency": "#191414",
-            "moral_clarity": "#B3B3B3",
-            "average_score_(mean)": "#E60012",
+            "accuracy": "#1DB954",        # Green
+            "fluency": "#191414",         # Dark Gray/Black
+            "coherence": "#535353",       # Medium Gray
+            "style": "#B3B3B3",           # Light Gray
+            "cultural_pragmatic": "#FFCC00", # Yellow
+            "average_score_(mean)": "#E60012", # Red
         }
         
         # Split models into two groups if in vertical orientation with many models
@@ -923,14 +949,14 @@ class Visualizer:
     def generate_translation_matplotlib_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str):
         models_list = list(translation_averages.keys())
         models_list_names = [model.split("_")[-1] for model in models_list]
-        metrics_list = ["translation_accuracy", "fluency", "moral_clarity", "average_score_(mean)"]
+        metrics_list = ["accuracy", "fluency", "coherence", "style", "cultural_pragmatic", "average_score_(mean)"]
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 15))  # Increase figure size
         x = np.arange(len(models_list))
-        width = 0.17
-        colors = ["#1DB954", "#191414", "#535353", "#B3B3B3", "#E60012"]
+        width = 0.12  # Adjusted for more bars
+        colors = ["#1DB954", "#191414", "#535353", "#B3B3B3", "#FFCC00", "#E60012"]
         for i, metric in enumerate(metrics_list):
             values = [translation_averages[model][metric] for model in models_list]
-            offset = (i - 2) * width
+            offset = (i - 2.5) * width  # Adjusted for more bars
             bars = ax1.bar(x + offset, values, width, label=metric.replace("_", " ").title(), color=colors[i % len(colors)])
             for bar in bars:
                 height = bar.get_height()

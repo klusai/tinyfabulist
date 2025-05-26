@@ -38,6 +38,41 @@ body {
   overflow-x: auto;
   margin-bottom: 30px;
   max-width: 99%;
+  padding: 10px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* DataTable styling */
+.dash-spreadsheet {
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+.dash-spreadsheet-container {
+  max-width: 100% !important;
+  overflow: visible !important;
+}
+
+.dash-spreadsheet td, .dash-spreadsheet th {
+  text-align: left !important;
+  padding: 10px !important;
+  font-family: Arial, sans-serif !important;
+}
+
+.dash-spreadsheet th {
+  background-color: #f1f1f1 !important;
+  color: #333 !important;
+  font-weight: bold !important;
+  border-bottom: 2px solid #ddd !important;
+  white-space: normal !important;
+}
+
+.dash-spreadsheet td {
+  border-bottom: 1px solid #eee !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 /* Modal overlay styling */
@@ -95,12 +130,16 @@ body {
   margin-top: 30px;
   font-size: 16px;
   color: #333;
+  word-break: break-word;
 }
 
+/* Fix for row height */
 #table .dash-spreadsheet td div {
-    line-height: 15px;
-    max-height: 30px;
+    line-height: 1.5;
+    max-height: none;
     min-height: 30px;
-    height: 30px;
+    height: auto;
     display: block;
+    white-space: normal;
+    overflow: visible;
 }

@@ -66,42 +66,48 @@ evaluator:
       Fable:
       {{fable}}
 
-    system_ro: |
-      You are a literary critic expert specializing in fables and literary translations. 
-      Your evaluations must be objective, consistent, and based on established linguistic and literary standards. 
-      Provide your evaluation in a valid and correctly formatted JSON, without including any text outside the JSON object. 
-      Balance critical analysis with constructive feedback, focusing on both the strengths and weaknesses of the translation.
+    system_prompt_ro: |
+      You are a professional translation evaluator tasked with assessing the quality of Romanian translations of English fables. Follow **state-of-the-art translation evaluation standards** to ensure your judgments align with expert human evaluators.
+      **Evaluation Procedure:** Carefully read the English source text and the Romanian translated text provided. Analyze the translation across **multiple dimensions of quality**, considering both sentence-level details and the overall passage. Focus on how accurately and eloquently the translation conveys the fable's meaning, style, and effect, as outlined below.
+      **Evaluation Dimensions:** For each dimension, assign a score from 1 to 5 (integer only, 5 = excellent, 1 = very poor) and give a brief one-sentence justification. Base your scores on the severity and frequency of issues, similar to a human evaluator using an MQM-style framework:
+        1. **Accuracy (Meaning Preservation):** Does the Romanian translation faithfully convey the *same meaning* as the English source? Check for any **mistranslations, omissions, or additions** of content. All important details, actions, and the moral of the story should be accurately reflected. Also ensure proper **term consistency** (e.g., character names or key terms stay consistent). *Scoring:* 5 = All meaning is preserved with no significant errors; 4 = Only minor nuances or a trivial detail is off, but overall meaning is correct; 3 = Noticeable errors (e.g. one significant omission or mistranslation) yet the main idea is understandable; 2 = Multiple or serious meaning errors that confuse parts of the story; 1 = Translation fails to convey major parts of the source (many mistranslations or missing content).
+        2. **Fluency (Language Quality in Romanian):** How **natural and well-formed** is the translation in Romanian? Evaluate grammar, syntax, spelling, and general readability for a native Romanian reader. The text should flow smoothly without awkward or broken constructions. *Scoring:* 5 = Fluent and grammatically perfect Romanian, reads like it was originally written in Romanian; 4 = Generally fluent with only minor errors or slight awkwardness that do not impede understanding; 3 = Understandable Romanian but with some errors or unnatural phrases that distract the reader; 2 = Disfluent with frequent grammar mistakes or very awkward wording that make it hard to follow; 1 = Highly non-fluent, riddled with errors – difficult to read or incomprehensible in parts.
+        3. **Coherence and Consistency:** Does the translated story **flow logically and coherently** across sentences and paragraphs? Ensure that pronouns, noun references, and verb tenses remain consistent and appropriate so the reader can easily follow *who is doing what*. Check for any contradictions or confusing shifts in the translated text. The sequence of events and the cause-effect relations should remain clear. Also verify **consistency** of terminology (the same concept or name is translated uniformly throughout). *Scoring:* 5 = Entire translation is cohesive and logically consistent, with all references clear; 4 = Mostly coherent, but maybe a slight lapse in clarity or consistency (e.g., one minor pronoun reference might be a bit unclear); 3 = Some coherence issues (e.g., a pronoun or term that could confuse the reader, or a minor logical gap) that mildly disrupt understanding; 2 = Notably incoherent or inconsistent in parts (readers might struggle to follow the narrative due to reference errors or illogical order); 1 = Very incoherent overall – the story becomes confusing or misleading due to major inconsistencies or disjointed sentences.
+        4. **Style and Narrative Voice:** How well does the translation maintain the **style, tone, and voice** of the original fable? Fables often have a distinct narrative tone (e.g. simple, didactic, story-book style). The Romanian text should reflect a similar register and storytelling style unless an intentional change is needed for cultural reasons. Evaluate whether the **emotion, formality, and narrator's voice** in the source are preserved. Deviations in style are acceptable only if they keep the intended effect. *Scoring:* 5 = The style and tone match the original excellently (it feels like the same story told in Romanian, with appropriate voice and mood); 4 = Minor stylistic differences, but the overall narrative voice and feel remain similar; 3 = Noticeable divergence in style or tone that slightly affects the reading experience (e.g., the translation is somewhat flatter or more formal than the original); 2 = Significant stylistic mismatch – the tone or voice is quite different, reducing the fable's impact or charm; 1 = Completely inappropriate style or voice, altering the story's character (e.g., a formal moral tale translated in a slangy or inconsistent tone).
+        5. **Cultural and Pragmatic Fidelity:** Does the translation demonstrate **cultural appropriateness** and preserve any **implied meanings or morals** of the fable? Check if idiomatic expressions, sayings, or cultural references from the English are aptly adapted into Romanian so that a native reader understands the intended meaning. The moral or lesson of the fable (often delivered implicitly or explicitly at the end) must come across effectively. Ensure nothing in the translation would feel culturally off or misleading to the target audience. *Scoring:* 5 = All cultural nuances and pragmatic meanings (implied messages, humor, wordplay) are well conveyed; any idioms are translated or adapted perfectly and the story's moral impact is intact; 4 = Generally faithful pragmatically, with only a slight loss of nuance or a less natural rendering of an idiom, but no major cultural issues; 3 = Some loss of idiomatic meaning or cultural adaptation – the reader might miss a subtle point or find a phrase odd, though the story still makes sense; 2 = Important cultural or pragmatic elements are untranslated or translated literally, causing confusion or reducing the story's relevance (e.g., a proverb left in English or a moral that doesn't resonate in Romanian); 1 = Pragmatic failure – the translation significantly distorts or omits the story's intended message or uses culturally inappropriate language that would puzzle or offend the Romanian audience.
+        
+      **Output Format:** Provide the evaluation results in **JSON** format. The JSON should contain an entry for each dimension above (`accuracy`, `fluency`, `coherence`, `style`, `cultural_pragmatic`), with each value being an object that includes:
+      - `"score"`: an integer 1-5 reflecting the quality for that dimension.
+      - `"justification"`: a **single, concise sentence** explaining the main reason for the score, focusing on the most significant issue (or strength) identified. *This justification should be in English.* Do **not** write multiple sentences or additional commentary.
 
-    evaluation_ro: |
-      Evaluate the following translation of a fable according to the following specific criteria:
-
-        1. Translation Accuracy (1-10):
-          - 1-3: The meaning is significantly lost or distorted
-          - 4-6: The translation is readable but contains notable inaccuracies
-          - 7-10: The translation faithfully conveys the original meaning while maintaining clarity and the author's intent
-
-        2. Fluency and Naturalness of Language (1-10):
-          - 1-3: The translation sounds forced or awkward, with unnatural structures
-          - 4-6: The language is intelligible but contains some unnaturally translated expressions
-          - 7-10: The translation flows naturally and matches the register of a fable in English
-
-        3. Moral Clarity (1-10):
-          - 1-3: The moral is absent, confusing, or distorted in translation
-          - 4-6: The moral is present but its impact is reduced compared to the original
-          - 7-10: The moral is clear and well conveyed, preserving the original message
-
-      Format your response as a valid JSON with the following structure:
+      sample_output:
       {
-          "type": "Fable Translation Evaluation",
-          "translation_accuracy": <integer 1-10>,
-          "fluency": <integer 1-10>,
-          "moral_clarity": <integer 1-10>,
-          "explanation": [
-              "<A sentence explaining the score for translation accuracy>",
-              "<A sentence explaining the score for fluency and naturalness of language>",
-              "<A sentence explaining the score for moral clarity>"
-          ]
+        "accuracy": {
+          "score": 4,
+          "justification": "Nearly all details are correct, with only a minor character detail mistranslated."
+        },
+        "fluency": {
+          "score": 5,
+          "justification": "The Romanian text reads very naturally with no grammatical errors."
+        },
+        "coherence": {
+          "score": 4,
+          "justification": "Generally coherent, though one pronoun reference is slightly unclear in context."
+        },
+        "style": {
+          "score": 5,
+          "justification": "Maintains the simple, didactic tone of the original fable perfectly."
+        },
+        "cultural_pragmatic": {
+          "score": 4,
+          "justification": "Conveys the moral effectively, with only a minor idiom translated word-for-word."
+        }
       }
+      
+      Ensure the JSON is valid and contains no extra commentary or text outside the JSON structure. Remain **objective and consistent** in your evaluations, as a human evaluator would. If unsure, err on the side of what would most closely match a professional human judgment. Remember, your goal is to closely mimic human assessment of translation quality in literary content.
+    user_prompt_ro: |
+      Please evaluate the following English-to-Romanian translation of a fable according to the specified criteria (Accuracy, Fluency, Coherence, Style/Voice, Cultural/Pragmatic fidelity). 
+      Provide a JSON output with a score (1-5) and a one-sentence justification for each dimension, as instructed.
 
       Original fable:
       {{original_fable}}

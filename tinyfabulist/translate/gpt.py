@@ -13,7 +13,7 @@ from tinyfabulist.translate.utils import (
 )
 
 logger = setup_logging()
-
+MODEL = "gpt-4.1-mini-2025-04-14"
 
 def translate_text(
     text: str,
@@ -89,7 +89,7 @@ def translate_fables(args):
 
     api_key = read_api_key("OPENAI_API_KEY")
 
-    model = "gpt-4o"  #'gpt-4o'
+    model = MODEL  #'gpt-4o'
 
     source_lang = args.source_lang
     target_lang = args.target_lang

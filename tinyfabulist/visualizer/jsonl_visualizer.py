@@ -15,7 +15,13 @@ def read_jsonl_file(filepath):
 def load_data(filepath):
     """Loads JSONL data from the file and returns a Pandas DataFrame."""
     jsonl_data = read_jsonl_file(filepath)
-    return pd.DataFrame(jsonl_data)
+    df = pd.DataFrame(jsonl_data)
+    
+    # Preprocess the dataframe to convert complex objects to strings
+    for col in df.columns:
+        df[col] = df[col].apply(lambda x: json.dumps(x, indent=2) if isinstance(x, (dict, list)) else x)
+    
+    return df
 
 # -----------------------------------------------------------------------------
 # Layout Creation
@@ -38,15 +44,46 @@ def create_layout(df, filename):
         html.Div(
             dash_table.DataTable(
                 id='table',
-                style_data={'whiteSpace': 'normal'},
+                style_data={
+                    'whiteSpace': 'normal',
+                    'height': 'auto',
+                    'lineHeight': '1.2',
+                    'overflowX': 'auto',
+                    'overflowY': 'auto',
+                },
                 style_header={
                     "fontWeight": "bold", 
-                    "color": "black"
+                    "color": "black",
+                    "backgroundColor": "#f1f1f1",
+                    "height": "auto",
                 },
-                style_cell={"padding": "10px", "textAlign": "left"},
+                style_cell={
+                    "padding": "10px", 
+                    "textAlign": "left",
+                    "minWidth": "200px",
+                    "width": "250px",
+                    "textOverflow": "ellipsis",
+                    "whiteSpace": "normal",
+                    "wordBreak": "break-word",
+                },
+                style_table={
+                    'overflowX': 'scroll',
+                    'width': '100%',
+                    'minHeight': '300px',
+                    'height': 'auto',
+                    'maxHeight': '600px',
+                },
                 columns=[{"name": col, "id": col} for col in df.columns],
                 data=df.to_dict('records'),
                 page_size=10,
+                css=[{"selector": "table", "rule": "table-layout: fixed;"}],
+                tooltip_data=[
+                    {
+                        column: {'value': str(value), 'type': 'markdown'}
+                        for column, value in row.items()
+                    } for row in df.to_dict('records')
+                ],
+                tooltip_duration=None,
             ),
             className="dash-table-container"
         ),
@@ -133,6 +170,18 @@ def register_callbacks(app, df):
         col = active_cell["column_id"]
         cell_value = data[row][col]
         
+        # Format cell value if it's a JSON string
+        if isinstance(cell_value, str) and (cell_value.startswith('{') or cell_value.startswith('[')):
+            try:
+                # Try to parse and pretty-print JSON
+                parsed_json = json.loads(cell_value)
+                cell_value = json.dumps(parsed_json, indent=2)
+                # Wrap in pre tag for proper formatting
+                cell_value = html.Pre(cell_value, style={'white-space': 'pre-wrap'})
+            except:
+                # If not valid JSON, just show as is
+                pass
+        
         # Return a modal style that centers the content.
         modal_style = {
             "display": "flex",
@@ -155,7 +204,9 @@ def register_callbacks(app, df):
 def main(filepath):
     df = load_data(filepath)
     
-    app = dash.Dash(__name__)
+    app = dash.Dash(__name__, 
+                   suppress_callback_exceptions=True,
+                   external_stylesheets=[])
     app.layout = create_layout(df, filename=filepath)
     register_callbacks(app, df)
     app.run(debug=False)
@@ -227,8 +278,16 @@ def launch_visualization(args):
         return
     
     # Create and configure the Dash app
-    df = load_data(args.input)
-    app = Dash(__name__)
+    df = load_data(filepath=args.input)
+    
+    # Handle empty dataframes
+    if df.empty:
+        print("Warning: The JSONL file is empty or could not be parsed properly.")
+        df = pd.DataFrame({'message': ['No data found in the file.']})
+    
+    app = Dash(__name__, 
+              suppress_callback_exceptions=True,
+              external_stylesheets=[])
     app.layout = create_layout(df, filename=args.input)
     register_callbacks(app, df)
     
@@ -246,5 +305,5 @@ def launch_visualization(args):
 # Run the Application
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    filepath = "/home/ap/Documents/Work/Research/tiny_fabulist/tinyfabulist/data/fables/deepseek-r1-distill-llama-8b-dmb/tf_fables_deepseek-r1-distill-llama-8b-dmb_dt250305-083628.jsonl"
+    filepath = "/home/andrei/Documents/Work/tinyfabulist/data/evaluations/Evaluation_250526-125637.jsonl"
     main(filepath)
