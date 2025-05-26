@@ -126,6 +126,7 @@ class DependecyContainer:
         self.api_key = API_KEY
         self.max_tokens = 1000
         self.temperature = 0.7
+        self.model = 'utter-project/EuroLLM-9B-Instruct'
 
 # Create once at module level
 DEPENDENCY_CONTAINER = DependecyContainer()
@@ -135,8 +136,6 @@ def get_client():
     model_name, endpoint = DEPENDENCY_CONTAINER.translator
     api_key = DEPENDENCY_CONTAINER.api_key
         
-    # Log the endpoint being used
-    logger.info(f"Using endpoint: {endpoint}")
     
     cache_key = endpoint
     if cache_key not in CLIENT_CACHE:
@@ -247,7 +246,6 @@ def format_translation_prompt(template: str, **kwargs) -> str:
 
 #### TRANSLATION FUNCTIONS ####
 
-@profile("translation")
 async def generate_translation_async(system_prompt: str, fable_text: str) -> str:
     """Async translation call using direct HTTP requests"""
     attempt = 0
@@ -467,6 +465,12 @@ async def async_generate_translations(
     entry_prefetch_task = None
     entry_prefetch_running = True
     
+    # Counters for progress tracking and time estimation
+    completed_count = 0
+    start_time = time.perf_counter()
+    last_checkpoint_time = start_time
+    last_checkpoint_count = 0
+    
     async def prefetch_entries(fable_files, max_fables, source_lang, target_lang):
         """Prefetches entries into queue without blocking on queue size"""
         nonlocal entry_prefetch_running
@@ -489,6 +493,41 @@ async def async_generate_translations(
             logger.error(f"Error during entry prefetching: {e}")
             return processed_count
     
+    # This queue will be used to track completed translations
+    completion_queue = asyncio.Queue()
+    
+    # Modified worker function that signals completions
+    async def tracked_translation_worker(worker_id, semaphore, system_prompt, template):
+        """Worker that processes entries and signals completions"""
+        logger.info(f"Worker {worker_id} started")
+        
+        while True:
+            try:
+                # Get an entry from the queue
+                entry = await ENTRY_QUEUE.get()
+                
+                # Acquire semaphore for processing
+                await semaphore.acquire()
+                
+                # Process the single entry
+                await process_single_translation(entry, system_prompt, template, semaphore)
+                
+                # Signal completion for tracking
+                await completion_queue.put(1)
+                
+                # Mark task as done in the queue
+                ENTRY_QUEUE.task_done()
+                    
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error(f"Worker {worker_id} error: {e}")
+                # Make sure to release semaphore on error
+                try:
+                    semaphore.release()
+                except:
+                    pass
+    
     processed_count = 0
     
     # Process entries through streaming approach with worker pool
@@ -500,12 +539,60 @@ async def async_generate_translations(
         workers = []
         for i in range(MAX_CONCURRENCY):  # Create one worker per concurrency slot
             worker = asyncio.create_task(
-                translation_worker(i, semaphore, system_prompt, template)
+                tracked_translation_worker(i, semaphore, system_prompt, template)
             )
             workers.append(worker)
             ACTIVE_TASKS.add(worker)
         
-        start_time = time.perf_counter()
+        # Start progress tracking task
+        async def track_progress():
+            nonlocal completed_count, last_checkpoint_time, last_checkpoint_count
+            
+            while True:
+                try:
+                    # Wait for completion signals
+                    await completion_queue.get()
+                    completed_count += 1
+                    
+                    # Report progress every 100 completions
+                    if completed_count % 100 == 0:
+                        current_time = time.perf_counter()
+                        elapsed_since_start = current_time - start_time
+                        elapsed_since_checkpoint = current_time - last_checkpoint_time
+                        
+                        # Calculate rates
+                        overall_rate = completed_count / elapsed_since_start if elapsed_since_start > 0 else 0
+                        checkpoint_rate = 100 / elapsed_since_checkpoint if elapsed_since_checkpoint > 0 else 0
+                        
+                        # Estimate time for 3 million entries
+                        if overall_rate > 0:
+                            total_entries = 3_000_000
+                            estimated_seconds = total_entries / overall_rate
+                            estimated_hours = estimated_seconds / 3600
+                            estimated_days = estimated_hours / 24
+                            
+                            logger.info(f"===== PROGRESS REPORT =====")
+                            logger.info(f"Completed {completed_count} translations in {elapsed_since_start:.2f} seconds")
+                            logger.info(f"Current rate: {checkpoint_rate:.2f} translations/second")
+                            logger.info(f"Overall rate: {overall_rate:.2f} translations/second")
+                            logger.info(f"Estimated time for 3M entries: {estimated_days:.2f} days ({estimated_hours:.2f} hours)")
+                            logger.info(f"===========================")
+                        
+                        # Reset checkpoint
+                        last_checkpoint_time = current_time
+                        last_checkpoint_count = completed_count
+                        
+                    # Mark task as done
+                    completion_queue.task_done()
+                        
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error in progress tracking: {e}")
+        
+        # Start the progress tracking task
+        progress_task = asyncio.create_task(track_progress())
+        ACTIVE_TASKS.add(progress_task)
         
         try:
             # Start prefetching entries in the background
@@ -537,13 +624,34 @@ async def async_generate_translations(
             logger.info(f"All {processed_count} entries queued, waiting for processing to complete...")
             await ENTRY_QUEUE.join()
             
-            # Cancel all workers
+            # Wait for all completions to be processed
+            await completion_queue.join()
+            
+            # Final progress report
+            final_time = time.perf_counter() 
+            total_elapsed = final_time - start_time
+            final_rate = completed_count / total_elapsed if total_elapsed > 0 else 0
+            
+            logger.info(f"===== FINAL PROGRESS REPORT =====")
+            logger.info(f"Completed {completed_count} translations in {total_elapsed:.2f} seconds")
+            logger.info(f"Final rate: {final_rate:.2f} translations/second")
+            
+            if final_rate > 0:
+                total_entries = 3_000_000
+                estimated_seconds = total_entries / final_rate
+                estimated_hours = estimated_seconds / 3600
+                estimated_days = estimated_hours / 24
+                logger.info(f"Estimated time for 3M entries: {estimated_days:.2f} days ({estimated_hours:.2f} hours)")
+            logger.info(f"=================================")
+            
+            # Cancel all workers and progress task
             for worker in workers:
                 worker.cancel()
+            progress_task.cancel()
                 
             # Wait for cancellation to complete
             try:
-                await asyncio.gather(*workers, return_exceptions=True)
+                await asyncio.gather(*workers, progress_task, return_exceptions=True)
             except asyncio.CancelledError:
                 pass
             
@@ -564,6 +672,9 @@ async def async_generate_translations(
             for worker in workers:
                 if not worker.done():
                     worker.cancel()
+            
+            if progress_task and not progress_task.done():
+                progress_task.cancel()
                     
             # Cancel the writer task
             writer_task.cancel()

@@ -4,9 +4,8 @@ from rich.table import Table
 from rich import print as rprint
 
 console = Console()
-DEEPL_SCORE = 8.41  
-LLAMA_70B_SCORE = 6.72
-GEMMA3_12B_SCORE = 8.85
+DEEPL_SCORE = 8.47
+GEMMA3_12B_SCORE = 9.11
 
 def main(file_path="tinyfabulist/estimate/config.yaml", CACHING_RATE=0.1):
     with open(file_path, "r") as file:
@@ -128,6 +127,20 @@ def main(file_path="tinyfabulist/estimate/config.yaml", CACHING_RATE=0.1):
         f"{GEMMA3_12B_SCORE}" if GEMMA3_12B_SCORE != "-" else "-",
         f"{gemma_cost/GEMMA3_12B_SCORE:.2f}" if GEMMA3_12B_SCORE != "-" else "-"
     )
+
+    euro_llm_cost = 675
+    euro_llm_score = 8.92
+
+    table.add_row(
+        "EuroLLM 9B",
+        f"-",
+        f"-",
+        f"-",
+        f"~${euro_llm_cost}",
+        f"{euro_llm_score}" if euro_llm_score != "-" else "-",
+        f"{euro_llm_cost/euro_llm_score:.2f}" if euro_llm_cost != "-" else "-"
+    )
+
 
     console.print(table)
 

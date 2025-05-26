@@ -85,12 +85,7 @@ evaluator:
           - 4-6: The language is intelligible but contains some unnaturally translated expressions
           - 7-10: The translation flows naturally and matches the register of a fable in English
 
-        3. Preservation of Style and Tone (1-10):
-          - 1-3: The style and tone are significantly lost or altered
-          - 4-6: The overall style is preserved, but there are notable tonal differences
-          - 7-10: The translation successfully retains the original style and tone of the fable
-
-        4. Moral Clarity (1-10):
+        3. Moral Clarity (1-10):
           - 1-3: The moral is absent, confusing, or distorted in translation
           - 4-6: The moral is present but its impact is reduced compared to the original
           - 7-10: The moral is clear and well conveyed, preserving the original message
@@ -100,12 +95,10 @@ evaluator:
           "type": "Fable Translation Evaluation",
           "translation_accuracy": <integer 1-10>,
           "fluency": <integer 1-10>,
-          "style_preservation": <integer 1-10>,
           "moral_clarity": <integer 1-10>,
           "explanation": [
               "<A sentence explaining the score for translation accuracy>",
               "<A sentence explaining the score for fluency and naturalness of language>",
-              "<A sentence explaining the score for preservation of style and tone>",
               "<A sentence explaining the score for moral clarity>"
           ]
       }

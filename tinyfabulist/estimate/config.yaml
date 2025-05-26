@@ -3,17 +3,17 @@ models:
     input_cost_per_million_tokens: 2.00
     cached_input_cost_per_million_tokens: 0.50
     output_cost_per_million_tokens: 8.00
-    score: 9.08
+    score: 9.14
   - name: "gpt-4.1-mini"
     input_cost_per_million_tokens: 0.40
     cached_input_cost_per_million_tokens: 0.10
     output_cost_per_million_tokens: 1.60
-    score: 8.75
+    score: 8.80
   - name: "gpt-4.1-nano"
     input_cost_per_million_tokens: 0.100
     cached_input_cost_per_million_tokens: 0.025
     output_cost_per_million_tokens: 0.400
-    score: 7.42
+    score: 7.48
   # - name: "openai-o3"
   #   input_cost_per_million_tokens: 10.00
   #   cached_input_cost_per_million_tokens: 2.50

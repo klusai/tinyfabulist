@@ -98,7 +98,7 @@ def run_evaluate(args) -> None:
 def add_evaluate_ro_subparser(subparsers) -> None:
     """Add the Romanian evaluate subparser to the main parser"""
     eval_parser = subparsers.add_parser(
-        "evaluat_ro",
+        "evaluate_ro",
         help="Evaluate translations of fables from Romanian to English",
     )
     eval_parser.add_argument(

@@ -168,7 +168,6 @@ class Evaluator:
         translation_score_totals = defaultdict(lambda: {
             "translation_accuracy": 0,
             "fluency": 0,
-            "style_preservation": 0,
             "moral_clarity": 0,
             "input_tokens": 0,
             "output_tokens": 0,
@@ -187,7 +186,6 @@ class Evaluator:
                             if "translation_accuracy" in eval_data:
                                 translation_score_totals[model]["translation_accuracy"] += eval_data.get("translation_accuracy", 0)
                                 translation_score_totals[model]["fluency"] += eval_data.get("fluency", 0)
-                                translation_score_totals[model]["style_preservation"] += eval_data.get("style_preservation", 0)
                                 translation_score_totals[model]["moral_clarity"] += eval_data.get("moral_clarity", 0)
                                 translation_score_totals[model]["input_tokens"] += data.get("llm_input_tokens", 0)
                                 translation_score_totals[model]["output_tokens"] += data.get("llm_output_tokens", 0)
@@ -231,14 +229,12 @@ class Evaluator:
             if count:
                 ta = scores["translation_accuracy"] / count
                 fluency = scores["fluency"] / count
-                style = scores["style_preservation"] / count
                 moral = scores["moral_clarity"] / count
                 translation_averages[model] = {
                     "translation_accuracy": ta,
                     "fluency": fluency,
-                    "style_preservation": style,
                     "moral_clarity": moral,
-                    "average_score_(mean)": (ta + fluency + style + moral) / 4,
+                    "average_score_(mean)": (ta + fluency + moral) / 3,
                     "input_tokens": scores["input_tokens"] / count,
                     "output_tokens": scores["output_tokens"] / count,
                     "inference_time": scores["inference_time"] / count,
@@ -305,13 +301,13 @@ class Evaluator:
         header = [
             "## Translation Evaluation Averages",
             "",
-            "| Model | Translation Accuracy | Fluency | Style Preservation | Moral Clarity | Average Score (Mean) | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |",
-            "|-------|----------------------|---------|--------------------|---------------|----------------------|-------|------------------|-------------------|------------------------|",
+            "| Model | Translation Accuracy | Fluency | Moral Clarity | Average Score (Mean) | Count | Avg Input Tokens | Avg Output Tokens | Avg Inference Time (s) |",
+            "|-------|----------------------|---------|---------------|----------------------|-------|------------------|-------------------|------------------------|",
         ]
         rows = []
         for model, metrics in translation_averages.items():
             row = (f"| {model} | {metrics['translation_accuracy']:.2f} | {metrics['fluency']:.2f} | "
-                   f"{metrics['style_preservation']:.2f} | {metrics['moral_clarity']:.2f} | "
+                   f"{metrics['moral_clarity']:.2f} | "
                    f"{metrics['average_score_(mean)']:.2f} | {metrics['count']} | "
                    f"{metrics['input_tokens']:.1f} | {metrics['output_tokens']:.1f} | "
                    f"{metrics['inference_time']:.2f} |")
@@ -619,7 +615,7 @@ class Visualizer:
     @staticmethod
     def generate_translation_plotly_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str, orientation: str = "vertical"):
         models_list = list(translation_averages.keys())
-        metrics_list = ["translation_accuracy", "fluency", "style_preservation", "moral_clarity", "average_score_(mean)"]
+        metrics_list = ["translation_accuracy", "fluency", "moral_clarity", "average_score_(mean)"]
 
         # Sort models for better visualization
         models_list = sorted(models_list, key=lambda x: -translation_averages[x]['average_score_(mean)'])
@@ -662,7 +658,6 @@ class Visualizer:
         trans_colors = {
             "translation_accuracy": "#1DB954",
             "fluency": "#191414",
-            "style_preservation": "#535353",
             "moral_clarity": "#B3B3B3",
             "average_score_(mean)": "#E60012",
         }
@@ -928,7 +923,7 @@ class Visualizer:
     def generate_translation_matplotlib_visualizations(translation_averages: dict, tf_model_stats: dict, stats_folder: str, timestamp: str, output_mode: str):
         models_list = list(translation_averages.keys())
         models_list_names = [model.split("_")[-1] for model in models_list]
-        metrics_list = ["translation_accuracy", "fluency", "style_preservation", "moral_clarity", "average_score_(mean)"]
+        metrics_list = ["translation_accuracy", "fluency", "moral_clarity", "average_score_(mean)"]
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 15))  # Increase figure size
         x = np.arange(len(models_list))
         width = 0.17
