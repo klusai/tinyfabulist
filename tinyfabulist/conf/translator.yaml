@@ -1,4 +1,4 @@
 translator_ro:
   engine: open_source
-  model: utter-project/EuroLLM-9B-Instruct 
-  endpoint: https://y075r26vwbhwpiag.us-east-2.aws.endpoints.huggingface.cloud/v1/
+  model: google/gemma-3-12b-it 
+  endpoint: https://m3yncectpi27k7zx.us-east-2.aws.endpoints.huggingface.cloud/v1/

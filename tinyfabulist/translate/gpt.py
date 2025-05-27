@@ -2,6 +2,7 @@ import time
 
 import requests
 from dotenv import load_dotenv
+import yaml
 
 from tinyfabulist.logger import setup_logging
 from tinyfabulist.translate.subparser import add_translate_subparser
@@ -11,13 +12,18 @@ from tinyfabulist.translate.utils import (
     translate_jsonl,
     translate_main,
 )
-
+from openai import OpenAI
 logger = setup_logging()
-MODEL = "gpt-4.1-mini-2025-04-14"
+MODEL = "google/gemini-flash-1.5-8b"
+
+api_key = read_api_key("OPENROUTER_KEY")
+client = OpenAI(
+  base_url="https://openrouter.ai/api/v1",
+  api_key=api_key,
+)
 
 def translate_text(
     text: str,
-    api_key: str,
     model: str,
     source_lang: str = "en",
     target_lang: str = "ro",
@@ -29,7 +35,6 @@ def translate_text(
 
     Parameters:
         text: Text to translate.
-        api_key: OpenAI API key for authentication.
         model: ChatGPT model to use (e.g., 'gpt-3.5-turbo').
         source_lang: Source language (e.g., 'en').
         target_lang: Target language (e.g., 'ro').
@@ -39,38 +44,31 @@ def translate_text(
     Returns:
         Translated text (or the original text if translation fails).
     """
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     # Construct the prompt for translation
     prompt = (
         f"Translate the following text from {source_lang} to {target_lang}:\n\n{text}."
     )
 
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You are a helpful translator."},
-            {"role": "user", "content": prompt.strip()},
-        ],
-    }
-
     for attempt in range(1, max_retries + 1):
         try:
-            response = requests.post(url, headers=headers, json=payload)
-            if response.status_code == 200:
-                result = response.json()
-                # Extract the translated text from the response
-                if "choices" in result and len(result["choices"]) > 0:
-                    translated_text = result["choices"][0]["message"]["content"].strip()
-                    return translated_text
-                else:
-                    return str(result)
+            response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                "role": "user",
+                "content": prompt.strip()
+                }
+            ]
+            )
+            
+            # Extract the translated text directly from the completion object
+            if response.choices and len(response.choices) > 0:
+                translated_text = response.choices[0].message.content.strip()
+                return translated_text
             else:
-                logger.error(
-                    f"ChatGPT API returned status code {response.status_code}: {response.text}. "
-                    f"Attempt {attempt}/{max_retries}."
-                )
+                logger.error(f"No choices returned in response. Attempt {attempt}/{max_retries}.")
                 time.sleep(backoff_factor)
+                
         except Exception as e:
             logger.error(
                 f"Translation error on attempt {attempt}/{max_retries}: {e}. "
@@ -87,9 +85,7 @@ def translate_fables(args):
     """
     load_dotenv()
 
-    api_key = read_api_key("OPENAI_API_KEY")
-
-    model = MODEL  #'gpt-4o'
+    model = MODEL  
 
     source_lang = args.source_lang
     target_lang = args.target_lang
@@ -109,7 +105,6 @@ def translate_fables(args):
         max_workers=args.max_workers,
         model_name=model,
         **{
-            "api_key": api_key,
             "model": model,
             "source_lang": source_lang,
             "target_lang": target_lang,

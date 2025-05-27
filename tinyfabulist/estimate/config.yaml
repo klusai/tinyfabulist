@@ -1,19 +1,28 @@
 models:
   - name: "gpt-4.1"
     input_cost_per_million_tokens: 2.00
-    cached_input_cost_per_million_tokens: 0.50
     output_cost_per_million_tokens: 8.00
-    score: 9.14
+    score: 4.89
   - name: "gpt-4.1-mini"
     input_cost_per_million_tokens: 0.40
-    cached_input_cost_per_million_tokens: 0.10
     output_cost_per_million_tokens: 1.60
-    score: 8.80
-  - name: "gpt-4.1-nano"
+    score: 4.73
+  - name: "gemini-2.5-flash-preview"
+    input_cost_per_million_tokens: 0.15
+    output_cost_per_million_tokens: 3.5
+    score: 4.84
+  - name: "google/gemini-2.0-flash-001"
     input_cost_per_million_tokens: 0.100
-    cached_input_cost_per_million_tokens: 0.025
     output_cost_per_million_tokens: 0.400
-    score: 7.48
+    score: 4.82
+  - name: "grok-3-mini-beta"
+    input_cost_per_million_tokens: 0.3
+    output_cost_per_million_tokens: 0.5
+    score: 4.79
+  - name: "gemini-flash-1.5-8b"
+    input_cost_per_million_tokens: 0.038
+    output_cost_per_million_tokens: 0.15
+    score: 4.45
   # - name: "openai-o3"
   #   input_cost_per_million_tokens: 10.00
   #   cached_input_cost_per_million_tokens: 2.50

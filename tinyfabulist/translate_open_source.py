@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import random
@@ -147,7 +148,7 @@ def get_client():
                 timeout=60.0,
                 max_retries=3
             )
-        CLIENT_CACHE[cache_key] = client
+            CLIENT_CACHE[cache_key] = client
         except Exception as e:
             logger.error(f"Failed to create client: {e}")
             raise
@@ -181,7 +182,7 @@ async def execute_llm_call(system_prompt: str, user_prompt: str, model: str):
             temperature=temperature,
         )
             logger.debug("OpenAI format succeeded")
-        return response.choices[0].message.content
+            return response.choices[0].message.content
         except Exception as e:
             error_msg = str(e).lower()
             logger.warning(f"OpenAI format failed: {e}")
@@ -392,6 +393,7 @@ async def process_single_translation(
             'pipeline_stage': 'translation',
             'source_lang': entry.get('source_lang'),
             'target_lang': entry.get('target_lang'),
+            'prompt_hash': entry.get('prompt_hash'),
             'llm_name': DEPENDENCY_CONTAINER.model,
             'generation_timestamp': generation_time,
             'translation_model': DEPENDENCY_CONTAINER.model,
