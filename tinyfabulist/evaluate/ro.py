@@ -43,6 +43,7 @@ def evaluate_fable_save(fable_data: dict, idx: int = 0, lock: threading.Lock = N
     
     # Merge the original fable data with the evaluation results
     result = dict(fable_data)
+    print(evaluation_json)
     result.update({
         "evaluation": evaluation_json,
         "evaluation_timestamp": datetime.now().isoformat(),
@@ -65,7 +66,7 @@ def evaluate_file(input_path: str, output_path: str = None) -> None:
     results = utils.process_entries(
         entries,
         evaluate_fable_save, 
-        max_workers=25,
+        max_workers=12,
         lock=output_lock
     )
     

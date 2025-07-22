@@ -14,7 +14,7 @@ from tinyfabulist.translate.utils import (
 )
 from openai import OpenAI
 logger = setup_logging()
-MODEL = "google/gemini-flash-1.5-8b"
+MODEL = "google/gemma-3-4b-it"
 
 api_key = read_api_key("OPENROUTER_KEY")
 client = OpenAI(

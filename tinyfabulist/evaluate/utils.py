@@ -61,6 +61,11 @@ class EvaluationUtils:
     
     def call_evaluation_api(self, system_prompt, user_prompt):
         """Call the evaluation API with the given prompts."""
+        import time
+        
+        # Add delay to respect rate limits
+        time.sleep(3)  # 3 seconds between API calls
+        
         try:
             response = self.client.chat.completions.create(
                 model=MODEL,
@@ -68,10 +73,27 @@ class EvaluationUtils:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_completion_tokens=3000
+                max_completion_tokens=5000  # Increased to allow complete JSON responses
             )
-            return json.loads(response.choices[0].message.content)
+            
+            content = response.choices[0].message.content
+            if not content or not content.strip():
+                logger.error("Empty response from evaluation API")
+                return {"error": "Empty response"}
+            
+            # Try to parse JSON, with better error handling
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError as je:
+                logger.error(f"Invalid JSON from API. Content: {content[:300]}...")
+                logger.error(f"JSON error: {je}")
+                return {"error": f"Invalid JSON: {str(je)}"}
+                
         except Exception as e:
+            # Handle rate limiting specifically
+            if "429" in str(e) or "rate_limit" in str(e).lower():
+                logger.warning(f"Rate limit hit, waiting 10 seconds...")
+                time.sleep(10)
             logger.error(f"Error calling evaluation API: {e}")
             return {"error": str(e)}
     

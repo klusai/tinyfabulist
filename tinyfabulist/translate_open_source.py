@@ -25,8 +25,8 @@ CLIENT_CACHE = {}
 MAX_RETRIES = 3
 INITIAL_RETRY_DELAY = 1
 TRANSLATIONS_FOLDER = 'data/translations'
-MAX_CONCURRENCY = 120
-BATCH_SIZE = 20  # Process 8 fables per API call for optimal throughput
+MAX_CONCURRENCY = 5
+BATCH_SIZE = 5  # Process 8 fables per API call for optimal throughput
 FABLES_FILES = ['data/output.jsonl']
 ARGS = argparse.Namespace(source_lang='English', target_lang='Romanian')
 
@@ -115,7 +115,7 @@ TRANSLATOR_CFG = get_translator()
 API_KEY = config('HF_ACCESS_TOKEN')
 
 # Configure HTTP/2 connection limits for optimal pooling
-HTTP_MAX_CONNECTIONS = 100
+HTTP_MAX_CONNECTIONS = 5
 HTTP_MAX_KEEPALIVE_CONNECTIONS = 20
 HTTP_KEEPALIVE_EXPIRY = 60  # seconds
 

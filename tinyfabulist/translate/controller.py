@@ -67,7 +67,7 @@ def add_translate_subparser(subparsers):
     translate_parser.add_argument(
         "--config",
         type=str,
-        default="conf/translator.yaml",
+        default="tinyfabulist/conf/translator.yaml",
         help="Path to translation configuration file"
     )
 
