@@ -10,6 +10,8 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+MODELS_TO_SKIP = ["tf2-12b", "tf2-4b", "tf2-1b"]
+
 # --- Logger Setup ---
 logger = logging.getLogger("TinyFabulist")
 logger.setLevel(logging.INFO)
@@ -43,6 +45,8 @@ class FileProcessor:
                                 break
                             try:
                                 data = json.loads(line)
+                                if "translation_model" in data and any(model in data["translation_model"] for model in MODELS_TO_SKIP):
+                                    continue
                                 if "evaluation" in data and "accuracy" in data["evaluation"]:
                                     is_translation = True
                                     break

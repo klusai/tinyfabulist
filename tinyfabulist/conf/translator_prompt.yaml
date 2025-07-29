@@ -1,7 +1,7 @@
 translator:
   prompt:
     system: |
-      You are a world-class literary translator specializing in fables and moral tales. Your task is to translate the given fable while:
+      You are a world-class literary translator specializing in fables and moral tales. Your task is to translate the given fable to Romanian while:
       1. Preserving the original meaning and moral lesson
       2. Maintaining the style and tone of the original
       3. Ensuring clarity and natural flow in the target language

@@ -22,11 +22,11 @@ from tinyfabulist.logger import setup_logging
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 CLIENT_CACHE = {}
-MAX_RETRIES = 3
+MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 1
 TRANSLATIONS_FOLDER = 'data/translations'
-MAX_CONCURRENCY = 5
-BATCH_SIZE = 5  # Process 8 fables per API call for optimal throughput
+MAX_CONCURRENCY = 20
+BATCH_SIZE = 20
 FABLES_FILES = ['data/output.jsonl']
 ARGS = argparse.Namespace(source_lang='English', target_lang='Romanian')
 
@@ -34,6 +34,9 @@ logger = setup_logging()
 
 # Track active tasks for proper cleanup
 ACTIVE_TASKS = set()
+
+# Global token counter for tokens/s calculation
+TOTAL_TOKENS = 0
 
 # Setup profiling metrics
 PROFILING_ENABLED = True
@@ -43,7 +46,7 @@ PROFILING_FILE = os.path.join('logs', 'profiling_stats.jsonl')
 # File writer queue and entry processing queue
 WRITE_QUEUE = asyncio.Queue()
 ENTRY_QUEUE = asyncio.Queue()  # Queue for worker pool
-WRITE_BATCH_SIZE = 40 
+WRITE_BATCH_SIZE = 50 
 
 # Ensure logs directory exists
 os.makedirs('logs', exist_ok=True)
@@ -114,10 +117,6 @@ PROMPTS_SYSTEM, PROMPTS_TEMPLATE = get_prompts()
 TRANSLATOR_CFG = get_translator()
 API_KEY = config('HF_ACCESS_TOKEN')
 
-# Configure HTTP/2 connection limits for optimal pooling
-HTTP_MAX_CONNECTIONS = 5
-HTTP_MAX_KEEPALIVE_CONNECTIONS = 20
-HTTP_KEEPALIVE_EXPIRY = 60  # seconds
 
 class DependecyContainer:
     def __init__(self):
@@ -126,7 +125,7 @@ class DependecyContainer:
         self.translator = TRANSLATOR_CFG
         self.api_key = API_KEY
         self.max_tokens = 1000
-        self.temperature = 0.7
+        self.temperature = 1.0
         self.model = TRANSLATOR_CFG[0]
 
 # Create once at module level
@@ -145,7 +144,7 @@ def get_client():
             client = AsyncOpenAI(
                 base_url=endpoint, 
                 api_key=api_key,
-                timeout=60.0,
+                timeout=120.0,  # Increase from 60.0 to 120.0 seconds
                 max_retries=3
             )
             CLIENT_CACHE[cache_key] = client
@@ -157,6 +156,8 @@ def get_client():
 
 async def execute_llm_call(system_prompt: str, user_prompt: str, model: str):
     """Call the LLM API with appropriate format for the endpoint"""
+    global TOTAL_TOKENS  # Declare at function start
+    
     max_tokens = DEPENDENCY_CONTAINER.max_tokens
     temperature = DEPENDENCY_CONTAINER.temperature
 
@@ -182,6 +183,17 @@ async def execute_llm_call(system_prompt: str, user_prompt: str, model: str):
             temperature=temperature,
         )
             logger.debug("OpenAI format succeeded")
+            
+            # Track tokens for tokens/s calculation
+            if hasattr(response, "usage") and response.usage and hasattr(response.usage, "total_tokens"):
+                TOTAL_TOKENS += response.usage.total_tokens
+                logger.debug(f"Added {response.usage.total_tokens} tokens, total: {TOTAL_TOKENS}")
+            else:
+                # Estimate tokens if usage not available (4 chars per token)
+                estimated_tokens = (len(system_prompt) + len(user_prompt) + len(str(response.choices[0].message.content))) // 4
+                TOTAL_TOKENS += estimated_tokens
+                logger.debug(f"Estimated {estimated_tokens} tokens, total: {TOTAL_TOKENS}")
+            
             return response.choices[0].message.content
         except Exception as e:
             error_msg = str(e).lower()
@@ -202,7 +214,7 @@ async def execute_llm_call(system_prompt: str, user_prompt: str, model: str):
                     "Content-Type": "application/json"
                 }
                 
-                async with httpx.AsyncClient(timeout=60.0) as http_client:
+                async with httpx.AsyncClient(timeout=120.0) as http_client:
                     payload = {
                         "inputs": combined_prompt,
                         "parameters": {
@@ -224,10 +236,24 @@ async def execute_llm_call(system_prompt: str, user_prompt: str, model: str):
                     
                     if isinstance(result, list) and result:
                         # Standard HF format
-                        return result[0].get('generated_text', '')
+                        response_text = result[0].get('generated_text', '')
+                        
+                        # Track tokens for HF format
+                        estimated_tokens = (len(combined_prompt) + len(response_text)) // 4
+                        TOTAL_TOKENS += estimated_tokens
+                        logger.debug(f"HF estimated {estimated_tokens} tokens, total: {TOTAL_TOKENS}")
+                        
+                        return response_text
                     elif isinstance(result, dict):
                         # Alternative format
-                        return result.get('generated_text', '') or result.get('text', '')
+                        response_text = result.get('generated_text', '') or result.get('text', '')
+                        
+                        # Track tokens for HF format
+                        estimated_tokens = (len(combined_prompt) + len(response_text)) // 4
+                        TOTAL_TOKENS += estimated_tokens
+                        logger.debug(f"HF estimated {estimated_tokens} tokens, total: {TOTAL_TOKENS}")
+                        
+                        return response_text
                     else:
                         logger.error(f"Unexpected response format: {result}")
                         return "Error: Unexpected response format"
@@ -446,6 +472,8 @@ async def async_generate_translations(
     suggested_improvements: str = "",
     max_fables: int = 10_000_000
 ):
+    global TOTAL_TOKENS  # Declare at function start
+    
     logger.info("Translation started - using optimized streaming approach with worker pool")
     logger.info(f"Translator endpoint: {DEPENDENCY_CONTAINER.translator}")
     logger.info(f"Max concurrency: {MAX_CONCURRENCY}")
@@ -635,9 +663,14 @@ async def async_generate_translations(
             total_elapsed = final_time - start_time
             final_rate = completed_count / total_elapsed if total_elapsed > 0 else 0
             
+            # Calculate tokens per second
+            tokens_per_second = TOTAL_TOKENS / total_elapsed if total_elapsed > 0 else 0
+            
             logger.info(f"===== FINAL PROGRESS REPORT =====")
             logger.info(f"Completed {completed_count} translations in {total_elapsed:.2f} seconds")
             logger.info(f"Final rate: {final_rate:.2f} translations/second")
+            logger.info(f"🔢 Total tokens: {TOTAL_TOKENS}")
+            logger.info(f"⚡ Tokens per second: {tokens_per_second:.2f}")
             
             if final_rate > 0:
                 total_entries = 3_000_000
@@ -645,7 +678,7 @@ async def async_generate_translations(
                 estimated_hours = estimated_seconds / 3600
                 estimated_days = estimated_hours / 24
                 logger.info(f"Estimated time for 3M entries: {estimated_days:.2f} days ({estimated_hours:.2f} hours)")
-            logger.info(f"=================================")
+            logger.info(f"=====================================")
             
             # Cancel all workers and progress task
             for worker in workers:
