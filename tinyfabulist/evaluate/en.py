@@ -63,10 +63,11 @@ def evaluate_file(file_path: str, output_dir: str = None) -> None:
     logger.info(f"Found {len(fables_to_evaluate)} fables to evaluate")
     
     # Process entries in parallel
+    workers = 1 if not utils._is_openai else 25
     results = utils.process_entries(
         fables_to_evaluate, 
         evaluate_fable_threaded, 
-        max_workers=25
+        max_workers=workers
     )
     
     # Create output path
@@ -76,7 +77,7 @@ def evaluate_file(file_path: str, output_dir: str = None) -> None:
         base_name = os.path.splitext(os.path.basename(file_path))[0]
         timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
         output_path = os.path.join(
-            output_dir, f"{base_name}_jsonl_eval_e{utils.model}_dt{timestamp}.jsonl"
+            output_dir, f"{base_name}_jsonl_eval_e{utils.model_safe}_dt{timestamp}.jsonl"
         )
     
     # Save results

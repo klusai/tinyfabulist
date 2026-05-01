@@ -41,12 +41,18 @@ class EvaluationUtils:
         self.language = language
         self.settings = load_settings()
         self.evaluator_config = self.settings.get("evaluator", {})
-        self.model = self.evaluator_config.get("model", "gpt-4o")
-        
+
+        self.base_url = os.environ.get("EVAL_BASE_URL")
+        self.model = os.environ.get("EVAL_MODEL", self.evaluator_config.get("model", "gpt-4o"))
+        self.temperature = float(os.environ.get("EVAL_TEMPERATURE", self.evaluator_config.get("temperature", "0")))
+        self._is_openai = self.base_url is None
+
         # Get language-specific prompt keys
         self.system_prompt_key = f"system{'_' + language if language != 'en' else ''}"
         self.evaluation_prompt_key = f"evaluation{'_' + language if language != 'en' else ''}"
         
+        self.model_safe = self.model.replace("/", "-").replace(":", "-")
+
         # Initialize template compiler
         self.compiler = Compiler()
     
@@ -79,27 +85,34 @@ class EvaluationUtils:
     def call_evaluation_api(self, system_prompt: str, user_prompt: str) -> Dict:
         """
         Call the evaluation API with the provided prompts.
-        
-        Args:
-            system_prompt: The system prompt to send to the API
-            user_prompt: The user prompt to send to the API
-            
-        Returns:
-            Dictionary containing the parsed JSON response or an error
+        Supports both OpenAI API and Ollama (or any OpenAI-compatible endpoint)
+        via EVAL_BASE_URL / EVAL_MODEL env vars.
         """
         load_dotenv()
-        client = OpenAI(api_key=config("OPENAI_API_KEY"))
-        
+
+        client_kwargs: Dict[str, Any] = {}
+        if self.base_url:
+            client_kwargs["base_url"] = self.base_url
+            client_kwargs["api_key"] = "ollama"
+        else:
+            client_kwargs["api_key"] = config("OPENAI_API_KEY")
+
+        client = OpenAI(**client_kwargs)
+
+        create_kwargs: Dict[str, Any] = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": self.temperature,
+        }
+        if self._is_openai and "o3" in self.model:
+            create_kwargs["reasoning_effort"] = "high"
+
         try:
-            chat_completion = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                response_format={"type": "json_object"},
-                reasoning_effort="high",
-            )
+            chat_completion = client.chat.completions.create(**create_kwargs)
             evaluation_text = chat_completion.choices[0].message.content.strip()
             
             try:
@@ -202,10 +215,9 @@ class EvaluationUtils:
         
         if os.path.isfile(input_path):
             basename = os.path.basename(input_path)
-            return os.path.join(base_dir, f"evaluations_eval_e_{self.model}_{timestamp}_{basename}")
+            return os.path.join(base_dir, f"evaluations_eval_e_{self.model_safe}_{timestamp}_{basename}")
         else:
-            # This shouldn't happen in normal operations but provides a fallback
-            return os.path.join(base_dir, f"evaluations_eval_e_{self.model}_{timestamp}.jsonl")
+            return os.path.join(base_dir, f"evaluations_eval_e_{self.model_safe}_{timestamp}.jsonl")
     
     def get_original_prompt(self) -> str:
         """
