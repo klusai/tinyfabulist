@@ -45,7 +45,10 @@ class EvaluationUtils:
         self.base_url = os.environ.get("EVAL_BASE_URL")
         self.model = os.environ.get("EVAL_MODEL", self.evaluator_config.get("model", "gpt-4o"))
         self.temperature = float(os.environ.get("EVAL_TEMPERATURE", self.evaluator_config.get("temperature", "0")))
-        self._is_openai = self.base_url is None
+        self._is_local = self.base_url is not None and "openrouter" not in (self.base_url or "")
+        self._is_openai = self.base_url is None or "openrouter" in (self.base_url or "")
+        self._use_strict_schema = os.environ.get("EVAL_STRICT_SCHEMA", "1") == "1" and self._is_local
+        self._disable_thinking = os.environ.get("EVAL_NO_THINK", "0") == "1"
 
         # Get language-specific prompt keys
         self.system_prompt_key = f"system{'_' + language if language != 'en' else ''}"
@@ -93,11 +96,33 @@ class EvaluationUtils:
         client_kwargs: Dict[str, Any] = {}
         if self.base_url:
             client_kwargs["base_url"] = self.base_url
-            client_kwargs["api_key"] = "ollama"
+            client_kwargs["api_key"] = os.environ.get("EVAL_API_KEY", "ollama")
         else:
             client_kwargs["api_key"] = config("OPENAI_API_KEY")
 
         client = OpenAI(**client_kwargs)
+
+        eval_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "fable_evaluation",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string"},
+                        "grammar": {"type": "integer"},
+                        "creativity": {"type": "integer"},
+                        "moral_clarity": {"type": "integer"},
+                        "adherence_to_prompt": {"type": "integer"},
+                        "best_age_group": {"type": "string", "enum": ["A", "B", "C", "D", "E"]},
+                        "explanation": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["type", "grammar", "creativity", "moral_clarity",
+                                 "adherence_to_prompt", "best_age_group", "explanation"],
+                },
+            },
+        }
 
         create_kwargs: Dict[str, Any] = {
             "model": self.model,
@@ -105,15 +130,21 @@ class EvaluationUtils:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": eval_schema if self._use_strict_schema else {"type": "json_object"},
             "temperature": self.temperature,
+            "max_tokens": int(os.environ.get("EVAL_MAX_TOKENS", self.evaluator_config.get("max_tokens", 4096))),
         }
-        if self._is_openai and "o3" in self.model:
+        if self._is_openai and any(tag in self.model for tag in ("o3", "o4")):
             create_kwargs["reasoning_effort"] = "high"
+        if self._disable_thinking:
+            create_kwargs["extra_body"] = {"think": False}
 
         try:
             chat_completion = client.chat.completions.create(**create_kwargs)
-            evaluation_text = chat_completion.choices[0].message.content.strip()
+            raw_content = chat_completion.choices[0].message.content
+            if raw_content is None:
+                return {"error": "Model returned empty content (None)"}
+            evaluation_text = raw_content.strip()
             
             try:
                 evaluation_json = json.loads(evaluation_text)
@@ -263,7 +294,8 @@ class EvaluationUtils:
                 logger.error(f"Exception on attempt {attempt}: {e}")
             
             if attempt < max_attempts:
-                time.sleep(delay)
+                backoff = delay * (2 ** (attempt - 1))
+                time.sleep(min(backoff, 60))
         
         error_msg = f"Operation failed after {max_attempts} attempts"
         logger.error(error_msg)

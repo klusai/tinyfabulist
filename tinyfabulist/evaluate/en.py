@@ -63,7 +63,7 @@ def evaluate_file(file_path: str, output_dir: str = None) -> None:
     logger.info(f"Found {len(fables_to_evaluate)} fables to evaluate")
     
     # Process entries in parallel
-    workers = 1 if not utils._is_openai else 25
+    workers = 1 if utils._is_local else 25
     results = utils.process_entries(
         fables_to_evaluate, 
         evaluate_fable_threaded, 

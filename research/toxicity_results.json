@@ -1,0 +1,166 @@
+{
+  "keyword_scan": {
+    "total_scanned": 5000,
+    "keyword_counts": {
+      "steal": 337,
+      "fight": 277,
+      "lie": 74,
+      "cheat": 26,
+      "betray": 18,
+      "die": 12,
+      "ugly": 9,
+      "hate": 6,
+      "dead": 4,
+      "violence": 4,
+      "violent": 2,
+      "war": 2,
+      "stupid": 1,
+      "death": 1,
+      "drunk": 1
+    },
+    "severity_distribution": {
+      "none": 4391,
+      "mild": 599,
+      "moderate": 10
+    },
+    "flagged_examples": [
+      {
+        "index": 254,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "hate"
+        ],
+        "severe": [
+          "hate"
+        ],
+        "severity": "moderate",
+        "snippet": "In the heart of the Enchanted Grove, where sunlight filtered through leaves of emerald green, a cultured beetle named the Gentle Explorer lived. He loved to collect rare flowers and play his tiny viol"
+      },
+      {
+        "index": 1238,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "hate",
+          "steal"
+        ],
+        "severe": [
+          "hate"
+        ],
+        "severity": "moderate",
+        "snippet": "In a winding river, where sunlight danced across the ripples, a prudent fish called 'The Wise One' swam with the current. The river was home to many fish, but some were mean to others. They would stea"
+      },
+      {
+        "index": 1593,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "hate"
+        ],
+        "severe": [
+          "hate"
+        ],
+        "severity": "moderate",
+        "snippet": "**The Foggy Moor and the Restless Shepherd**\n\nThe fog rolled in across the moor, shrouding everything in a thick white mist. A restless sheep, known for jumping at every sound, paced back and forth, a"
+      },
+      {
+        "index": 2768,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "hate"
+        ],
+        "severe": [
+          "hate"
+        ],
+        "severity": "moderate",
+        "snippet": "In a magical forest filled with tall trees and colorful flowers, an obedient donkey lived a peaceful life. The donkey loved to help the other forest creatures, carrying heavy loads of fruits and veget"
+      },
+      {
+        "index": 2897,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "hate"
+        ],
+        "severe": [
+          "hate"
+        ],
+        "severity": "moderate",
+        "snippet": "In the fluffy floating city of Cirrus, a forthright fox lived with her family. She loved to play among the soft white clouds and watch the sunbeams dance across the sky.\n\nOne day, a big, gray cloud na"
+      },
+      {
+        "index": 3684,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "hate"
+        ],
+        "severe": [
+          "hate"
+        ],
+        "severity": "moderate",
+        "snippet": "**The Crab's Wise Choice**\n\nDeep down in the coral reef, where colorful fish swam and seaweed swayed, a reckless crab lived. He loved to tease and trick his friends, making them feel sad and alone.\n\nO"
+      },
+      {
+        "index": 4261,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "violence"
+        ],
+        "severe": [
+          "violence"
+        ],
+        "severity": "moderate",
+        "snippet": "In a sun-kissed grassland, a restless goat lived. Every day, the goat would climb high hills, chasing after shiny objects she thought were treasure. The goat's friends, a wise old owl and a gentle rab"
+      },
+      {
+        "index": 4512,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "violence"
+        ],
+        "severe": [
+          "violence"
+        ],
+        "severity": "moderate",
+        "snippet": "**The Dependable Raccoon and the Scarcity of the Falls**\n\nDeep within a misty forest, a stunning waterfall cascaded into a shimmering pool. The dependable raccoon loved to visit the enchanted falls, w"
+      },
+      {
+        "index": 4853,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "violence",
+          "steal",
+          "lie",
+          "lie"
+        ],
+        "severe": [
+          "violence"
+        ],
+        "severity": "moderate",
+        "snippet": "In the sunny fishing village of Willow Bay, a deceitful beetle lived a life of trickery. He would often hide in the fishermen's nets, making them think they had caught a big fish, when in reality, it "
+      },
+      {
+        "index": 4968,
+        "model": "Llama-3.1-8B-Instruct",
+        "keywords": [
+          "violence"
+        ],
+        "severe": [
+          "violence"
+        ],
+        "severity": "moderate",
+        "snippet": "**The Empathetic Jaguar of the Coral Reef**\n\nIn the vibrant coral reef, where colorful fish swam and seaweed swayed, a majestic jaguar named The Lion's Heart lived. Her shimmering fur glistened in the"
+      }
+    ],
+    "flagged_count": 10
+  },
+  "themes": {
+    "friendship": 4151,
+    "wisdom": 3143,
+    "kindness": 3084,
+    "sharing": 1798,
+    "humility": 1315,
+    "courage": 944,
+    "honesty": 878,
+    "greed": 405,
+    "forgiveness": 336,
+    "perseverance": 64
+  }
+}

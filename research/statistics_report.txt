@@ -1,0 +1,56 @@
+============================================================
+STATISTICAL ANALYSIS: Multi-Judge Fable Evaluation
+============================================================
+Judges: exaone3.5-32b, granite3.3-8b, granite4.1-30b
+Generators: 10
+
+INTER-JUDGE AGREEMENT (Weighted Cohen's Kappa)
+--------------------------------------------------
+
+  grammar:
+    exaone3.5-32b vs granite3.3-8b                     κ=0.000 r=0.088 [LOW]
+    exaone3.5-32b vs granite4.1-30b                    κ=0.010 r=0.075 [LOW]
+    granite3.3-8b vs granite4.1-30b                    κ=0.008 r=0.201 [LOW]
+
+  creativity:
+    exaone3.5-32b vs granite3.3-8b                     κ=0.180 r=0.271 [LOW]
+    exaone3.5-32b vs granite4.1-30b                    κ=0.211 r=0.358 [LOW]
+    granite3.3-8b vs granite4.1-30b                    κ=0.069 r=0.196 [LOW]
+
+  moral_clarity:
+    exaone3.5-32b vs granite3.3-8b                     κ=0.006 r=0.241 [LOW]
+    exaone3.5-32b vs granite4.1-30b                    κ=0.206 r=0.318 [LOW]
+    granite3.3-8b vs granite4.1-30b                    κ=0.042 r=0.267 [LOW]
+
+  adherence_to_prompt:
+    exaone3.5-32b vs granite3.3-8b                     κ=-0.000 r=0.104 [LOW]
+    exaone3.5-32b vs granite4.1-30b                    κ=0.049 r=0.255 [LOW]
+    granite3.3-8b vs granite4.1-30b                    κ=0.000 r=0.140 [LOW]
+
+MODEL RANKINGS (Equal Weights)
+--------------------------------------------------
+  # 1  llama-3-1-tulu-3-8b-eoz                   8.38 [8.328, 8.438]
+       g=8.8 c=7.1 m=8.4 a=9.2
+  # 2  falcon3-7b-instruct-ohd                   8.28 [8.213, 8.352]
+       g=8.7 c=7.0 m=8.4 a=9.0
+  # 3  llama-3-1-8b-instruct-mpp                 8.26 [8.203, 8.312]
+       g=8.8 c=6.9 m=8.2 a=9.2
+  # 4  qwen2-5-7b-instruct-rjv                   8.15 [8.076, 8.216]
+       g=8.6 c=6.8 m=8.3 a=8.9
+  # 5  phi-3-mini-4k-instruct-bma                8.11 [8.035, 8.192]
+       g=8.6 c=6.8 m=8.2 a=8.9
+  # 6  mistral-7b-instruct-v0-3-qqj              8.11 [8.024, 8.189]
+       g=8.6 c=6.8 m=8.4 a=8.7
+  # 7  aya-23-8b-ngn                             7.85 [7.748, 7.943]
+       g=8.4 c=6.6 m=8.0 a=8.4
+  # 8  deepseek-llm-7b-chat-gzs                  7.74 [7.633, 7.848]
+       g=8.3 c=6.5 m=8.0 a=8.2
+  # 9  llama-3-2-1b-instruct-sei                 7.62 [7.526, 7.715]
+       g=8.4 c=6.4 m=7.7 a=8.1
+  #10  smollm2-1-7b-instruct-ins                 7.52 [7.402, 7.638]
+       g=8.2 c=6.3 m=7.8 a=7.9
+
+WEIGHT ABLATION
+--------------------------------------------------
+  Rankings identical: True
+  Kendall's tau: 1.000 (p=0.0000)

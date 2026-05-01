@@ -1,0 +1,338 @@
+{
+  "judges": [
+    "exaone3.5-32b",
+    "granite3.3-8b",
+    "granite4.1-30b",
+    "openai-o4-mini"
+  ],
+  "open_judges": [
+    "exaone3.5-32b",
+    "granite3.3-8b",
+    "granite4.1-30b"
+  ],
+  "generators": [
+    "aya-23-8b-ngn",
+    "deepseek-llm-7b-chat-gzs",
+    "falcon3-7b-instruct-ohd",
+    "llama-3-1-8b-instruct-mpp",
+    "llama-3-1-tulu-3-8b-eoz",
+    "llama-3-2-1b-instruct-sei",
+    "mistral-7b-instruct-v0-3-qqj",
+    "phi-3-mini-4k-instruct-bma",
+    "qwen2-5-7b-instruct-rjv",
+    "smollm2-1-7b-instruct-ins"
+  ],
+  "agreement": {
+    "grammar": {
+      "exaone3.5-32b vs granite3.3-8b": {
+        "kappa": 0.0001,
+        "pearson_r": 0.0879,
+        "p_value": 0.005384151495282197,
+        "n_items": 1000
+      },
+      "exaone3.5-32b vs granite4.1-30b": {
+        "kappa": 0.0101,
+        "pearson_r": 0.0749,
+        "p_value": 0.017868020954557723,
+        "n_items": 1000
+      },
+      "granite3.3-8b vs granite4.1-30b": {
+        "kappa": 0.0076,
+        "pearson_r": 0.2011,
+        "p_value": 1.3750440876701607e-10,
+        "n_items": 1000
+      }
+    },
+    "creativity": {
+      "exaone3.5-32b vs granite3.3-8b": {
+        "kappa": 0.1805,
+        "pearson_r": 0.2714,
+        "p_value": 2.419523612463825e-18,
+        "n_items": 1000
+      },
+      "exaone3.5-32b vs granite4.1-30b": {
+        "kappa": 0.2108,
+        "pearson_r": 0.3582,
+        "p_value": 1.2357601671715073e-31,
+        "n_items": 1000
+      },
+      "granite3.3-8b vs granite4.1-30b": {
+        "kappa": 0.0687,
+        "pearson_r": 0.1964,
+        "p_value": 3.7820609691392074e-10,
+        "n_items": 1000
+      }
+    },
+    "moral_clarity": {
+      "exaone3.5-32b vs granite3.3-8b": {
+        "kappa": 0.0059,
+        "pearson_r": 0.2415,
+        "p_value": 9.775193873382103e-15,
+        "n_items": 1000
+      },
+      "exaone3.5-32b vs granite4.1-30b": {
+        "kappa": 0.2063,
+        "pearson_r": 0.318,
+        "p_value": 6.23045615020776e-25,
+        "n_items": 1000
+      },
+      "granite3.3-8b vs granite4.1-30b": {
+        "kappa": 0.0415,
+        "pearson_r": 0.2672,
+        "p_value": 8.169290315351802e-18,
+        "n_items": 1000
+      }
+    },
+    "adherence_to_prompt": {
+      "exaone3.5-32b vs granite3.3-8b": {
+        "kappa": -0.0,
+        "pearson_r": 0.104,
+        "p_value": 0.000994461926235627,
+        "n_items": 1000
+      },
+      "exaone3.5-32b vs granite4.1-30b": {
+        "kappa": 0.0491,
+        "pearson_r": 0.2554,
+        "p_value": 2.370846762364654e-16,
+        "n_items": 1000
+      },
+      "granite3.3-8b vs granite4.1-30b": {
+        "kappa": 0.0003,
+        "pearson_r": 0.1399,
+        "p_value": 9.017810188275411e-06,
+        "n_items": 1000
+      }
+    }
+  },
+  "rankings": {
+    "aya-23-8b-ngn": {
+      "dimension_means": {
+        "grammar": 8.363,
+        "creativity": 6.637,
+        "moral_clarity": 8.033,
+        "adherence_to_prompt": 8.353
+      },
+      "composite": 7.847,
+      "n_evaluations": 300,
+      "rank": 7
+    },
+    "deepseek-llm-7b-chat-gzs": {
+      "dimension_means": {
+        "grammar": 8.277,
+        "creativity": 6.49,
+        "moral_clarity": 8.037,
+        "adherence_to_prompt": 8.163
+      },
+      "composite": 7.742,
+      "n_evaluations": 300,
+      "rank": 8
+    },
+    "falcon3-7b-instruct-ohd": {
+      "dimension_means": {
+        "grammar": 8.693,
+        "creativity": 6.977,
+        "moral_clarity": 8.423,
+        "adherence_to_prompt": 9.04
+      },
+      "composite": 8.283,
+      "n_evaluations": 300,
+      "rank": 2
+    },
+    "llama-3-1-8b-instruct-mpp": {
+      "dimension_means": {
+        "grammar": 8.75,
+        "creativity": 6.897,
+        "moral_clarity": 8.223,
+        "adherence_to_prompt": 9.163
+      },
+      "composite": 8.258,
+      "n_evaluations": 300,
+      "rank": 3
+    },
+    "llama-3-1-tulu-3-8b-eoz": {
+      "dimension_means": {
+        "grammar": 8.767,
+        "creativity": 7.087,
+        "moral_clarity": 8.433,
+        "adherence_to_prompt": 9.243
+      },
+      "composite": 8.382,
+      "n_evaluations": 300,
+      "rank": 1
+    },
+    "llama-3-2-1b-instruct-sei": {
+      "dimension_means": {
+        "grammar": 8.357,
+        "creativity": 6.37,
+        "moral_clarity": 7.68,
+        "adherence_to_prompt": 8.083
+      },
+      "composite": 7.623,
+      "n_evaluations": 300,
+      "rank": 9
+    },
+    "mistral-7b-instruct-v0-3-qqj": {
+      "dimension_means": {
+        "grammar": 8.55,
+        "creativity": 6.787,
+        "moral_clarity": 8.36,
+        "adherence_to_prompt": 8.73
+      },
+      "composite": 8.107,
+      "n_evaluations": 300,
+      "rank": 6
+    },
+    "phi-3-mini-4k-instruct-bma": {
+      "dimension_means": {
+        "grammar": 8.57,
+        "creativity": 6.8,
+        "moral_clarity": 8.227,
+        "adherence_to_prompt": 8.857
+      },
+      "composite": 8.113,
+      "n_evaluations": 300,
+      "rank": 5
+    },
+    "qwen2-5-7b-instruct-rjv": {
+      "dimension_means": {
+        "grammar": 8.637,
+        "creativity": 6.767,
+        "moral_clarity": 8.27,
+        "adherence_to_prompt": 8.917
+      },
+      "composite": 8.147,
+      "n_evaluations": 300,
+      "rank": 4
+    },
+    "smollm2-1-7b-instruct-ins": {
+      "dimension_means": {
+        "grammar": 8.167,
+        "creativity": 6.27,
+        "moral_clarity": 7.753,
+        "adherence_to_prompt": 7.893
+      },
+      "composite": 7.521,
+      "n_evaluations": 300,
+      "rank": 10
+    }
+  },
+  "bootstrap_ci": {
+    "aya-23-8b-ngn": {
+      "mean": 7.847,
+      "ci_95_low": 7.748,
+      "ci_95_high": 7.943,
+      "n": 300
+    },
+    "deepseek-llm-7b-chat-gzs": {
+      "mean": 7.742,
+      "ci_95_low": 7.633,
+      "ci_95_high": 7.848,
+      "n": 300
+    },
+    "falcon3-7b-instruct-ohd": {
+      "mean": 8.283,
+      "ci_95_low": 8.213,
+      "ci_95_high": 8.352,
+      "n": 300
+    },
+    "llama-3-1-8b-instruct-mpp": {
+      "mean": 8.258,
+      "ci_95_low": 8.203,
+      "ci_95_high": 8.312,
+      "n": 300
+    },
+    "llama-3-1-tulu-3-8b-eoz": {
+      "mean": 8.383,
+      "ci_95_low": 8.328,
+      "ci_95_high": 8.438,
+      "n": 300
+    },
+    "llama-3-2-1b-instruct-sei": {
+      "mean": 7.622,
+      "ci_95_low": 7.526,
+      "ci_95_high": 7.715,
+      "n": 300
+    },
+    "mistral-7b-instruct-v0-3-qqj": {
+      "mean": 8.107,
+      "ci_95_low": 8.024,
+      "ci_95_high": 8.189,
+      "n": 300
+    },
+    "phi-3-mini-4k-instruct-bma": {
+      "mean": 8.113,
+      "ci_95_low": 8.035,
+      "ci_95_high": 8.192,
+      "n": 300
+    },
+    "qwen2-5-7b-instruct-rjv": {
+      "mean": 8.148,
+      "ci_95_low": 8.076,
+      "ci_95_high": 8.216,
+      "n": 300
+    },
+    "smollm2-1-7b-instruct-ins": {
+      "mean": 7.521,
+      "ci_95_low": 7.402,
+      "ci_95_high": 7.638,
+      "n": 300
+    }
+  },
+  "ablation": {
+    "original_ranking": [
+      "llama-3-1-tulu-3-8b-eoz",
+      "falcon3-7b-instruct-ohd",
+      "llama-3-1-8b-instruct-mpp",
+      "qwen2-5-7b-instruct-rjv",
+      "phi-3-mini-4k-instruct-bma",
+      "mistral-7b-instruct-v0-3-qqj",
+      "aya-23-8b-ngn",
+      "deepseek-llm-7b-chat-gzs",
+      "llama-3-2-1b-instruct-sei",
+      "smollm2-1-7b-instruct-ins"
+    ],
+    "equal_weight_ranking": [
+      "llama-3-1-tulu-3-8b-eoz",
+      "falcon3-7b-instruct-ohd",
+      "llama-3-1-8b-instruct-mpp",
+      "qwen2-5-7b-instruct-rjv",
+      "phi-3-mini-4k-instruct-bma",
+      "mistral-7b-instruct-v0-3-qqj",
+      "aya-23-8b-ngn",
+      "deepseek-llm-7b-chat-gzs",
+      "llama-3-2-1b-instruct-sei",
+      "smollm2-1-7b-instruct-ins"
+    ],
+    "kendall_tau": 1.0,
+    "p_value": 5.511463844797178e-07,
+    "rankings_identical": true
+  },
+  "open_vs_proprietary": {
+    "open_ranking": [
+      "llama-3-1-tulu-3-8b-eoz",
+      "falcon3-7b-instruct-ohd",
+      "llama-3-1-8b-instruct-mpp",
+      "qwen2-5-7b-instruct-rjv",
+      "phi-3-mini-4k-instruct-bma",
+      "mistral-7b-instruct-v0-3-qqj",
+      "aya-23-8b-ngn",
+      "deepseek-llm-7b-chat-gzs",
+      "llama-3-2-1b-instruct-sei",
+      "smollm2-1-7b-instruct-ins"
+    ],
+    "gpt_ranking": [
+      "llama-3-1-8b-instruct-mpp",
+      "llama-3-1-tulu-3-8b-eoz",
+      "falcon3-7b-instruct-ohd",
+      "mistral-7b-instruct-v0-3-qqj",
+      "qwen2-5-7b-instruct-rjv",
+      "phi-3-mini-4k-instruct-bma",
+      "deepseek-llm-7b-chat-gzs",
+      "aya-23-8b-ngn",
+      "llama-3-2-1b-instruct-sei",
+      "smollm2-1-7b-instruct-ins"
+    ],
+    "kendall_tau": 0.7778,
+    "p_value": 0.0009463183421516755
+  }
+}

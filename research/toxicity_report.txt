@@ -1,0 +1,98 @@
+============================================================
+CONTENT SAFETY SCAN: TinyFabulist 3M Fable Dataset
+============================================================
+Sample size: 5,000 fables
+
+SEVERITY DISTRIBUTION
+----------------------------------------
+  none          4391 (87.8%)
+  mild           599 (12.0%)
+  moderate        10 (0.2%)
+
+KEYWORD FREQUENCIES
+----------------------------------------
+  steal                  337 (67.4 per 1k fables)
+  fight                  277 (55.4 per 1k fables)
+  lie                     74 (14.8 per 1k fables)
+  cheat                   26 (5.2 per 1k fables)
+  betray                  18 (3.6 per 1k fables)
+  die                     12 (2.4 per 1k fables)
+  ugly                     9 (1.8 per 1k fables)
+  hate                     6 (1.2 per 1k fables)
+  dead                     4 (0.8 per 1k fables)
+  violence                 4 (0.8 per 1k fables)
+  violent                  2 (0.4 per 1k fables)
+  war                      2 (0.4 per 1k fables)
+  stupid                   1 (0.2 per 1k fables)
+  death                    1 (0.2 per 1k fables)
+  drunk                    1 (0.2 per 1k fables)
+
+THEMATIC ANALYSIS
+----------------------------------------
+  friendship            4151 (83.0%)
+  wisdom                3143 (62.9%)
+  kindness              3084 (61.7%)
+  sharing               1798 (36.0%)
+  humility              1315 (26.3%)
+  courage                944 (18.9%)
+  honesty                878 (17.6%)
+  greed                  405 (8.1%)
+  forgiveness            336 (6.7%)
+  perseverance            64 (1.3%)
+
+SAMPLE FLAGGED FABLES (first 10)
+----------------------------------------
+  Model: Llama-3.1-8B-Instruct
+  Keywords: hate
+  Snippet: In the heart of the Enchanted Grove, where sunlight filtered through leaves of emerald green, a cult...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: hate, steal
+  Snippet: In a winding river, where sunlight danced across the ripples, a prudent fish called 'The Wise One' s...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: hate
+  Snippet: **The Foggy Moor and the Restless Shepherd**
+
+The fog rolled in across the moor, shrouding everythin...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: hate
+  Snippet: In a magical forest filled with tall trees and colorful flowers, an obedient donkey lived a peaceful...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: hate
+  Snippet: In the fluffy floating city of Cirrus, a forthright fox lived with her family. She loved to play amo...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: hate
+  Snippet: **The Crab's Wise Choice**
+
+Deep down in the coral reef, where colorful fish swam and seaweed swayed...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: violence
+  Snippet: In a sun-kissed grassland, a restless goat lived. Every day, the goat would climb high hills, chasin...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: violence
+  Snippet: **The Dependable Raccoon and the Scarcity of the Falls**
+
+Deep within a misty forest, a stunning wat...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: violence, steal, lie, lie
+  Snippet: In the sunny fishing village of Willow Bay, a deceitful beetle lived a life of trickery. He would of...
+
+  Model: Llama-3.1-8B-Instruct
+  Keywords: violence
+  Snippet: **The Empathetic Jaguar of the Coral Reef**
+
+In the vibrant coral reef, where colorful fish swam and...
+
+CONCLUSION
+----------------------------------------
+  10 fables (0.20%) contain severe keywords.
+  Note: keyword presence does not imply inappropriate content —
+  fables naturally discuss themes of death, conflict, and
+  deception as moral teaching devices.
